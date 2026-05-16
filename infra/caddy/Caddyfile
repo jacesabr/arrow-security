@@ -1,0 +1,61 @@
+# SecureOps platform — Caddyfile
+# Wildcard TLS via Cloudflare DNS challenge
+
+{
+  email admin@secureops.in
+  acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+}
+
+# ── Control plane ─────────────────────────────────────────────────────────────
+control.secureops.in {
+  reverse_proxy localhost:3000
+  tls {
+    dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+  }
+}
+
+# ── API ───────────────────────────────────────────────────────────────────────
+api.secureops.in {
+  reverse_proxy localhost:4000
+  tls {
+    dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+  }
+}
+
+# ── Tenant subdomains (wildcard) ──────────────────────────────────────────────
+# Each tenant gets: {slug}.secureops.in → app (same React build, runtime branding)
+*.secureops.in {
+  tls {
+    dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+  }
+  reverse_proxy localhost:5173
+
+  # Strip www
+  @www host www.secureops.in
+  redir @www https://secureops.in{uri} permanent
+}
+
+# ── MinIO ─────────────────────────────────────────────────────────────────────
+minio.secureops.in {
+  reverse_proxy localhost:9000
+  tls {
+    dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+  }
+}
+
+minio-console.secureops.in {
+  reverse_proxy localhost:9001
+  tls {
+    dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+  }
+}
+
+# ── Gold tier: per-tenant custom domains (on-demand TLS) ─────────────────────
+# Tenants CNAME their domain → this server. Caddy auto-provisions certs.
+# This block handles any domain NOT matching secureops.in
+:443 {
+  tls {
+    on_demand
+  }
+  reverse_proxy localhost:5173
+}
