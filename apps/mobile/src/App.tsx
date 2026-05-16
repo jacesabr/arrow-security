@@ -8,6 +8,7 @@ import { CheckInPage } from './pages/CheckInPage'
 import { PatrolPage } from './pages/PatrolPage'
 import { IncidentPage } from './pages/IncidentPage'
 import { IncidentNewPage } from './pages/IncidentNewPage'
+import { IncidentDetailPage } from './pages/IncidentDetailPage'
 import { ShiftsPage } from './pages/ShiftsPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { useAuthStore } from './store/auth'
@@ -34,6 +35,8 @@ const App: React.FC = () => {
       <IonReactRouter>
         <Switch>
           <Route path="/login" component={LoginPage} exact />
+          <PrivateRoute path="/tabs/incidents/new" component={IncidentNewPage} />
+          <PrivateRoute path="/tabs/incidents/:id" component={IncidentDetailPage} />
           <PrivateRoute path="/tabs" component={TabLayout} />
           <Route exact path="/">
             <Redirect to="/tabs/dashboard" />

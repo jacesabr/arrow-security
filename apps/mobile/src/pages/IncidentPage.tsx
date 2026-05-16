@@ -62,6 +62,8 @@ export const IncidentPage: React.FC = () => {
             {incidents.map((inc) => (
               <IonItem
                 key={inc.id}
+                button
+                onClick={() => history.push(`/tabs/incidents/${inc.id}`)}
                 style={{ '--background': '#1e293b', '--color': '#fff', borderRadius: 8, marginBottom: 8 }}
               >
                 <IonLabel>

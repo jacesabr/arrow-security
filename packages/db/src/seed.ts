@@ -4,7 +4,7 @@ import { createHash } from 'crypto'
 import { sql as drizzleSql } from 'drizzle-orm'
 import * as schema from './schema'
 
-const sql = postgres(process.env.DATABASE_URL!, { max: 1 })
+const sql = postgres(process.env.DATABASE_URL ?? 'postgresql://secureops:secureops@localhost:5432/secureops', { max: 1 })
 const db = drizzle(sql, { schema })
 
 function hashPw(pw: string) {

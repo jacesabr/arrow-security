@@ -31,6 +31,10 @@ export const api = {
     me: () => request<{ data: any }>('/auth/me'),
   },
 
+  stats: {
+    get: () => request<{ data: any }>('/stats'),
+  },
+
   attendance: {
     list: (params?: { siteId?: string; limit?: number }) => {
       const qs = new URLSearchParams(params as any).toString()
@@ -48,6 +52,10 @@ export const api = {
   },
 
   patrol: {
+    list: (params?: { siteId?: string; status?: string; limit?: number }) => {
+      const qs = new URLSearchParams(params as any).toString()
+      return request<{ data: any[] }>(`/patrol?${qs}`)
+    },
     checkpoints: (siteId?: string) => {
       const qs = siteId ? `?siteId=${siteId}` : ''
       return request<{ data: any[] }>(`/patrol/checkpoints${qs}`)
@@ -65,6 +73,7 @@ export const api = {
       const qs = new URLSearchParams(params as any).toString()
       return request<{ data: any[] }>(`/incidents?${qs}`)
     },
+    get: (id: string) => request<{ data: any }>(`/incidents/${id}`),
     create: (payload: { siteId: string; title: string; description: string; severity: string; mediaUrls?: string[] }) =>
       request<{ data: any }>('/incidents', { method: 'POST', body: JSON.stringify(payload) }),
     updateStatus: (id: string, status: string) =>
@@ -72,7 +81,10 @@ export const api = {
   },
 
   shifts: {
-    list: () => request<{ data: any[] }>('/shifts'),
+    list: (params?: { from?: string; to?: string }) => {
+      const qs = new URLSearchParams(params as any).toString()
+      return request<{ data: any[] }>(`/shifts?${qs}`)
+    },
   },
 
   cameras: {
@@ -84,5 +96,9 @@ export const api = {
 
   sites: {
     list: () => request<{ data: any[] }>('/sites'),
+  },
+
+  clients: {
+    list: () => request<{ data: any[] }>('/clients'),
   },
 }

@@ -31,6 +31,9 @@ importers:
       '@secureops/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
       fastify:
         specifier: ^4.28.0
         version: 4.29.1
@@ -153,6 +156,9 @@ importers:
       '@secureops/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      html5-qrcode:
+        specifier: ^2.3.8
+        version: 2.3.8
       ionicons:
         specifier: ^7.0.0
         version: 7.4.0
@@ -190,6 +196,52 @@ importers:
       vite:
         specifier: ^5.1.0
         version: 5.4.21(@types/node@20.19.41)(lightningcss@1.32.0)
+
+  apps/tenant:
+    dependencies:
+      '@secureops/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      next:
+        specifier: 16.2.6
+        version: 16.2.6(@babel/core@7.29.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+      recharts:
+        specifier: ^2.12.0
+        version: 2.15.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      zod:
+        specifier: ^3.22.4
+        version: 3.25.76
+    devDependencies:
+      '@tailwindcss/postcss':
+        specifier: ^4
+        version: 4.3.0
+      '@types/node':
+        specifier: ^20
+        version: 20.19.41
+      '@types/react':
+        specifier: ^19
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.3(@types/react@19.2.14)
+      eslint:
+        specifier: ^9
+        version: 9.39.4(jiti@2.7.0)
+      eslint-config-next:
+        specifier: 16.2.6
+        version: 16.2.6(@typescript-eslint/parser@8.59.3(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+      tailwindcss:
+        specifier: ^4
+        version: 4.3.0
+      typescript:
+        specifier: ^5
+        version: 5.9.3
 
   packages/db:
     dependencies:
@@ -2304,6 +2356,10 @@ packages:
   dom-helpers@5.2.1:
     resolution: {integrity: sha512-nRCa7CK3VTrM2NmGkIy4cbK7IZlgBE/PYMn55rrXefr5xXDP0LdtfPnblFDoVdcAfslJ7or6iqAUnx0CCGIWQA==}
 
+  dotenv@16.6.1:
+    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
+    engines: {node: '>=12'}
+
   dreamopt@0.8.0:
     resolution: {integrity: sha512-vyJTp8+mC+G+5dfgsY+r3ckxlz+QMX40VjPQsZc5gxVAxLmi64TBoVkP54A/pRAXMXsbu2GMMBrZPxNv23waMg==}
     engines: {node: '>=0.4.0'}
@@ -2895,6 +2951,9 @@ packages:
   hono@4.12.18:
     resolution: {integrity: sha512-RWzP96k/yv0PQfyXnWjs6zot20TqfpfsNXhOnev8d1InAxubW93L11/oNUc3tQqn2G0bSdAOBpX+2uDFHV7kdQ==}
     engines: {node: '>=16.9.0'}
+
+  html5-qrcode@2.3.8:
+    resolution: {integrity: sha512-jsr4vafJhwoLVEDW3n1KvPnCCXWaQfRng0/EEYk1vNcQGcG/htAdhJX0be8YyqMoSz7+hZvOZSTAepsabiuhiQ==}
 
   ieee754@1.2.1:
     resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
@@ -5366,7 +5425,7 @@ snapshots:
   '@types/react-router@5.1.20':
     dependencies:
       '@types/history': 4.7.11
-      '@types/react': 18.3.28
+      '@types/react': 19.2.14
 
   '@types/react@18.3.28':
     dependencies:
@@ -5911,6 +5970,8 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.29.2
       csstype: 3.2.3
+
+  dotenv@16.6.1: {}
 
   dreamopt@0.8.0:
     dependencies:
@@ -6725,6 +6786,8 @@ snapshots:
       react-is: 16.13.1
 
   hono@4.12.18: {}
+
+  html5-qrcode@2.3.8: {}
 
   ieee754@1.2.1: {}
 

@@ -42,4 +42,21 @@ export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
 
     return reply.code(201).send({ data: shift })
   })
+
+  fastify.patch('/:id/status', { preHandler: requireTenantAdmin }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const payload = request.user as { tenantId: string }
+    const { status } = z.object({
+      status: z.enum(['scheduled', 'active', 'completed', 'missed']),
+    }).parse(request.body)
+
+    const [shift] = await db
+      .update(shifts)
+      .set({ status, updatedAt: new Date() })
+      .where(and(eq(shifts.id, id), eq(shifts.tenantId, payload.tenantId)))
+      .returning()
+
+    if (!shift) return reply.code(404).send({ error: 'Not found', message: 'Shift not found', statusCode: 404 })
+    return reply.send({ data: shift })
+  })
 }

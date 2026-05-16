@@ -2,7 +2,7 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 
-const connectionString = process.env.DATABASE_URL!
+const connectionString = process.env.DATABASE_URL ?? 'postgresql://secureops:secureops@localhost:5432/secureops'
 
 async function main() {
   const sql = postgres(connectionString, { max: 1 })

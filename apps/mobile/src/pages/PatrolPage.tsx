@@ -13,27 +13,42 @@ import {
   IonBadge,
   IonSpinner,
   IonToast,
+  IonSelect,
+  IonSelectOption,
 } from '@ionic/react'
-import { walkOutline, checkmarkOutline, qrCodeOutline } from 'ionicons/icons'
+import { walkOutline, checkmarkOutline, qrCodeOutline, handLeftOutline } from 'ionicons/icons'
 import { Geolocation } from '@capacitor/geolocation'
 import { api } from '../services/api'
+import { QrScannerModal } from '../components/QrScannerModal'
 
 export const PatrolPage: React.FC = () => {
+  const [sites, setSites] = useState<any[]>([])
+  const [selectedSite, setSelectedSite] = useState<string>('')
   const [checkpoints, setCheckpoints] = useState<any[]>([])
   const [patrol, setPatrol] = useState<any | null>(null)
   const [scanned, setScanned] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
+  const [scannerOpen, setScannerOpen] = useState(false)
+  const [scanTargetId, setScanTargetId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
-    api.patrol.checkpoints().then((res) => setCheckpoints(res.data)).catch(console.error)
+    api.sites.list().then((res) => {
+      setSites(res.data)
+      if (res.data.length > 0) setSelectedSite(res.data[0].id)
+    }).catch(console.error)
   }, [])
 
+  useEffect(() => {
+    if (!selectedSite) return
+    api.patrol.checkpoints(selectedSite).then((res) => setCheckpoints(res.data)).catch(console.error)
+  }, [selectedSite])
+
   async function startPatrol() {
-    if (!checkpoints[0]) return
+    if (!selectedSite) return
     setLoading(true)
     try {
-      const res = await api.patrol.startPatrol(checkpoints[0].siteId)
+      const res = await api.patrol.startPatrol(selectedSite)
       setPatrol(res.data)
       setScanned(new Set())
     } catch (e: any) {
@@ -43,21 +58,41 @@ export const PatrolPage: React.FC = () => {
     }
   }
 
-  async function scanCheckpoint(cp: any) {
+  async function markCheckpoint(cp: any, method: 'manual' | 'qr') {
     if (!patrol || scanned.has(cp.id)) return
     try {
       const pos = await Geolocation.getCurrentPosition().catch(() => null)
       await api.patrol.scan(patrol.id, {
         checkpointId: cp.id,
-        method: 'manual',
+        method,
         latitude: pos?.coords.latitude,
         longitude: pos?.coords.longitude,
       })
       setScanned((prev) => new Set([...prev, cp.id]))
-      setToast(`✓ ${cp.name} scanned`)
+      setToast(`✓ ${cp.name} ${method === 'qr' ? 'QR scanned' : 'marked done'}`)
     } catch (e: any) {
       setToast(e.message)
     }
+  }
+
+  function openQrScanner(cpId: string) {
+    setScanTargetId(cpId)
+    setScannerOpen(true)
+  }
+
+  function handleQrScan(value: string) {
+    setScannerOpen(false)
+    if (!scanTargetId) return
+
+    const cp = checkpoints.find((c) => c.id === scanTargetId)
+    if (!cp) return
+
+    if (cp.qrCode === value) {
+      markCheckpoint(cp, 'qr')
+    } else {
+      setToast(`QR code doesn't match this checkpoint (got: ${value.slice(0, 20)}…)`)
+    }
+    setScanTargetId(null)
   }
 
   async function completePatrol() {
@@ -84,15 +119,37 @@ export const PatrolPage: React.FC = () => {
 
       <IonContent style={{ '--background': '#0f172a' }}>
         {!patrol ? (
-          <div className="ion-padding" style={{ textAlign: 'center', paddingTop: 60 }}>
+          <div className="ion-padding" style={{ textAlign: 'center', paddingTop: 48 }}>
             <IonIcon icon={walkOutline} style={{ fontSize: 72, color: '#10b981', marginBottom: 24 }} />
-            <h2 style={{ color: '#fff' }}>Start a Patrol</h2>
-            <p style={{ color: '#94a3b8' }}>{checkpoints.length} checkpoint{checkpoints.length !== 1 ? 's' : ''} on this route</p>
+            <h2 style={{ color: '#fff', marginBottom: 8 }}>Start a Patrol</h2>
+
+            {sites.length > 1 && (
+              <div style={{ background: '#1e293b', borderRadius: 8, padding: 4, marginBottom: 16, textAlign: 'left' }}>
+                <IonItem lines="none" style={{ '--background': 'transparent' }}>
+                  <IonLabel style={{ color: '#94a3b8' }}>Site</IonLabel>
+                  <IonSelect
+                    value={selectedSite}
+                    onIonChange={(e) => setSelectedSite(e.detail.value)}
+                    interface="action-sheet"
+                    style={{ '--color': '#fff' }}
+                  >
+                    {sites.map((s) => (
+                      <IonSelectOption key={s.id} value={s.id}>{s.name}</IonSelectOption>
+                    ))}
+                  </IonSelect>
+                </IonItem>
+              </div>
+            )}
+
+            <p style={{ color: '#94a3b8', marginBottom: 24 }}>
+              {checkpoints.length} checkpoint{checkpoints.length !== 1 ? 's' : ''} on this route
+            </p>
+
             <IonButton
               expand="block"
               onClick={startPatrol}
               disabled={loading || checkpoints.length === 0}
-              style={{ '--background': '#10b981', '--border-radius': '12px', marginTop: 24 }}
+              style={{ '--background': '#10b981', '--border-radius': '12px' }}
             >
               {loading ? <IonSpinner /> : 'Begin Patrol'}
             </IonButton>
@@ -101,30 +158,54 @@ export const PatrolPage: React.FC = () => {
           <div>
             <div className="ion-padding" style={{ background: '#1e293b', marginBottom: 1 }}>
               <p style={{ color: '#10b981', margin: 0, fontWeight: 600 }}>
-                Patrol in progress · {scanned.size}/{checkpoints.length} scanned
+                Patrol in progress · {scanned.size}/{checkpoints.length} checkpoints
               </p>
             </div>
 
             <IonList style={{ background: 'transparent' }}>
-              {checkpoints.map((cp) => (
-                <IonItem
-                  key={cp.id}
-                  button
-                  onClick={() => scanCheckpoint(cp)}
-                  style={{ '--background': scanned.has(cp.id) ? '#1a2e22' : '#1e293b', '--color': '#fff', marginBottom: 2 }}
-                >
-                  <IonIcon
-                    icon={scanned.has(cp.id) ? checkmarkOutline : qrCodeOutline}
-                    slot="start"
-                    style={{ color: scanned.has(cp.id) ? '#10b981' : '#64748b' }}
-                  />
-                  <IonLabel>
-                    <h3>{cp.name}</h3>
-                    {cp.latitude && <p style={{ color: '#64748b' }}>{cp.latitude.toFixed(5)}, {cp.longitude.toFixed(5)}</p>}
-                  </IonLabel>
-                  {scanned.has(cp.id) && <IonBadge color="success" slot="end">Done</IonBadge>}
-                </IonItem>
-              ))}
+              {checkpoints.map((cp) => {
+                const done = scanned.has(cp.id)
+                return (
+                  <IonItem
+                    key={cp.id}
+                    style={{ '--background': done ? '#1a2e22' : '#1e293b', '--color': '#fff', marginBottom: 2 }}
+                  >
+                    <IonIcon
+                      icon={done ? checkmarkOutline : qrCodeOutline}
+                      slot="start"
+                      style={{ color: done ? '#10b981' : '#64748b' }}
+                    />
+                    <IonLabel>
+                      <h3 style={{ color: '#fff' }}>{cp.name}</h3>
+                      {cp.orderInRoute && <p style={{ color: '#64748b', fontSize: 12 }}>Stop {cp.orderInRoute}</p>}
+                    </IonLabel>
+                    {done ? (
+                      <IonBadge color="success" slot="end">Done</IonBadge>
+                    ) : (
+                      <div slot="end" style={{ display: 'flex', gap: 8 }}>
+                        <IonButton
+                          size="small"
+                          fill="outline"
+                          onClick={() => openQrScanner(cp.id)}
+                          style={{ '--color': '#6366f1', '--border-color': '#6366f1' }}
+                        >
+                          <IonIcon icon={qrCodeOutline} slot="start" />
+                          QR
+                        </IonButton>
+                        <IonButton
+                          size="small"
+                          fill="outline"
+                          onClick={() => markCheckpoint(cp, 'manual')}
+                          style={{ '--color': '#94a3b8', '--border-color': '#475569' }}
+                        >
+                          <IonIcon icon={handLeftOutline} slot="start" />
+                          Manual
+                        </IonButton>
+                      </div>
+                    )}
+                  </IonItem>
+                )
+              })}
             </IonList>
 
             {allScanned && (
@@ -141,12 +222,14 @@ export const PatrolPage: React.FC = () => {
           </div>
         )}
 
-        <IonToast
-          isOpen={!!toast}
-          onDidDismiss={() => setToast(null)}
-          message={toast ?? ''}
-          duration={2500}
+        <QrScannerModal
+          isOpen={scannerOpen}
+          onScan={handleQrScan}
+          onClose={() => { setScannerOpen(false); setScanTargetId(null) }}
+          title="Scan Checkpoint QR"
         />
+
+        <IonToast isOpen={!!toast} onDidDismiss={() => setToast(null)} message={toast ?? ''} duration={2500} />
       </IonContent>
     </IonPage>
   )

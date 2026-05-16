@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
@@ -14,6 +15,8 @@ import { patrolRoutes } from './routes/patrol'
 import { incidentsRoutes } from './routes/incidents'
 import { shiftsRoutes } from './routes/shifts'
 import { camerasRoutes } from './routes/cameras'
+import { statsRoutes } from './routes/stats'
+import { clientsRoutes } from './routes/clients'
 
 const app = Fastify({
   logger: {
@@ -28,7 +31,7 @@ const app = Fastify({
 async function build() {
   await app.register(helmet)
   await app.register(cors, {
-    origin: process.env.CORS_ORIGIN?.split(',') ?? ['http://localhost:3000', 'http://localhost:5173'],
+    origin: process.env.CORS_ORIGIN?.split(',') ?? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],
     credentials: true,
   })
   await app.register(rateLimit, { max: 200, timeWindow: '1 minute' })
@@ -48,6 +51,8 @@ async function build() {
   await app.register(incidentsRoutes, { prefix: '/api/incidents' })
   await app.register(shiftsRoutes, { prefix: '/api/shifts' })
   await app.register(camerasRoutes, { prefix: '/api/cameras' })
+  await app.register(statsRoutes, { prefix: '/api/stats' })
+  await app.register(clientsRoutes, { prefix: '/api/clients' })
 
   app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 

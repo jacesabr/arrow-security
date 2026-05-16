@@ -1,9 +1,17 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { db, attendanceRecords } from '@secureops/db'
+import { db, attendanceRecords, sites } from '@secureops/db'
 import { eq, and, desc } from 'drizzle-orm'
 import { requireAuth } from '../lib/auth'
-import { SLA_HOURS } from '@secureops/shared'
+
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
 
 const checkInSchema = z.object({
   siteId: z.string(),
@@ -47,6 +55,15 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
     const payload = request.user as { tenantId: string; sub: string }
     const body = checkInSchema.parse(request.body)
 
+    let isWithinGeofence: boolean | null = null
+    if (body.latitude != null && body.longitude != null) {
+      const [site] = await db.select().from(sites).where(and(eq(sites.id, body.siteId), eq(sites.tenantId, payload.tenantId))).limit(1)
+      if (site?.latitude && site?.longitude) {
+        const dist = haversineMeters(body.latitude, body.longitude, Number(site.latitude), Number(site.longitude))
+        isWithinGeofence = dist <= (site.geofenceRadiusMeters ?? 200)
+      }
+    }
+
     const [record] = await db
       .insert(attendanceRecords)
       .values({
@@ -54,6 +71,7 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
         tenantId: payload.tenantId,
         guardId: payload.sub,
         verifiedAt: new Date(),
+        isWithinGeofence,
       })
       .returning()
 
