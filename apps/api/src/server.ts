@@ -4,7 +4,7 @@ import helmet from '@fastify/helmet'
 import jwt from '@fastify/jwt'
 import rateLimit from '@fastify/rate-limit'
 
-import { tenantPlugin } from './plugins/tenant'
+import tenantPlugin from './plugins/tenant'
 import { authRoutes } from './routes/auth'
 import { tenantsRoutes } from './routes/tenants'
 import { sitesRoutes } from './routes/sites'

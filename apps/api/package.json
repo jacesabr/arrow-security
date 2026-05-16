@@ -17,6 +17,8 @@
     "@secureops/db": "workspace:*",
     "@secureops/shared": "workspace:*",
     "fastify": "^4.28.0",
+    "fastify-plugin": "^4.5.1",
+    "pino-pretty": "^11.0.0",
     "postgres": "^3.4.4",
     "zod": "^3.22.4"
   },

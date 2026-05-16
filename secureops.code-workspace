@@ -1,0 +1,93 @@
+{
+  "folders": [
+    { "name": "🏠 Root", "path": "." },
+    { "name": "📡 API (Fastify)", "path": "apps/api" },
+    { "name": "🖥️ Control Plane (Next.js)", "path": "apps/control-plane" },
+    { "name": "📱 Mobile App (Ionic)", "path": "apps/mobile" },
+    { "name": "🗄️ Database (Drizzle)", "path": "packages/db" },
+    { "name": "📦 Shared Types", "path": "packages/shared" }
+  ],
+  "settings": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "typescript.preferences.importModuleSpecifier": "relative",
+    "editor.tabSize": 2,
+    "files.eol": "\n",
+    "terminal.integrated.defaultProfile.windows": "Git Bash",
+    "workbench.colorCustomizations": {
+      "titleBar.activeBackground": "#1e293b",
+      "titleBar.activeForeground": "#e2e8f0",
+      "activityBar.background": "#0f172a"
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "esbenp.prettier-vscode",
+      "bradlc.vscode-tailwindcss",
+      "prisma.prisma",
+      "ms-vscode.vscode-typescript-next",
+      "ionic.ionic",
+      "dbaeumer.vscode-eslint",
+      "ms-azuretools.vscode-docker"
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "API (debug)",
+        "type": "node",
+        "request": "launch",
+        "runtimeExecutable": "pnpm",
+        "runtimeArgs": ["--filter=api", "run", "dev"],
+        "cwd": "${workspaceFolder:🏠 Root}",
+        "console": "integratedTerminal"
+      }
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "🚀 Start All",
+        "dependsOn": ["Start API", "Start Control Plane", "Start Mobile"],
+        "group": "build"
+      },
+      {
+        "label": "Start API",
+        "type": "shell",
+        "command": "pnpm dev:api",
+        "options": { "cwd": "${workspaceFolder:🏠 Root}" },
+        "presentation": { "panel": "dedicated", "reveal": "always", "group": "devservers" }
+      },
+      {
+        "label": "Start Control Plane",
+        "type": "shell",
+        "command": "pnpm dev:control",
+        "options": { "cwd": "${workspaceFolder:🏠 Root}" },
+        "presentation": { "panel": "dedicated", "reveal": "always", "group": "devservers" }
+      },
+      {
+        "label": "Start Mobile",
+        "type": "shell",
+        "command": "pnpm dev:mobile",
+        "options": { "cwd": "${workspaceFolder:🏠 Root}" },
+        "presentation": { "panel": "dedicated", "reveal": "always", "group": "devservers" }
+      },
+      {
+        "label": "🐳 Docker Up",
+        "type": "shell",
+        "command": "docker compose up -d",
+        "options": { "cwd": "${workspaceFolder:🏠 Root}" },
+        "presentation": { "reveal": "always" }
+      },
+      {
+        "label": "🗄️ DB Migrate",
+        "type": "shell",
+        "command": "pnpm db:migrate",
+        "options": { "cwd": "${workspaceFolder:🏠 Root}" },
+        "presentation": { "reveal": "always" }
+      }
+    ]
+  }
+}
