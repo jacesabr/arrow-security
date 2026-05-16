@@ -35,6 +35,9 @@ export const CheckInPage: React.FC = () => {
 
   useEffect(() => {
     // Fetch sites for this guard
+    api.sites.list()
+      .then((res) => setSites(res.data))
+      .catch(() => null)
     Geolocation.getCurrentPosition({ enableHighAccuracy: true })
       .then((pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }))
       .catch(() => null)
@@ -92,7 +95,24 @@ export const CheckInPage: React.FC = () => {
           </span>
         </div>
 
-        <div style={{ background: '#1e293b', borderRadius: 12, padding: 4, marginBottom: 16 }}>
+        <div style={{ background: '#1e293b', borderRadius: 8, padding: 4, marginBottom: 12 }}>
+          <IonItem lines="none" style={{ '--background': 'transparent' }}>
+            <IonLabel style={{ color: '#94a3b8' }}>Site</IonLabel>
+            <IonSelect
+              value={selectedSite}
+              onIonChange={(e) => setSelectedSite(e.detail.value)}
+              placeholder="Select site"
+              style={{ '--color': '#fff' }}
+              interface="action-sheet"
+            >
+              {sites.map((s) => (
+                <IonSelectOption key={s.id} value={s.id}>{s.name}</IonSelectOption>
+              ))}
+            </IonSelect>
+          </IonItem>
+        </div>
+
+        <div style={{ background: '#1e293b', borderRadius: 8, padding: 4, marginBottom: 12 }}>
           <IonItem lines="none" style={{ '--background': 'transparent' }}>
             <IonLabel style={{ color: '#94a3b8' }}>Method</IonLabel>
             <IonSelect

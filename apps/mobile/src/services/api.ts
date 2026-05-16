@@ -81,4 +81,8 @@ export const api = {
       return request<{ data: any[] }>(`/cameras${qs}`)
     },
   },
+
+  sites: {
+    list: () => request<{ data: any[] }>('/sites'),
+  },
 }

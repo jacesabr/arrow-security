@@ -13,7 +13,7 @@ interface Stats {
   openIncidents: number
 }
 
-function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
+function StatCard({ label, value, color }: { label: string; value: string | number; color: string }) {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
       <p className="text-slate-400 text-sm">{label}</p>
@@ -43,6 +43,13 @@ export default function DashboardPage() {
     openIncidents: 0,
   }
 
+  const bronzeCount = tenants.filter((t) => t.tier === 'bronze').length
+  const silverCount = tenants.filter((t) => t.tier === 'silver').length
+  const goldCount = tenants.filter((t) => t.tier === 'gold').length
+
+  const estMRR = bronzeCount * 10000 + silverCount * 25000 + goldCount * 45000
+  const estGuards = bronzeCount * 50 + silverCount * 150 + goldCount * 300
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -53,17 +60,19 @@ export default function DashboardPage() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {[...Array(4)].map((_, i) => (
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+            {[...Array(6)].map((_, i) => (
               <div key={i} className="bg-slate-900 border border-slate-800 rounded-xl p-6 animate-pulse h-24" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
             <StatCard label="Total Tenants" value={stats.tenants} color="text-white" />
             <StatCard label="Active" value={stats.active} color="text-emerald-400" />
             <StatCard label="Trial" value={stats.trial} color="text-yellow-400" />
             <StatCard label="Suspended" value={stats.suspended} color="text-red-400" />
+            <StatCard label="Estimated MRR" value={`₹${estMRR.toLocaleString('en-IN')}`} color="text-indigo-400" />
+            <StatCard label="Est. Guards" value={estGuards} color="text-cyan-400" />
           </div>
         )}
 
