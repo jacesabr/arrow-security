@@ -42,11 +42,11 @@ jobs:
 
       - name: Add Android platform
         working-directory: apps/mobile
-        run: npx cap add android
+        run: pnpm exec cap add android
 
       - name: Sync Capacitor
         working-directory: apps/mobile
-        run: npx cap sync android
+        run: pnpm exec cap sync android
 
       - name: Make Gradle wrapper executable
         working-directory: apps/mobile/android
