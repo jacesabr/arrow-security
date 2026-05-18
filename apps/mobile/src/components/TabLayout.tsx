@@ -470,7 +470,7 @@ export const TabLayout: React.FC = () => {
 
   const role = user?.role
   const isSupervisor = role === 'supervisor'
-  const isAdmin = role === 'admin' || role === 'tenant_admin' || role === 'platform_admin'
+  const isAdmin = role === 'tenant_admin' || role === 'platform_admin'
   const tabBarStyle = { '--background': '#ffffff', '--border': '1px solid #e8e5e0' } as any
   const topPad = { paddingTop: 28 }
 
