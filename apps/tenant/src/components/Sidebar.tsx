@@ -192,63 +192,63 @@ export function Sidebar() {
 
   return (
     <aside style={{
-      width: 220,
+      width: 248,
       minHeight: '100vh',
       background: '#ffffff',
-      borderRight: '1px solid #e8e5e0',
+      borderRight: '1px solid #ebe8e2',
       display: 'flex',
       flexDirection: 'column',
       flexShrink: 0,
     }}>
       {/* Brand header */}
-      <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid #e8e5e0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+      <div style={{ padding: '24px 20px 18px', borderBottom: '1px solid #ebe8e2' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 16 }}>
           <div style={{
-            width: 30, height: 30, borderRadius: 7, background: '#c96442',
+            width: 34, height: 34, borderRadius: 9, background: '#c96442',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
           </div>
           <div>
-            <div style={{ color: '#1a1916', fontWeight: 700, fontSize: 13, lineHeight: 1.2 }}>Arrow Security</div>
-            <div style={{ color: '#9a9490', fontSize: 10, marginTop: 1 }}>Operations Portal</div>
+            <div style={{ color: '#1a1916', fontWeight: 700, fontSize: 14, lineHeight: 1.2, letterSpacing: '-0.01em' }}>Arrow Security</div>
+            <div style={{ color: '#9a9490', fontSize: 11, marginTop: 2 }}>Operations Portal</div>
           </div>
         </div>
         {userLabel && (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '4px 8px', borderRadius: 6, background: '#fafaf9', border: '1px solid #e8e5e0',
-            marginBottom: 8,
+            padding: '6px 10px', borderRadius: 8, background: '#f9f8f6', border: '1px solid #ebe8e2',
+            marginBottom: 10,
           }}>
-            <span style={{ fontSize: 11, color: '#9a9490' }}>Signed in as</span>
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#c96442' }}>{userLabel}</span>
+            <span style={{ fontSize: 11.5, color: '#9a9490' }}>Signed in as</span>
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: '#c96442' }}>{userLabel}</span>
           </div>
         )}
         <button
           onClick={() => window.open('/dev-ref', '_blank')}
-          title="Developer reference — opens in new tab"
+          title="Developer reference"
           style={{
             width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
-            background: '#fafaf9', border: '1px solid #e8e5e0',
-            color: '#9a9490', fontSize: 11,
+            padding: '6px 10px', borderRadius: 7, cursor: 'pointer',
+            background: '#f9f8f6', border: '1px solid #ebe8e2',
+            color: '#9a9490', fontSize: 11.5,
             fontFamily: '"JetBrains Mono","Cascadia Code",ui-monospace,monospace',
             transition: 'border-color 0.15s, color 0.15s',
           }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = '#c96442'; e.currentTarget.style.color = '#c96442' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#e8e5e0'; e.currentTarget.style.color = '#9a9490' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#ebe8e2'; e.currentTarget.style.color = '#9a9490' }}
         >
-          <span style={{ fontSize: 11 }}>◈</span> dev reference
+          <span>◈</span> dev reference
         </button>
       </div>
 
-      {/* Dev account switcher */}
-      <DevAccountSwitcher />
+      {/* Dev account switcher — dev only */}
+      {process.env.NODE_ENV !== 'production' && <DevAccountSwitcher />}
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <nav style={{ flex: 1, padding: '12px 10px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
         {visibleNav().map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
@@ -258,15 +258,14 @@ export function Sidebar() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                padding: '7px 10px',
-                borderRadius: 7,
+                padding: '8px 12px',
+                borderRadius: 8,
                 fontSize: 13.5,
                 fontWeight: active ? 600 : 400,
                 textDecoration: 'none',
                 background: active ? 'rgba(201,100,66,0.08)' : 'transparent',
-                border: `1px solid ${active ? 'rgba(201,100,66,0.15)' : 'transparent'}`,
                 color: active ? '#c96442' : '#5c5855',
-                transition: 'color 0.1s, background 0.1s',
+                transition: 'color 0.12s, background 0.12s',
               }}
               onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = '#f4f2ef'; (e.currentTarget as HTMLElement).style.color = '#1a1916' } }}
               onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#5c5855' } }}
@@ -281,22 +280,22 @@ export function Sidebar() {
       <ViewAsSwitcher />
 
       {/* Sign out */}
-      <div style={{ padding: '10px 8px', borderTop: '1px solid #e8e5e0' }}>
+      <div style={{ padding: '12px 10px', borderTop: '1px solid #ebe8e2' }}>
         <button
           onClick={logout}
           style={{
             width: '100%',
             display: 'flex',
             alignItems: 'center',
-            padding: '7px 10px',
-            borderRadius: 7,
+            padding: '8px 12px',
+            borderRadius: 8,
             fontSize: 13.5,
             fontWeight: 400,
             background: 'transparent',
-            border: '1px solid transparent',
+            border: 'none',
             color: '#9a9490',
             cursor: 'pointer',
-            transition: 'color 0.1s',
+            transition: 'color 0.12s',
           }}
           onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
           onMouseLeave={e => (e.currentTarget.style.color = '#9a9490')}

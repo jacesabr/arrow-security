@@ -11,7 +11,7 @@ export function PageShell({ children }: { children: React.ReactNode }) {
 
 export function Main({ children, maxWidth }: { children: React.ReactNode; maxWidth?: number }) {
   return (
-    <main style={{ flex: 1, padding: '36px 40px', overflowY: 'auto', ...(maxWidth ? { maxWidth } : {}) }}>
+    <main style={{ flex: 1, padding: '52px 60px', overflowY: 'auto', ...(maxWidth ? { maxWidth } : {}) }}>
       {children}
     </main>
   )
@@ -29,12 +29,12 @@ export function PageHeader({
   action?: React.ReactNode
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 36 }}>
       <div>
-        <h1 style={{ color: 'var(--text)', fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: '-0.025em' }}>
+        <h1 style={{ color: 'var(--text)', fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: '-0.025em' }}>
           {title}
         </h1>
-        {subtitle && <p style={{ color: 'var(--text-3)', fontSize: 13, margin: '4px 0 0' }}>{subtitle}</p>}
+        {subtitle && <p style={{ color: 'var(--text-3)', fontSize: 13.5, margin: '5px 0 0' }}>{subtitle}</p>}
       </div>
       {action && <div>{action}</div>}
     </div>
@@ -48,8 +48,7 @@ export function Card({ children, style, overflow }: { children: React.ReactNode;
     <div style={{
       background: 'var(--surface)',
       border: '1px solid var(--border)',
-      borderRadius: 10,
-      boxShadow: '0 1px 6px rgba(26,25,22,0.06)',
+      borderRadius: 12,
       overflow: (overflow as any) ?? 'visible',
       ...style,
     }}>
@@ -61,13 +60,13 @@ export function Card({ children, style, overflow }: { children: React.ReactNode;
 export function CardHeader({ title, action }: { title: string; action?: React.ReactNode }) {
   return (
     <div style={{
-      padding: '14px 22px',
+      padding: '18px 26px',
       borderBottom: '1px solid var(--border)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
     }}>
-      <span style={{ color: 'var(--text)', fontWeight: 600, fontSize: 14 }}>{title}</span>
+      <span style={{ color: 'var(--text)', fontWeight: 600, fontSize: 14.5 }}>{title}</span>
       {action}
     </div>
   )
@@ -95,15 +94,16 @@ export function DataTable({
         <tr>
           {cols.map((c) => (
             <th key={c} style={{
-              padding: '9px 22px',
+              padding: '11px 26px',
               textAlign: 'left',
               color: 'var(--text-3)',
-              fontSize: 11,
+              fontSize: 11.5,
               fontWeight: 600,
               textTransform: 'uppercase' as const,
               letterSpacing: '0.06em',
               borderBottom: '1px solid var(--border)',
               whiteSpace: 'nowrap' as const,
+              background: 'var(--surface-2)',
             }}>
               {c}
             </th>
@@ -112,9 +112,9 @@ export function DataTable({
       </thead>
       <tbody>
         {loading ? (
-          <tr><td colSpan={span} style={{ padding: '28px 22px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>Loading…</td></tr>
+          <tr><td colSpan={span} style={{ padding: '36px 26px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13.5 }}>Loading…</td></tr>
         ) : !children || (Array.isArray(children) && children.length === 0) ? (
-          <tr><td colSpan={span} style={{ padding: '28px 22px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>{empty ?? 'No data yet.'}</td></tr>
+          <tr><td colSpan={span} style={{ padding: '36px 26px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13.5 }}>{empty ?? 'No data yet.'}</td></tr>
         ) : children}
       </tbody>
     </table>
@@ -125,7 +125,7 @@ export function TR({ children, onClick }: { children: React.ReactNode; onClick?:
   const [hover, setHover] = React.useState(false)
   return (
     <tr
-      style={{ borderBottom: '1px solid var(--border)', background: hover ? 'var(--surface-2)' : 'transparent', cursor: onClick ? 'pointer' : 'default', transition: 'background 0.1s' }}
+      style={{ borderBottom: '1px solid var(--border)', background: hover ? 'var(--surface-2)' : 'transparent', cursor: onClick ? 'pointer' : 'default', transition: 'background 0.12s' }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onClick={onClick}
@@ -137,7 +137,7 @@ export function TR({ children, onClick }: { children: React.ReactNode; onClick?:
 
 export function TD({ children, muted, style }: { children?: React.ReactNode; muted?: boolean; style?: React.CSSProperties }) {
   return (
-    <td style={{ padding: '12px 22px', color: muted ? 'var(--text-2)' : 'var(--text)', fontSize: 13.5, ...style }}>
+    <td style={{ padding: '14px 26px', color: muted ? 'var(--text-2)' : 'var(--text)', fontSize: 14, ...style }}>
       {children ?? '—'}
     </td>
   )
@@ -149,13 +149,13 @@ export function Badge({ label, color, bg }: { label: string; color: string; bg: 
   return (
     <span style={{
       display: 'inline-block',
-      padding: '2px 9px',
+      padding: '3px 10px',
       borderRadius: 20,
       fontSize: 12,
       fontWeight: 600,
       color,
       background: bg,
-      border: `1px solid ${color}30`,
+      border: `1px solid ${color}28`,
     }}>
       {label}
     </span>
@@ -166,7 +166,7 @@ export function DotStatus({ label, color }: { label: string; color: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
       <div style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
-      <span style={{ color: 'var(--text-2)', fontSize: 13 }}>{label}</span>
+      <span style={{ color: 'var(--text-2)', fontSize: 13.5 }}>{label}</span>
     </div>
   )
 }
@@ -180,6 +180,7 @@ export function Btn({
   disabled,
   type = 'button',
   loading,
+  size,
 }: {
   children: React.ReactNode
   variant?: 'primary' | 'secondary' | 'ghost'
@@ -187,12 +188,15 @@ export function Btn({
   disabled?: boolean
   type?: 'button' | 'submit'
   loading?: boolean
+  size?: 'sm'
 }) {
   const styles: Record<string, React.CSSProperties> = {
-    primary: { background: 'var(--accent)', color: '#fff', border: '1px solid transparent', boxShadow: '0 1px 3px rgba(217,119,87,0.25)' },
+    primary:   { background: 'var(--accent)', color: '#fff', border: '1px solid transparent' },
     secondary: { background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' },
-    ghost: { background: 'transparent', color: 'var(--text-2)', border: '1px solid var(--border)' },
+    ghost:     { background: 'transparent', color: 'var(--text-2)', border: '1px solid var(--border)' },
   }
+  const pad = size === 'sm' ? '6px 13px' : '9px 18px'
+  const fz  = size === 'sm' ? 12.5 : 13.5
   return (
     <button
       type={type}
@@ -202,12 +206,12 @@ export function Btn({
         display: 'inline-flex',
         alignItems: 'center',
         gap: 6,
-        padding: '8px 16px',
-        borderRadius: 8,
-        fontSize: 13.5,
+        padding: pad,
+        borderRadius: 9,
+        fontSize: fz,
         fontWeight: 600,
         cursor: (disabled || loading) ? 'default' : 'pointer',
-        opacity: (disabled || loading) ? 0.65 : 1,
+        opacity: (disabled || loading) ? 0.55 : 1,
         transition: 'opacity 0.15s',
         ...styles[variant],
       }}
@@ -225,7 +229,7 @@ export function Modal({
   onClose,
   title,
   children,
-  width = 440,
+  width = 460,
 }: {
   open: boolean
   onClose: () => void
@@ -236,33 +240,34 @@ export function Modal({
   if (!open) return null
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)',
+      position: 'fixed', inset: 0, background: 'rgba(26,25,22,0.25)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 50, padding: 24, backdropFilter: 'blur(2px)',
+      zIndex: 50, padding: 24, backdropFilter: 'blur(3px)',
     }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',
-        borderRadius: 14,
+        borderRadius: 16,
         width: '100%',
         maxWidth: width,
-        boxShadow: '0 8px 40px rgba(0,0,0,0.14)',
+        boxShadow: '0 8px 48px rgba(26,25,22,0.1)',
+        animation: 'fade-in 0.15s ease',
       }}>
         <div style={{
-          padding: '20px 24px 16px',
+          padding: '22px 28px 18px',
           borderBottom: '1px solid var(--border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
         }}>
-          <h2 style={{ color: 'var(--text)', fontWeight: 700, fontSize: 16, margin: 0 }}>{title}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4 }}>
+          <h2 style={{ color: 'var(--text)', fontWeight: 700, fontSize: 17, margin: 0, letterSpacing: '-0.015em' }}>{title}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 6 }}>
             <X size={16} />
           </button>
         </div>
-        <div style={{ padding: 24 }}>{children}</div>
+        <div style={{ padding: '24px 28px' }}>{children}</div>
       </div>
     </div>
   )
@@ -272,8 +277,8 @@ export function Modal({
 
 export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 14 }}>
-      <label style={{ display: 'block', color: 'var(--text)', fontSize: 13.5, fontWeight: 500, marginBottom: 6 }}>
+    <div style={{ marginBottom: 16 }}>
+      <label style={{ display: 'block', color: 'var(--text)', fontSize: 13.5, fontWeight: 500, marginBottom: 7 }}>
         {label}
       </label>
       {children}
@@ -285,11 +290,12 @@ const inputBase: React.CSSProperties = {
   width: '100%',
   background: 'var(--surface-2)',
   border: '1.5px solid var(--border)',
-  borderRadius: 8,
-  padding: '8px 12px',
+  borderRadius: 9,
+  padding: '9px 13px',
   color: 'var(--text)',
-  fontSize: 13.5,
+  fontSize: 14,
   outline: 'none',
+  lineHeight: 1.5,
 }
 
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
@@ -328,19 +334,19 @@ export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
   )
 }
 
-/* ─── Error / empty ──────────────────────────────────────────────────── */
+/* ─── Error / filter ─────────────────────────────────────────────────── */
 
 export function ErrorMsg({ msg }: { msg: string | null }) {
   if (!msg) return null
   return (
     <div style={{
-      background: 'rgba(220,38,38,0.06)',
-      border: '1px solid rgba(220,38,38,0.2)',
-      borderRadius: 8,
-      padding: '8px 12px',
+      background: 'rgba(220,38,38,0.05)',
+      border: '1px solid rgba(220,38,38,0.18)',
+      borderRadius: 9,
+      padding: '10px 14px',
       color: '#ef4444',
-      fontSize: 13,
-      marginBottom: 14,
+      fontSize: 13.5,
+      marginBottom: 16,
     }}>
       {msg}
     </div>
@@ -348,18 +354,18 @@ export function ErrorMsg({ msg }: { msg: string | null }) {
 }
 
 export function FilterRow({ children }: { children: React.ReactNode }) {
-  return <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' as const, alignItems: 'flex-end' }}>{children}</div>
+  return <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' as const, alignItems: 'flex-end' }}>{children}</div>
 }
 
 export function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div style={{ color: 'var(--text-3)', fontSize: 11, fontWeight: 500, marginBottom: 4, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>{label}</div>
+      <div style={{ color: 'var(--text-3)', fontSize: 11, fontWeight: 600, marginBottom: 5, textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{label}</div>
       {children}
     </div>
   )
 }
 
 export function ModalActions({ children }: { children: React.ReactNode }) {
-  return <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>{children}</div>
+  return <div style={{ display: 'flex', gap: 10, marginTop: 22, justifyContent: 'flex-end' }}>{children}</div>
 }
