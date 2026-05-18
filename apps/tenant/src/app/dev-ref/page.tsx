@@ -34,7 +34,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 function SubTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h3 style={{ color: TEXT, fontSize: 13, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', margin: '36px 0 12px', fontFamily: SANS, borderBottom: `1px solid ${BORDER}`, paddingBottom: 8, color: TEXT3 }}>
+    <h3 style={{ color: TEXT3, fontSize: 13, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', margin: '36px 0 12px', fontFamily: SANS, borderBottom: `1px solid ${BORDER}`, paddingBottom: 8 }}>
       {children}
     </h3>
   )
