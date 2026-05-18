@@ -9,6 +9,14 @@ const DEV_ACCOUNTS = [
   { label: 'Supervisor', email: 'supervisor@acme.secureops.in', password: 'super123', color: '#c96442' },
 ]
 
+const ROLE_DISPLAY: Record<string, string> = {
+  tenant_admin:    'Admin',
+  platform_admin:  'Admin',
+  supervisor:      'Supervisor',
+  guard:           'Guard',
+  client_viewer:   'Client',
+}
+
 function DevAccountSwitcher() {
   const [currentEmail, setCurrentEmail] = useState<string | null>(null)
   const [switching, setSwitching] = useState<string | null>(null)
@@ -68,24 +76,33 @@ function DevAccountSwitcher() {
   )
 }
 
-const NAV = [
-  { href: '/dashboard',     label: 'Dashboard' },
-  { href: '/guards',        label: 'Guards' },
-  { href: '/certifications',label: 'Certifications' },
-  { href: '/sites',         label: 'Sites' },
-  { href: '/shifts',        label: 'Shifts' },
-  { href: '/roster',        label: 'Roster' },
-  { href: '/incidents',     label: 'Incidents' },
-  { href: '/panic',         label: '🚨 Panic Alerts' },
-  { href: '/patrols',       label: 'Patrols' },
-  { href: '/checkpoints',   label: 'Checkpoints' },
-  { href: '/map',           label: 'Live Map' },
-  { href: '/cameras',       label: 'Cameras' },
-  { href: '/clients',       label: 'Clients' },
-  { href: '/leave-requests',label: 'Leave Requests' },
-  { href: '/post-orders',   label: 'Post Orders' },
-  { href: '/payroll',       label: 'Payroll' },
-  { href: '/settings',      label: 'Settings' },
+type NavItem = {
+  href: string
+  label: string
+  adminOnly?: boolean   // visible to tenant_admin only
+  supervisorPlus?: boolean // visible to supervisors+ (default if neither flag set)
+}
+
+const NAV: NavItem[] = [
+  { href: '/dashboard',      label: 'Dashboard' },
+  { href: '/guard-status',   label: 'Guard Status' },
+  { href: '/guards',         label: 'Guards',          adminOnly: true },
+  { href: '/certifications', label: 'Certifications',  adminOnly: true },
+  { href: '/sites',          label: 'Sites' },
+  { href: '/shifts',         label: 'Shifts' },
+  { href: '/roster',         label: 'Roster',          adminOnly: true },
+  { href: '/incidents',      label: 'Incidents' },
+  { href: '/panic',          label: '🚨 Panic Alerts',  adminOnly: true },
+  { href: '/patrols',        label: 'Patrols' },
+  { href: '/checkpoints',    label: 'Checkpoints' },
+  { href: '/map',            label: 'Live Map' },
+  { href: '/cameras',        label: 'Cameras',         adminOnly: true },
+  { href: '/clients',        label: 'Clients',         adminOnly: true },
+  { href: '/leave-requests', label: 'Leave Requests' },
+  { href: '/post-orders',    label: 'Post Orders',     adminOnly: true },
+  { href: '/payroll',        label: 'Payroll',         adminOnly: true },
+  { href: '/supervisors',    label: 'Supervisors',     adminOnly: true },
+  { href: '/settings',       label: 'Settings' },
 ]
 
 const ROLE_LABELS: Record<ViewAsRole, string> = {
@@ -145,6 +162,29 @@ function ViewAsSwitcher() {
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const [userRole, setUserRole] = useState<string>('tenant_admin')
+  const [userLabel, setUserLabel] = useState<string>('')
+
+  useEffect(() => {
+    try {
+      const u = localStorage.getItem('td_user')
+      if (u) {
+        const parsed = JSON.parse(u)
+        const role = parsed.role ?? 'tenant_admin'
+        setUserRole(role)
+        setUserLabel(ROLE_DISPLAY[role] ?? role)
+      }
+    } catch {}
+  }, [])
+
+  const isAdmin = userRole === 'tenant_admin' || userRole === 'platform_admin'
+
+  function visibleNav() {
+    return NAV.filter(item => {
+      if (item.adminOnly && !isAdmin) return false
+      return true
+    })
+  }
 
   function logout() {
     localStorage.removeItem('td_token')
@@ -178,6 +218,16 @@ export function Sidebar() {
             <div style={{ color: '#9a9490', fontSize: 10, marginTop: 1 }}>Operations Portal</div>
           </div>
         </div>
+        {userLabel && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '4px 8px', borderRadius: 6, background: '#fafaf9', border: '1px solid #e8e5e0',
+            marginBottom: 8,
+          }}>
+            <span style={{ fontSize: 11, color: '#9a9490' }}>Signed in as</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#c96442' }}>{userLabel}</span>
+          </div>
+        )}
         <button
           onClick={() => window.open('/dev-ref', '_blank')}
           title="Developer reference — opens in new tab"
@@ -201,7 +251,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {NAV.map((item) => {
+        {visibleNav().map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
             <Link

@@ -2,9 +2,77 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { db, guardLocations } from '@secureops/db'
 import { eq, and, desc, gte } from 'drizzle-orm'
-import { requireAuth } from '../lib/auth'
+import { requireAuth, requireSupervisor } from '../lib/auth'
 import { redisPublisher, createSubscriber } from '../lib/redis'
 import { latLngToCell } from 'h3-js'
+
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function computeDwells(
+  pings: { latitude: number; longitude: number; recordedAt: Date }[],
+  radiusMeters = 30,
+  minDurationMs = 20 * 60 * 1000
+) {
+  if (pings.length === 0) return []
+
+  const dwells: { lat: number; lng: number; startedAt: Date; endedAt: Date; durationMinutes: number; pingCount: number }[] = []
+
+  let clusterLats = [pings[0].latitude]
+  let clusterLngs = [pings[0].longitude]
+  let clusterStart = pings[0].recordedAt
+  let clusterEnd = pings[0].recordedAt
+
+  for (let i = 1; i < pings.length; i++) {
+    const ping = pings[i]
+    const centLat = clusterLats.reduce((a, b) => a + b, 0) / clusterLats.length
+    const centLng = clusterLngs.reduce((a, b) => a + b, 0) / clusterLngs.length
+    const dist = haversineMeters(centLat, centLng, ping.latitude, ping.longitude)
+
+    if (dist <= radiusMeters) {
+      clusterLats.push(ping.latitude)
+      clusterLngs.push(ping.longitude)
+      clusterEnd = ping.recordedAt
+    } else {
+      const duration = clusterEnd.getTime() - clusterStart.getTime()
+      if (duration >= minDurationMs) {
+        dwells.push({
+          lat: clusterLats.reduce((a, b) => a + b, 0) / clusterLats.length,
+          lng: clusterLngs.reduce((a, b) => a + b, 0) / clusterLngs.length,
+          startedAt: clusterStart,
+          endedAt: clusterEnd,
+          durationMinutes: Math.round(duration / 60000),
+          pingCount: clusterLats.length,
+        })
+      }
+      clusterLats = [ping.latitude]
+      clusterLngs = [ping.longitude]
+      clusterStart = ping.recordedAt
+      clusterEnd = ping.recordedAt
+    }
+  }
+
+  // Close last cluster
+  const duration = clusterEnd.getTime() - clusterStart.getTime()
+  if (duration >= minDurationMs) {
+    dwells.push({
+      lat: clusterLats.reduce((a, b) => a + b, 0) / clusterLats.length,
+      lng: clusterLngs.reduce((a, b) => a + b, 0) / clusterLngs.length,
+      startedAt: clusterStart,
+      endedAt: clusterEnd,
+      durationMinutes: Math.round(duration / 60000),
+      pingCount: clusterLats.length,
+    })
+  }
+
+  return dwells
+}
 
 const pingSchema = z.object({
   latitude: z.number(),
@@ -63,6 +131,44 @@ export const locationsRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     return reply.code(201).send({ data: loc })
+  })
+
+  // Dwell analysis — detect where a guard stayed 20+ minutes in one spot
+  fastify.get('/dwell', { preHandler: requireSupervisor }, async (request, reply) => {
+    const payload = request.user as { tenantId: string; sub: string; role: string }
+    const query = z.object({
+      guardId: z.string(),
+      since: z.string().optional(),
+      hours: z.coerce.number().default(8),
+    }).parse(request.query)
+
+    const since = query.since
+      ? new Date(query.since)
+      : new Date(Date.now() - query.hours * 60 * 60 * 1000)
+
+    const pings = await db
+      .select({
+        latitude: guardLocations.latitude,
+        longitude: guardLocations.longitude,
+        recordedAt: guardLocations.recordedAt,
+      })
+      .from(guardLocations)
+      .where(
+        and(
+          eq(guardLocations.tenantId, payload.tenantId),
+          eq(guardLocations.guardId, query.guardId),
+          gte(guardLocations.recordedAt, since)
+        )
+      )
+      .orderBy(guardLocations.recordedAt)
+
+    const dwells = computeDwells(pings.map(p => ({
+      latitude: Number(p.latitude),
+      longitude: Number(p.longitude),
+      recordedAt: p.recordedAt,
+    })))
+
+    return reply.send({ data: dwells })
   })
 
   // Get location history for a guard (optionally filtered by shift or time window)

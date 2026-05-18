@@ -6,6 +6,7 @@ import { createId } from '../lib/id'
 
 export const attendanceTypeEnum = pgEnum('attendance_type', ['check_in', 'check_out'])
 export const attendanceMethodEnum = pgEnum('attendance_method', ['face', 'qr', 'manual'])
+export const selfieReviewStatusEnum = pgEnum('selfie_review_status', ['pending', 'approved', 'flagged'])
 
 export const attendanceRecords = pgTable('attendance_records', {
   id: text('id').primaryKey().$defaultFn(createId),
@@ -20,6 +21,10 @@ export const attendanceRecords = pgTable('attendance_records', {
   selfieUrl: text('selfie_url'),
   livenessScore: real('liveness_score'),
   isWithinGeofence: boolean('is_within_geofence'),
+  selfieReviewStatus: selfieReviewStatusEnum('selfie_review_status'),
+  selfieReviewNote: text('selfie_review_note'),
+  selfieReviewedBy: text('selfie_reviewed_by').references(() => users.id),
+  selfieReviewedAt: timestamp('selfie_reviewed_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 

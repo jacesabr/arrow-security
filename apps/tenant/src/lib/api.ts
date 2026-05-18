@@ -194,6 +194,34 @@ export const tdApi = {
     resolve: (id: string, resolutionNote?: string) =>
       request<{ data: any }>(`/exceptions/${id}/resolve`, { method: 'PATCH', body: JSON.stringify({ resolutionNote }) }),
   },
+  guardStatus: {
+    list: () => request<{ data: any[] }>('/guard-status'),
+    reviewSelfie: (attendanceId: string, body: { status: 'approved' | 'flagged'; note?: string }) =>
+      request<{ data: any }>(`/attendance/${attendanceId}/review`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    dwell: (params: { guardId: string; hours?: number; since?: string }) => {
+      const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+      const qs = entries.length ? '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString() : ''
+      return request<{ data: any[] }>(`/locations/dwell${qs}`)
+    },
+  },
+  supervisors: {
+    list: () =>
+      request<{ data: any[] }>('/users').then(r => ({
+        data: r.data.filter((u: any) => u.role === 'supervisor'),
+      })),
+    getSites: (supervisorId: string) =>
+      request<{ data: Array<{ siteId: string; assignedAt: string }> }>(`/supervisor-sites/${supervisorId}`),
+    assignSites: (supervisorId: string, siteIds: string[]) =>
+      request<{ data: any }>('/supervisor-sites', {
+        method: 'POST',
+        body: JSON.stringify({ supervisorId, siteIds }),
+      }),
+    removeSite: (supervisorId: string, siteId: string) =>
+      request<{ data: any }>(`/supervisor-sites/${supervisorId}/${siteId}`, { method: 'DELETE' }),
+  },
   cameras: {
     list: (siteId?: string) => {
       const qs = siteId ? `?siteId=${siteId}` : ''
