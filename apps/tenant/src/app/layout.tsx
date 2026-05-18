@@ -17,6 +17,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
+      <head>
+        <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
+      </head>
       <body className={inter.className}>
         <ClientProviders>{children}</ClientProviders>
       </body>
