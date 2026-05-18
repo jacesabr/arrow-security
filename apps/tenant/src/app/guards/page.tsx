@@ -4,6 +4,14 @@ import { useRouter } from 'next/navigation'
 import { PageShell, Main, PageHeader, Card, DataTable, TR, TD, Badge, Btn, Modal, Field, Input, Select, ErrorMsg, ModalActions } from '../../components/ui'
 import { tdApi } from '../../lib/api'
 
+const ROLE_DISPLAY: Record<string, string> = {
+  tenant_admin: 'Admin',
+  platform_admin: 'Admin',
+  supervisor: 'Supervisor',
+  guard: 'Guard',
+  client_viewer: 'Client',
+}
+
 const ROLE_BADGE: Record<string, { color: string; bg: string }> = {
   guard:          { color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
   supervisor:     { color: '#c96442', bg: 'rgba(201,100,66,0.12)' },
@@ -60,7 +68,7 @@ export default function GuardsPage() {
 
   const roleBadge = (role: string) => {
     const c = ROLE_BADGE[role] ?? { color: '#5c5855', bg: 'rgba(163,160,152,0.12)' }
-    return <Badge label={role} color={c.color} bg={c.bg} />
+    return <Badge label={ROLE_DISPLAY[role] ?? role} color={c.color} bg={c.bg} />
   }
 
   return (

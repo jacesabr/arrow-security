@@ -45,12 +45,34 @@ export const IncidentNewPage: React.FC = () => {
     reader.readAsDataURL(file)
   }
 
+  async function uploadPhoto(dataUrl: string): Promise<string | null> {
+    try {
+      const blob = await fetch(dataUrl).then((r) => r.blob())
+      const filename = `incident-${Date.now()}.jpg`
+      const { data: presign } = await api.upload.presign(filename, blob.type || 'image/jpeg', 'incidents')
+      await fetch(presign.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': blob.type || 'image/jpeg' },
+        body: blob,
+      })
+      const { data: urlData } = await api.upload.getUrl(presign.key)
+      return urlData.url
+    } catch {
+      return null
+    }
+  }
+
   async function submit() {
     if (!title || !description || !siteId) return
     setLoading(true)
     setError(null)
     try {
-      await api.incidents.create({ siteId, title, description, severity })
+      let mediaUrls: string[] | undefined
+      if (photoPreview) {
+        const url = await uploadPhoto(photoPreview)
+        if (url) mediaUrls = [url]
+      }
+      await api.incidents.create({ siteId, title, description, severity, mediaUrls })
       history.goBack()
     } catch (e: any) {
       setError(e.message)

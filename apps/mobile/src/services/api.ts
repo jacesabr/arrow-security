@@ -129,4 +129,14 @@ export const api = {
     resolve: (id: string, notes?: string) =>
       request<{ data: any }>(`/panic/${id}/resolve`, { method: 'PATCH', body: JSON.stringify({ notes }) }),
   },
+
+  upload: {
+    presign: (filename: string, contentType: string, folder: 'selfies' | 'incidents' | 'documents') =>
+      request<{ data: { uploadUrl: string; key: string; expiresIn: number } }>('/upload/presign', {
+        method: 'POST',
+        body: JSON.stringify({ filename, contentType, folder }),
+      }),
+    getUrl: (key: string) =>
+      request<{ data: { url: string } }>(`/upload/url?key=${encodeURIComponent(key)}`),
+  },
 }

@@ -31,15 +31,130 @@ import { LeaveRequestPage } from '../pages/LeaveRequestPage'
 const R = Route as React.ComponentType<any>
 const Redir = Redirect as React.ComponentType<any>
 
-// Placeholder supervisor pages
 const SupervisorDashboard: React.FC = () => {
-  const { user } = useAuthStore()
+  const { user, logout } = useAuthStore()
+  const [guardStatus, setGuardStatus] = useState<any[]>([])
+  const [incidents, setIncidents] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${BASE_URL}/guard-status`, {
+        headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
+      }).then(r => r.json()).catch(() => ({ data: [] })),
+      fetch(`${BASE_URL}/incidents?status=open&limit=5`, {
+        headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
+      }).then(r => r.json()).catch(() => ({ data: [] })),
+    ]).then(([gs, inc]) => {
+      setGuardStatus(gs.data ?? [])
+      setIncidents(inc.data ?? [])
+    }).finally(() => setLoading(false))
+  }, [])
+
+  const onShift = guardStatus.length
+  const online = guardStatus.filter((g: any) => g.isOnline).length
+  const pendingReview = guardStatus.filter((g: any) => g.selfieReviewStatus === 'pending' && g.selfieUrl).length
+
+  const statBoxStyle: React.CSSProperties = {
+    background: '#ffffff',
+    borderRadius: 12,
+    padding: '14px 16px',
+    flex: 1,
+    border: '1px solid #e8e5e0',
+  }
+
   return (
-    <div style={{ background: '#fafaf9', minHeight: '100vh', padding: 24, color: '#1a1916' }}>
-      <h2 style={{ margin: '0 0 8px' }}>Supervisor Dashboard</h2>
-      <p style={{ color: '#9a9490', margin: 0 }}>Welcome, {user?.name}. Select a tab below.</p>
+    <div style={{ background: '#fafaf9', minHeight: '100vh', color: '#1a1916' }}>
+      {/* Header */}
+      <div style={{ background: '#ffffff', borderBottom: '1px solid #e8e5e0', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 17 }}>Arrow Security</div>
+          <div style={{ color: '#9a9490', fontSize: 12 }}>Good {getTimeOfDay()}, {user?.name?.split(' ')[0]}</div>
+        </div>
+        <button
+          onClick={() => { logout(); window.location.replace('/login') }}
+          style={{ background: 'none', border: 'none', color: '#9a9490', cursor: 'pointer', padding: 4 }}
+        >
+          ✕
+        </button>
+      </div>
+
+      <div style={{ padding: 16 }}>
+        {/* Stats row */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+          <div style={statBoxStyle}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#c96442' }}>{loading ? '—' : onShift}</div>
+            <div style={{ fontSize: 11, color: '#9a9490', marginTop: 2 }}>On Shift</div>
+          </div>
+          <div style={statBoxStyle}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#10b981' }}>{loading ? '—' : online}</div>
+            <div style={{ fontSize: 11, color: '#9a9490', marginTop: 2 }}>Online</div>
+          </div>
+          <div style={statBoxStyle}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: pendingReview > 0 ? '#f59e0b' : '#9a9490' }}>{loading ? '—' : pendingReview}</div>
+            <div style={{ fontSize: 11, color: '#9a9490', marginTop: 2 }}>To Review</div>
+          </div>
+        </div>
+
+        {/* Guard list */}
+        <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e8e5e0', marginBottom: 16, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 14px', borderBottom: '1px solid #e8e5e0', fontWeight: 600, fontSize: 14 }}>Guards on Shift</div>
+          {loading ? (
+            <div style={{ padding: '16px 14px', color: '#9a9490', fontSize: 13 }}>Loading…</div>
+          ) : guardStatus.length === 0 ? (
+            <div style={{ padding: '16px 14px', color: '#9a9490', fontSize: 13 }}>No guards currently on shift</div>
+          ) : (
+            guardStatus.slice(0, 6).map((g: any) => (
+              <div key={g.guardId} style={{ padding: '10px 14px', borderBottom: '1px solid #f5f4f2', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontWeight: 500, fontSize: 13 }}>{g.guardName}</div>
+                  <div style={{ color: '#9a9490', fontSize: 11 }}>{g.siteName}</div>
+                </div>
+                <span style={{
+                  fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
+                  background: g.isOnline ? '#d1fae5' : '#f5f4f2',
+                  color: g.isOnline ? '#065f46' : '#9a9490',
+                }}>
+                  {g.isOnline ? 'Online' : 'Offline'}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Recent open incidents */}
+        <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e8e5e0', overflow: 'hidden' }}>
+          <div style={{ padding: '12px 14px', borderBottom: '1px solid #e8e5e0', fontWeight: 600, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>Open Incidents</span>
+            {incidents.length > 0 && (
+              <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 20 }}>{incidents.length}</span>
+            )}
+          </div>
+          {loading ? (
+            <div style={{ padding: '16px 14px', color: '#9a9490', fontSize: 13 }}>Loading…</div>
+          ) : incidents.length === 0 ? (
+            <div style={{ padding: '16px 14px', color: '#9a9490', fontSize: 13 }}>No open incidents</div>
+          ) : (
+            incidents.map((inc: any) => (
+              <div key={inc.id} style={{ padding: '10px 14px', borderBottom: '1px solid #f5f4f2' }}>
+                <div style={{ fontWeight: 500, fontSize: 13 }}>{inc.title}</div>
+                <div style={{ color: '#9a9490', fontSize: 11, marginTop: 2 }}>
+                  {inc.severity?.toUpperCase()} · {new Date(inc.createdAt).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   )
+}
+
+function getTimeOfDay() {
+  const h = new Date().getHours()
+  if (h < 12) return 'morning'
+  if (h < 17) return 'afternoon'
+  return 'evening'
 }
 
 /* ─── Live Guard Map ─────────────────────────────────────────────────────── */
@@ -392,7 +507,7 @@ const AdminDashboard: React.FC = () => {
       <h2 style={{ margin: '0 0 8px' }}>Management View</h2>
       <p style={{ color: '#9a9490', margin: 0 }}>Logged in as: {user?.name}</p>
       <p style={{ color: '#5c5855', marginTop: 16, fontSize: 14 }}>
-        Full admin access. Use the Operations Portal at localhost:3001 for complete management features.
+        Use the Operations Portal for full management features including payroll, roster, and guard status.
       </p>
     </div>
   )
@@ -477,7 +592,7 @@ export const TabLayout: React.FC = () => {
   if (isAdmin) {
     return (
       <>
-        <DevAccountBar />
+        {import.meta.env.DEV && <DevAccountBar />}
         <div style={topPad}>
           <IonTabs>
             <IonRouterOutlet>
@@ -515,7 +630,7 @@ export const TabLayout: React.FC = () => {
   if (isSupervisor) {
     return (
       <>
-        <DevAccountBar />
+        {import.meta.env.DEV && <DevAccountBar />}
         <div style={topPad}>
           <IonTabs>
             <IonRouterOutlet>
@@ -556,7 +671,7 @@ export const TabLayout: React.FC = () => {
   // Guard view (default)
   return (
     <>
-      <DevAccountBar />
+      {import.meta.env.DEV && <DevAccountBar />}
       <div style={topPad}>
         <IonTabs>
           <IonRouterOutlet>

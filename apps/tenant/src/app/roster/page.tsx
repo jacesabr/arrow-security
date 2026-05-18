@@ -234,7 +234,9 @@ export default function RosterPage() {
                         <div style={{ color: 'var(--text)', fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {guard.name}
                         </div>
-                        <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'capitalize', marginTop: 1 }}>{guard.role}</div>
+                        <div style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 1 }}>
+                          {{ tenant_admin: 'Admin', platform_admin: 'Admin', supervisor: 'Supervisor', guard: 'Guard', client_viewer: 'Client' }[guard.role as string] ?? guard.role}
+                        </div>
                       </td>
                       {days.map((day) => {
                         const dayShifts = shiftsFor(guard.id, day)

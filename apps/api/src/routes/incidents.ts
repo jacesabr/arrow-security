@@ -26,6 +26,8 @@ export const incidentsRoutes: FastifyPluginAsync = async (fastify) => {
     }).parse(request.query)
 
     const conditions = [eq(incidents.tenantId, payload.tenantId)]
+    if (query.status) conditions.push(eq(incidents.status, query.status as any))
+    if (query.severity) conditions.push(eq(incidents.severity, query.severity as any))
     if (query.siteId) conditions.push(eq(incidents.siteId, query.siteId))
 
     const all = await db

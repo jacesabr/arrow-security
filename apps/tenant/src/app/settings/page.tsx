@@ -60,6 +60,14 @@ const disabledInput: React.CSSProperties = {
   boxSizing: 'border-box',
 }
 
+const ROLE_DISPLAY: Record<string, string> = {
+  tenant_admin: 'Admin',
+  platform_admin: 'Admin',
+  supervisor: 'Supervisor',
+  guard: 'Guard',
+  client_viewer: 'Client Viewer',
+}
+
 export default function SettingsPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -88,7 +96,7 @@ export default function SettingsPage() {
             <>
               <InfoRow label="Name" value={user.name ?? '—'} />
               <InfoRow label="Email" value={user.email ?? '—'} />
-              <InfoRow label="Role" value={user.role ?? '—'} />
+              <InfoRow label="Role" value={ROLE_DISPLAY[user.role] ?? user.role ?? '—'} />
               <InfoRow label="Phone" value={user.phone ?? '—'} />
             </>
           ) : (

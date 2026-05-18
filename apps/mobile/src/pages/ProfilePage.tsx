@@ -38,7 +38,9 @@ export const ProfilePage: React.FC = () => {
             <IonIcon icon={personOutline} style={{ fontSize: 40, color: '#c96442' }} />
           </div>
           <h2 style={{ color: '#1a1916', margin: 0 }}>{user?.name}</h2>
-          <p style={{ color: '#5c5855', margin: '4px 0 0' }}>{user?.role?.replace('_', ' ')}</p>
+          <p style={{ color: '#5c5855', margin: '4px 0 0' }}>
+            {(({ tenant_admin: 'Admin', platform_admin: 'Admin', supervisor: 'Supervisor', guard: 'Guard', client_viewer: 'Client' } as Record<string, string>)[user?.role ?? '']) ?? user?.role?.replace('_', ' ')}
+          </p>
         </div>
 
         <IonList style={{ background: 'transparent', padding: '0 16px' }}>
