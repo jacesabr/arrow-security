@@ -1,17 +1,17 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { createHash } from 'crypto'
-import { sql as drizzleSql } from 'drizzle-orm'
 import * as schema from './schema'
 
-const sql = postgres(process.env.DATABASE_URL ?? 'postgresql://secureops:secureops@localhost:5432/secureops', { max: 1 })
-const db = drizzle(sql, { schema })
-
 function hashPw(pw: string) {
-  return createHash('sha256').update(pw + 'secureops-dev-salt').digest('hex')
+  const salt = process.env.PASSWORD_SALT ?? 'secureops-dev-salt'
+  return createHash('sha256').update(pw + salt).digest('hex')
 }
 
-async function seed() {
+export async function seed(connectionString?: string) {
+  const url = connectionString ?? process.env.DATABASE_URL ?? 'postgresql://secureops:secureops@localhost:5432/secureops'
+  const sql = postgres(url, { max: 1 })
+  const db = drizzle(sql, { schema })
   console.log('🌱 Seeding database...')
 
   // Platform admin
@@ -128,14 +128,12 @@ async function seed() {
   })
 
   console.log('✅ Seed complete!')
-  console.log('')
-  console.log('Login credentials:')
-  console.log('  Platform admin:  admin@secureops.in        / admin123')
-  console.log('  Tenant admin:    admin@acme.secureops.in   / acme123  (tenantSlug: acme)')
-  console.log('  Supervisor:      supervisor@acme.secureops.in / super123')
-  console.log('  Guard:           guard1@acme.secureops.in  / guard123')
+  console.log('  admin@acme.secureops.in / acme123')
+  console.log('  guard1@acme.secureops.in / guard123')
 
   await sql.end()
 }
 
-seed().catch((e) => { console.error(e); process.exit(1) })
+if (require.main === module) {
+  seed().catch((e) => { console.error(e); process.exit(1) })
+}

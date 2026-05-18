@@ -158,6 +158,38 @@ export default function LoginPage() {
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
+
+        {/* Dev credentials */}
+        <div style={{
+          marginTop: 16,
+          background: 'rgba(201,100,66,0.05)',
+          border: '1px solid rgba(201,100,66,0.15)',
+          borderRadius: 10,
+          padding: '12px 16px',
+        }}>
+          <p style={{ color: '#c96442', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            Dev Credentials
+          </p>
+          {[
+            { label: 'Admin', email: 'admin@acme.secureops.in', password: 'acme123' },
+            { label: 'Supervisor', email: 'supervisor@acme.secureops.in', password: 'super123' },
+          ].map(({ label, email: e, password: p }) => (
+            <div key={label} style={{ marginBottom: 6 }}>
+              <span style={{ color: '#9a9490', fontSize: 11, display: 'block', marginBottom: 2 }}>{label}</span>
+              <button
+                type="button"
+                onClick={() => { setEmail(e); setPassword(p) }}
+                style={{
+                  background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                  fontFamily: '"JetBrains Mono","Cascadia Code",ui-monospace,monospace',
+                  fontSize: 11, color: '#5c5855', textAlign: 'left',
+                }}
+              >
+                {e} / {p}
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

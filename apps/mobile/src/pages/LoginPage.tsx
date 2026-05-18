@@ -85,6 +85,30 @@ export const LoginPage: React.FC = () => {
           >
             {loading ? <IonSpinner name="crescent" /> : 'Sign In'}
           </IonButton>
+
+          {/* Dev credentials */}
+          <div style={{
+            marginTop: 24,
+            background: 'rgba(201,100,66,0.05)',
+            border: '1px solid rgba(201,100,66,0.15)',
+            borderRadius: 10,
+            padding: '12px 14px',
+          }}>
+            <p style={{ color: '#c96442', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 8px' }}>
+              Dev Credentials
+            </p>
+            {[
+              { label: 'Guard 1', email: 'guard1@acme.secureops.in', password: 'guard123' },
+              { label: 'Supervisor', email: 'supervisor@acme.secureops.in', password: 'super123' },
+            ].map(({ label, email: e, password: p }) => (
+              <div key={label} style={{ marginBottom: 6 }} onClick={() => { setEmail(e); setPassword(p) }}>
+                <span style={{ color: '#9a9490', fontSize: 10, display: 'block' }}>{label}</span>
+                <span style={{ fontFamily: '"JetBrains Mono",ui-monospace,monospace', fontSize: 11, color: '#5c5855' }}>
+                  {e} / {p}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </IonContent>
     </IonPage>

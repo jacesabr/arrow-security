@@ -1,10 +1,16 @@
 import 'dotenv/config'
+import path from 'path'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import jwt from '@fastify/jwt'
 import rateLimit from '@fastify/rate-limit'
 import Redis from 'ioredis'
+import { migrate } from 'drizzle-orm/postgres-js/migrator'
+import { drizzle } from 'drizzle-orm/postgres-js'
+import postgres from 'postgres'
+import { db, tenants, seed } from '@secureops/db'
+import { count } from 'drizzle-orm'
 
 import tenantPlugin from './plugins/tenant'
 import { authRoutes } from './routes/auth'
@@ -91,7 +97,27 @@ async function build() {
   return app
 }
 
+async function runMigrations() {
+  const connectionString = process.env.DATABASE_URL!
+  const sql = postgres(connectionString, { max: 1 })
+  const migrateDb = drizzle(sql)
+  const migrationsFolder = path.join(__dirname, '../../../packages/db/src/migrations')
+  try {
+    await migrate(migrateDb, { migrationsFolder })
+    console.log('Migrations complete.')
+
+    // Seed if database is empty (first deploy)
+    const [{ value: tenantCount }] = await db.select({ value: count() }).from(tenants)
+    if (tenantCount === 0) {
+      await seed()
+    }
+  } finally {
+    await sql.end()
+  }
+}
+
 async function start() {
+  await runMigrations()
   const server = await build()
   try {
     await ensureBucket()

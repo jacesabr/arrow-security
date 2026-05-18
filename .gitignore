@@ -14,3 +14,7 @@ coverage/
 *.tsbuildinfo
 android/
 ios/
+research/staffjoy-autoscheduler/
+research/staffjoy-chomp/
+research/staffjoy-mobius/
+research/staffjoy-suite/
