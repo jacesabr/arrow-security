@@ -5,7 +5,6 @@ import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import jwt from '@fastify/jwt'
 import rateLimit from '@fastify/rate-limit'
-import Redis from 'ioredis'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
@@ -58,7 +57,6 @@ async function build() {
   await app.register(rateLimit, {
     max: 200,
     timeWindow: '1 minute',
-    redis: new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379'),
   })
   await app.register(jwt, {
     secret: process.env.JWT_SECRET!,
