@@ -175,6 +175,9 @@ importers:
       '@capacitor/status-bar':
         specifier: ^6.0.0
         version: 6.0.3(@capacitor/core@6.2.1)
+      '@capgo/capacitor-updater':
+        specifier: ^6.0.0
+        version: 6.45.10(@capacitor/core@6.2.1)
       '@ionic/react':
         specifier: ^8.0.0
         version: 8.8.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -593,6 +596,11 @@ packages:
 
   '@capacitor/status-bar@6.0.3':
     resolution: {integrity: sha512-nFlgSmtx6Zwaw0tEvZgQsWHBeOfWWB/AvEoCApopLT4mHkBVoSrwkLvy2PjZs5wxCbsmqvQczr3XCyTwaDZVQg==}
+    peerDependencies:
+      '@capacitor/core': ^6.0.0
+
+  '@capgo/capacitor-updater@6.45.10':
+    resolution: {integrity: sha512-mi+F9bQ6dYTk/6CJWV3GWh8dpdQtkbR+ECr7IjimoH+mniD7iBOmVPjRCinC+FcfQPSBwiUvOT0XcWKKx9og5Q==}
     peerDependencies:
       '@capacitor/core': ^6.0.0
 
@@ -5548,6 +5556,10 @@ snapshots:
       '@capacitor/core': 6.2.1
 
   '@capacitor/status-bar@6.0.3(@capacitor/core@6.2.1)':
+    dependencies:
+      '@capacitor/core': 6.2.1
+
+  '@capgo/capacitor-updater@6.45.10(@capacitor/core@6.2.1)':
     dependencies:
       '@capacitor/core': 6.2.1
 
