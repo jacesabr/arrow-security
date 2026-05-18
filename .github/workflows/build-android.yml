@@ -6,6 +6,7 @@ on:
     branches: [master]
     paths:
       - 'apps/mobile/**'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/build-android.yml'
 
 jobs:
