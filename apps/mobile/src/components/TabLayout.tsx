@@ -17,7 +17,6 @@ import {
   personOutline,
   mapOutline,
   checkmarkCircleOutline,
-  codeSlashOutline,
 } from 'ionicons/icons'
 import { DashboardPage } from '../pages/DashboardPage'
 import { CheckInPage } from '../pages/CheckInPage'
@@ -27,7 +26,6 @@ import { ShiftsPage } from '../pages/ShiftsPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { useAuthStore } from '../store/auth'
 import { LeaveRequestPage } from '../pages/LeaveRequestPage'
-import { useDevRole, type SimRole } from '../store/devRole'
 
 // Cast react-router-dom v5 components to work around @types/react 18 incompatibility
 const R = Route as React.ComponentType<any>
@@ -400,112 +398,68 @@ const AdminDashboard: React.FC = () => {
   )
 }
 
-/* ─── Role Switcher Overlay ─────────────────────────────────────────────── */
+/* ─── Dev Account Bar ───────────────────────────────────────────────────── */
 
-function DevRoleSwitcher() {
-  const [open, setOpen] = useState(false)
-  const { simRole, setSimRole } = useDevRole()
-  const { user } = useAuthStore()
+const DEV_USERS = [
+  { label: 'Arun',   email: 'guard1@acme.secureops.in',      password: 'guard123', color: '#3b82f6' },
+  { label: 'Vikram', email: 'guard2@acme.secureops.in',      password: 'guard123', color: '#10b981' },
+  { label: 'Priya',  email: 'guard3@acme.secureops.in',      password: 'guard123', color: '#f59e0b' },
+  { label: 'Rajesh', email: 'supervisor@acme.secureops.in',  password: 'super123', color: '#c96442' },
+]
+const TENANT_SLUG_DEV = (import.meta as any).env?.VITE_TENANT_SLUG ?? 'acme'
 
-  const roles: { id: SimRole; label: string; color: string }[] = [
-    { id: 'guard',      label: 'Guard',      color: '#3b82f6' },
-    { id: 'supervisor', label: 'Supervisor', color: '#c96442' },
-    { id: 'admin',      label: 'Admin',      color: '#10b981' },
-  ]
+function DevAccountBar() {
+  const { user, setAuth } = useAuthStore()
+  const [switching, setSwitching] = useState<string | null>(null)
 
-  const realRole = user?.role
-  const activeLabel = simRole
-    ? roles.find(r => r.id === simRole)?.label
-    : realRole
+  async function switchTo(acc: typeof DEV_USERS[0]) {
+    if (switching || user?.email === acc.email) return
+    setSwitching(acc.email)
+    try {
+      const res = await fetch(`${BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: acc.email, password: acc.password, tenantSlug: TENANT_SLUG_DEV }),
+      })
+      const data = await res.json()
+      if (data.data?.token) {
+        setAuth(data.data.token, data.data.user, TENANT_SLUG_DEV)
+        window.location.replace('/tabs/dashboard')
+      }
+    } catch (e) { console.error(e) }
+    finally { setSwitching(null) }
+  }
 
   return (
-    <>
-      {/* Simulation banner */}
-      {simRole && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9000,
-          background: '#c96442', padding: '4px 16px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          fontSize: 11, fontFamily: 'ui-monospace, monospace',
-        }}>
-          <span style={{ color: '#fff', fontWeight: 700 }}>
-            ◈ simulating: {roles.find(r => r.id === simRole)?.label}
-          </span>
-          <button
-            onClick={() => setSimRole(null)}
-            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.8)', cursor: 'pointer', fontSize: 12, padding: 0 }}
-          >
-            reset ×
-          </button>
-        </div>
-      )}
-
-      {/* Role switcher pill — bottom left above tab bar */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          position: 'fixed', bottom: 68, left: 12, zIndex: 8999,
-          display: 'flex', alignItems: 'center', gap: 5,
-          padding: '5px 10px', borderRadius: 20,
-          background: '#ffffff', border: '1px solid #e8e5e0',
-          color: '#5c5855', fontSize: 11, cursor: 'pointer',
-          fontFamily: 'ui-monospace, monospace',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        }}
-      >
-        <IonIcon icon={codeSlashOutline} style={{ fontSize: 12, color: '#c96442' }} />
-        {activeLabel ?? realRole}
-        <span style={{ color: '#e8e5e0' }}>▾</span>
-      </button>
-
-      {/* Popover */}
-      {open && (
-        <>
-          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 8998 }} />
-          <div style={{
-            position: 'fixed', bottom: 104, left: 12, zIndex: 8999,
-            background: '#ffffff', border: '1px solid #e8e5e0', borderRadius: 10,
-            padding: 8, minWidth: 160,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-            fontFamily: 'ui-monospace, monospace',
-          }}>
-            <div style={{ padding: '4px 8px 8px', borderBottom: '1px solid #e8e5e0', marginBottom: 6 }}>
-              <span style={{ color: '#9a9490', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>View As Role</span>
-            </div>
-            {/* Reset to real role */}
-            <button
-              onClick={() => { setSimRole(null); setOpen(false) }}
-              style={{
-                display: 'flex', width: '100%', alignItems: 'center', gap: 8,
-                padding: '7px 10px', background: !simRole ? 'rgba(92,88,85,0.08)' : 'none',
-                border: 'none', borderRadius: 6, cursor: 'pointer', color: !simRole ? '#1a1916' : '#9a9490', fontSize: 12,
-                fontFamily: 'inherit',
-              }}
-            >
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#5c5855', display: 'inline-block' }} />
-              Real ({realRole})
-              {!simRole && <span style={{ marginLeft: 'auto', color: '#c96442', fontSize: 10 }}>✓</span>}
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9000,
+      background: '#2b2a27', borderBottom: '1px solid #3a3835',
+      padding: '5px 10px',
+      display: 'flex', alignItems: 'center', gap: 6,
+    }}>
+      <span style={{ color: '#c96442', fontSize: 9, fontFamily: 'ui-monospace,monospace', flexShrink: 0 }}>◈ dev</span>
+      <div style={{ display: 'flex', gap: 4, flex: 1, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
+        {DEV_USERS.map(a => {
+          const active = user?.email === a.email
+          return (
+            <button key={a.email} onClick={() => switchTo(a)} disabled={!!switching} style={{
+              padding: '3px 9px', borderRadius: 12,
+              fontSize: 10, fontWeight: active ? 700 : 400,
+              border: `1px solid ${active ? a.color : '#4a4845'}`,
+              background: active ? `${a.color}22` : 'transparent',
+              color: active ? a.color : '#7a7773',
+              cursor: active ? 'default' : 'pointer',
+              whiteSpace: 'nowrap', flexShrink: 0,
+              opacity: switching && switching !== a.email ? 0.35 : 1,
+              transition: 'all 0.1s',
+            }}>
+              {switching === a.email ? '…' : a.label}
+              {active && <span style={{ marginLeft: 2, fontSize: 8 }}>✓</span>}
             </button>
-            {roles.map(r => (
-              <button
-                key={r.id}
-                onClick={() => { setSimRole(r.id); setOpen(false) }}
-                style={{
-                  display: 'flex', width: '100%', alignItems: 'center', gap: 8,
-                  padding: '7px 10px', background: simRole === r.id ? `${r.color}18` : 'none',
-                  border: 'none', borderRadius: 6, cursor: 'pointer', color: simRole === r.id ? r.color : '#5c5855', fontSize: 12,
-                  fontFamily: 'inherit',
-                }}
-              >
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: r.color, display: 'inline-block' }} />
-                {r.label}
-                {simRole === r.id && <span style={{ marginLeft: 'auto', color: r.color, fontSize: 10 }}>✓</span>}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -513,20 +467,17 @@ function DevRoleSwitcher() {
 
 export const TabLayout: React.FC = () => {
   const { user } = useAuthStore()
-  const { simRole } = useDevRole()
 
-  // Determine effective role: simulated takes priority
-  const effectiveRole = simRole ?? user?.role
-
-  const isSupervisor = effectiveRole === 'supervisor'
-  const isAdmin = effectiveRole === 'admin' || effectiveRole === 'tenant_admin' || effectiveRole === 'platform_admin'
+  const role = user?.role
+  const isSupervisor = role === 'supervisor'
+  const isAdmin = role === 'admin' || role === 'tenant_admin' || role === 'platform_admin'
   const tabBarStyle = { '--background': '#ffffff', '--border': '1px solid #e8e5e0' } as any
-  const topPad = simRole ? { paddingTop: 22 } : {}
+  const topPad = { paddingTop: 28 }
 
   if (isAdmin) {
     return (
       <>
-        <DevRoleSwitcher />
+        <DevAccountBar />
         <div style={topPad}>
           <IonTabs>
             <IonRouterOutlet>
@@ -564,7 +515,7 @@ export const TabLayout: React.FC = () => {
   if (isSupervisor) {
     return (
       <>
-        <DevRoleSwitcher />
+        <DevAccountBar />
         <div style={topPad}>
           <IonTabs>
             <IonRouterOutlet>
@@ -605,7 +556,7 @@ export const TabLayout: React.FC = () => {
   // Guard view (default)
   return (
     <>
-      <DevRoleSwitcher />
+      <DevAccountBar />
       <div style={topPad}>
         <IonTabs>
           <IonRouterOutlet>

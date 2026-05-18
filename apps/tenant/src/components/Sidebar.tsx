@@ -1,8 +1,73 @@
 'use client'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useViewAs, type ViewAsRole } from '../context/ViewAsContext'
 import { useTour } from './AppTour'
+
+const DEV_ACCOUNTS = [
+  { label: 'Admin', email: 'admin@acme.secureops.in', password: 'acme123', color: '#10b981' },
+  { label: 'Supervisor', email: 'supervisor@acme.secureops.in', password: 'super123', color: '#c96442' },
+]
+
+function DevAccountSwitcher() {
+  const [currentEmail, setCurrentEmail] = useState<string | null>(null)
+  const [switching, setSwitching] = useState<string | null>(null)
+
+  useEffect(() => {
+    try {
+      const u = localStorage.getItem('td_user')
+      if (u) setCurrentEmail(JSON.parse(u).email)
+    } catch {}
+  }, [])
+
+  async function switchTo(acc: typeof DEV_ACCOUNTS[0]) {
+    if (switching || currentEmail === acc.email) return
+    setSwitching(acc.email)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: acc.email, password: acc.password, tenantSlug: process.env.NEXT_PUBLIC_TENANT_SLUG ?? 'acme' }),
+      })
+      const data = await res.json()
+      if (data.data?.token) {
+        localStorage.setItem('td_token', data.data.token)
+        localStorage.setItem('td_user', JSON.stringify(data.data.user))
+        window.location.reload()
+      }
+    } catch (e) { console.error(e) }
+    finally { setSwitching(null) }
+  }
+
+  return (
+    <div style={{ padding: '8px 12px 10px', background: 'rgba(201,100,66,0.03)', borderBottom: '1px solid #e8e5e0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6, color: '#9a9490', fontSize: 10, fontFamily: 'ui-monospace,"JetBrains Mono",monospace', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        <span style={{ color: '#c96442' }}>◈</span> testing as
+      </div>
+      <div style={{ display: 'flex', gap: 5 }}>
+        {DEV_ACCOUNTS.map(a => {
+          const active = currentEmail === a.email
+          return (
+            <button key={a.email} onClick={() => switchTo(a)} style={{
+              flex: 1, padding: '5px 0', borderRadius: 7,
+              fontSize: 12, fontWeight: active ? 600 : 400,
+              border: `1.5px solid ${active ? a.color : '#e8e5e0'}`,
+              background: active ? `${a.color}14` : '#fff',
+              color: active ? a.color : '#5c5855',
+              cursor: active ? 'default' : 'pointer',
+              opacity: switching && switching !== a.email ? 0.4 : 1,
+              transition: 'all 0.12s',
+            }}>
+              {switching === a.email ? '…' : a.label}
+              {active && <span style={{ marginLeft: 4, fontSize: 9 }}>✓</span>}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 const NAV = [
   { href: '/dashboard',     label: 'Dashboard' },
@@ -132,6 +197,9 @@ export function Sidebar() {
           <span style={{ fontSize: 11 }}>◈</span> dev reference
         </button>
       </div>
+
+      {/* Dev account switcher */}
+      <DevAccountSwitcher />
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
