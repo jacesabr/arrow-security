@@ -48,6 +48,10 @@ jobs:
         working-directory: apps/mobile
         run: pnpm exec cap sync android
 
+      - name: Write local.properties
+        working-directory: apps/mobile/android
+        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+
       - name: Make Gradle wrapper executable
         working-directory: apps/mobile/android
         run: chmod +x gradlew
@@ -55,8 +59,6 @@ jobs:
       - name: Build debug APK
         working-directory: apps/mobile/android
         run: ./gradlew assembleDebug --no-daemon
-        env:
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
