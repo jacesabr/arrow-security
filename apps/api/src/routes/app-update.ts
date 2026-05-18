@@ -15,16 +15,21 @@ export const appUpdateRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(multipart, { limits: { fileSize: 20 * 1024 * 1024 } }) // 20 MB max
 
   // POST / — Capgo plugin calls this on every app launch to check for updates.
-  // Responds with { version, url } if a bundle exists, otherwise { version: 'builtin' }.
+  // Body includes version_name (current bundle on device). Only returns a URL when a newer
+  // version is available; returns {} otherwise so the plugin skips the download.
   fastify.post('/', async (request, reply) => {
+    const body = request.body as Record<string, string> | undefined
+    const deviceVersion = body?.version_name ?? ''
+
     const [current] = await db
       .select({ version: appReleases.version })
       .from(appReleases)
       .where(eq(appReleases.isCurrent, true))
       .limit(1)
 
-    if (!current) {
-      return reply.send({ version: 'builtin' })
+    // No bundle published yet, or device already has the latest — nothing to do.
+    if (!current || deviceVersion === current.version) {
+      return reply.send({})
     }
 
     return reply.send({

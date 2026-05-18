@@ -45,7 +45,7 @@ jobs:
         working-directory: apps/mobile
         run: |
           VERSION=$(echo "$GITHUB_SHA" | cut -c1-8)
-          zip -r bundle.zip dist/
+          cd dist && zip -r ../bundle.zip . && cd ..
           curl -s -o /dev/null -w "%{http_code}" \
             -X POST \
             -H "X-Update-Token: ${{ secrets.APP_UPDATE_TOKEN }}" \
