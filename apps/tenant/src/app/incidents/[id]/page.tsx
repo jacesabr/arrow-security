@@ -2,22 +2,22 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Sidebar } from '../../../components/Sidebar'
+import { PageShell, Main, Card, CardHeader, Badge, Btn } from '../../../components/ui'
 import { tdApi } from '../../../lib/api'
 
-const SEV_COLORS: Record<string, string> = {
-  low: 'bg-slate-700 text-slate-300',
-  medium: 'bg-yellow-900 text-yellow-300',
-  high: 'bg-orange-900 text-orange-300',
-  critical: 'bg-red-900 text-red-300',
+const SEV_BADGE: Record<string, { color: string; bg: string }> = {
+  low:      { color: '#5c5855', bg: 'rgba(163,160,152,0.1)' },
+  medium:   { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+  high:     { color: '#c96442', bg: 'rgba(201,100,66,0.1)' },
+  critical: { color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  open: 'bg-red-900 text-red-300',
-  acknowledged: 'bg-yellow-900 text-yellow-300',
-  in_progress: 'bg-blue-900 text-blue-300',
-  resolved: 'bg-emerald-900 text-emerald-300',
-  closed: 'bg-slate-700 text-slate-400',
+const STATUS_BADGE: Record<string, { color: string; bg: string }> = {
+  open:         { color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
+  acknowledged: { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+  in_progress:  { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
+  resolved:     { color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
+  closed:       { color: '#9a9490', bg: 'rgba(122,119,115,0.1)' },
 }
 
 export default function IncidentDetailPage() {
@@ -60,24 +60,22 @@ export default function IncidentDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 p-8 flex items-center justify-center">
-          <div className="text-slate-500">Loading...</div>
-        </main>
-      </div>
+      <PageShell>
+        <Main>
+          <div style={{ color: 'var(--text-3)', padding: 40, textAlign: 'center' }}>Loading...</div>
+        </Main>
+      </PageShell>
     )
   }
 
   if (!incident) {
     return (
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 p-8">
-          <p className="text-slate-500">Incident not found.</p>
-          <Link href="/incidents" className="text-indigo-400 hover:text-indigo-300 mt-4 inline-block">← Back to Incidents</Link>
-        </main>
-      </div>
+      <PageShell>
+        <Main>
+          <p style={{ color: 'var(--text-3)' }}>Incident not found.</p>
+          <Link href="/incidents" style={{ color: '#c96442', textDecoration: 'none', fontSize: 14 }}>← Back to Incidents</Link>
+        </Main>
+      </PageShell>
     )
   }
 
@@ -95,135 +93,149 @@ export default function IncidentDetailPage() {
     { label: 'Closed', time: incident.closedAt, done: !!incident.closedAt },
   ]
 
+  const sev = SEV_BADGE[incident.severity] ?? SEV_BADGE.low
+  const sta = STATUS_BADGE[incident.status] ?? STATUS_BADGE.closed
+
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 p-8 max-w-4xl">
-        <div className="mb-6">
-          <Link href="/incidents" className="text-slate-400 hover:text-white text-sm">← Incidents</Link>
+    <PageShell>
+      <Main maxWidth={800}>
+        <div style={{ marginBottom: 20 }}>
+          <Link href="/incidents" style={{ color: 'var(--text-2)', textDecoration: 'none', fontSize: 13 }}>
+            ← Incidents
+          </Link>
         </div>
 
-        {/* Header */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 mb-6">
-          <div className="flex items-start justify-between mb-4">
-            <h1 className="text-2xl font-bold text-white">{incident.title}</h1>
-            <div className="flex gap-2">
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${SEV_COLORS[incident.severity] ?? 'bg-slate-700 text-slate-300'}`}>
-                {incident.severity}
-              </span>
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_COLORS[incident.status] ?? 'bg-slate-700 text-slate-300'}`}>
-                {incident.status?.replace(/_/g, ' ')}
-              </span>
+        {/* Header card */}
+        <Card style={{ padding: 28, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+            <h1 style={{ color: 'var(--text)', fontSize: 20, fontWeight: 700, margin: 0 }}>{incident.title}</h1>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              <Badge label={incident.severity} color={sev.color} bg={sev.bg} />
+              <Badge label={incident.status?.replace(/_/g, ' ')} color={sta.color} bg={sta.bg} />
             </div>
           </div>
-          <p className="text-slate-400 mb-6">{incident.description ?? 'No description provided.'}</p>
+          <p style={{ color: 'var(--text-2)', fontSize: 14, margin: '0 0 20px' }}>
+            {incident.description ?? 'No description provided.'}
+          </p>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <p className="text-slate-500">Site</p>
-              <p className="text-white mt-0.5">{incident.siteId ?? '—'}</p>
-            </div>
-            <div>
-              <p className="text-slate-500">Reporter</p>
-              <p className="text-white mt-0.5">{incident.reporterId ?? '—'}</p>
-            </div>
-            <div>
-              <p className="text-slate-500">Reported At</p>
-              <p className="text-white mt-0.5">{new Date(incident.createdAt).toLocaleString('en-IN')}</p>
-            </div>
-            <div>
-              <p className="text-slate-500">SLA Deadline</p>
-              <p className={`mt-0.5 font-medium ${slaPast ? 'text-red-400' : 'text-white'}`}>
-                {incident.slaDeadline ? new Date(incident.slaDeadline).toLocaleString('en-IN') : '—'}
-                {slaPast && ' ⚠️ Breached'}
-              </p>
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
+            {[
+              { label: 'Site', value: incident.siteId ?? '—' },
+              { label: 'Reporter', value: incident.reporterId ?? '—' },
+              { label: 'Reported At', value: new Date(incident.createdAt).toLocaleString('en-IN') },
+              {
+                label: 'SLA Deadline',
+                value: incident.slaDeadline ? new Date(incident.slaDeadline).toLocaleString('en-IN') : '—',
+                color: slaPast ? '#f87171' : undefined,
+                suffix: slaPast ? ' Breached' : '',
+              },
+            ].map((item) => (
+              <div key={item.label}>
+                <p style={{ color: 'var(--text-3)', fontSize: 12, margin: 0, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {item.label}
+                </p>
+                <p style={{ color: item.color ?? 'var(--text)', fontSize: 13.5, margin: '4px 0 0', fontWeight: item.color ? 600 : 400 }}>
+                  {item.value}{item.suffix}
+                </p>
+              </div>
+            ))}
           </div>
-        </div>
+        </Card>
 
-        {/* Status Actions */}
+        {/* Status actions */}
         {canUpdate && (
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 mb-6">
-            <h2 className="text-white font-semibold mb-4">Update Status</h2>
-            <div className="flex gap-2 flex-wrap">
+          <Card style={{ padding: 20, marginBottom: 16 }}>
+            <CardHeader title="Update Status" />
+            <div style={{ padding: '16px 0 4px', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {incident.status === 'open' && (
-                <button
+                <Btn
+                  variant="secondary"
                   onClick={() => updateStatus('acknowledged')}
                   disabled={updating}
-                  className="bg-yellow-700 hover:bg-yellow-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  Acknowledge
-                </button>
+                  <span style={{ color: '#fbbf24' }}>Acknowledge</span>
+                </Btn>
               )}
               {(incident.status === 'open' || incident.status === 'acknowledged') && (
-                <button
+                <Btn
+                  variant="secondary"
                   onClick={() => updateStatus('in_progress')}
                   disabled={updating}
-                  className="bg-blue-700 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  Mark In Progress
-                </button>
+                  <span style={{ color: '#3b82f6' }}>Mark In Progress</span>
+                </Btn>
               )}
               {incident.status !== 'resolved' && incident.status !== 'closed' && (
-                <button
+                <Btn
+                  variant="secondary"
                   onClick={() => updateStatus('resolved')}
                   disabled={updating}
-                  className="bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  Resolve
-                </button>
+                  <span style={{ color: '#10b981' }}>Resolve</span>
+                </Btn>
               )}
               {incident.status === 'resolved' && (
-                <button
+                <Btn
+                  variant="secondary"
                   onClick={() => updateStatus('closed')}
                   disabled={updating}
-                  className="bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
                 >
                   Close
-                </button>
+                </Btn>
               )}
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Timeline */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 mb-6">
-          <h2 className="text-white font-semibold mb-6">Timeline</h2>
-          <div className="flex flex-col gap-4">
+        <Card style={{ marginBottom: 16 }}>
+          <CardHeader title="Timeline" />
+          <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
             {timeline.map((step, i) => (
-              <div key={i} className="flex items-start gap-4">
-                <div className={`w-3 h-3 rounded-full mt-0.5 flex-shrink-0 ${step.done ? 'bg-emerald-500' : 'bg-slate-700'}`} />
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                <div style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  marginTop: 3,
+                  flexShrink: 0,
+                  background: step.done ? '#10b981' : 'var(--border)',
+                }} />
                 <div>
-                  <p className={`text-sm font-medium ${step.done ? 'text-white' : 'text-slate-600'}`}>{step.label}</p>
+                  <p style={{ color: step.done ? 'var(--text)' : 'var(--text-3)', fontSize: 13.5, fontWeight: step.done ? 500 : 400, margin: 0 }}>
+                    {step.label}
+                  </p>
                   {step.time && (
-                    <p className="text-slate-500 text-xs mt-0.5">{new Date(step.time).toLocaleString('en-IN')}</p>
+                    <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>
+                      {new Date(step.time).toLocaleString('en-IN')}
+                    </p>
                   )}
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </Card>
 
-        {/* Media */}
+        {/* Attachments */}
         {incident.mediaUrls && incident.mediaUrls.length > 0 && (
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <h2 className="text-white font-semibold mb-4">Attachments</h2>
-            <div className="space-y-2">
+          <Card>
+            <CardHeader title="Attachments" />
+            <div style={{ padding: '16px 22px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {incident.mediaUrls.map((url: string, i: number) => (
                 <a
                   key={i}
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 text-sm"
+                  style={{ color: '#c96442', fontSize: 13, textDecoration: 'none' }}
                 >
-                  📎 {url}
+                  Attachment {i + 1}: {url}
                 </a>
               ))}
             </div>
-          </div>
+          </Card>
         )}
-      </main>
-    </div>
+      </Main>
+    </PageShell>
   )
 }

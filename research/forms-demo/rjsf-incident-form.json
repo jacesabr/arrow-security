@@ -1,0 +1,138 @@
+{
+  "_description": "react-jsonschema-form (RJSF) — 100% MIT. Two separate objects required: 'schema' (JSON Schema Draft-07) and 'uiSchema' (RJSF rendering hints). No drag-and-drop builder. Conditional show/hide requires a custom ObjectFieldTemplate or rjsf-conditionals package.",
+
+  "schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Security Incident Report",
+    "type": "object",
+    "required": ["incident_type"],
+    "properties": {
+      "incident_type": {
+        "type": "string",
+        "title": "Incident Type",
+        "enum": ["theft", "trespass", "medical", "vandalism", "other"],
+        "enumNames": [
+          "Theft",
+          "Trespass / Unauthorised Entry",
+          "Medical Emergency",
+          "Vandalism / Property Damage",
+          "Other"
+        ]
+      },
+      "stolen_items": {
+        "type": "string",
+        "title": "Description of Stolen Items"
+      },
+      "estimated_value": {
+        "type": "number",
+        "title": "Estimated Value (₹)",
+        "minimum": 0
+      },
+      "victim_name": {
+        "type": "string",
+        "title": "Victim / Patient Name"
+      },
+      "ambulance_called": {
+        "type": "boolean",
+        "title": "Was an ambulance called?"
+      },
+      "other_description": {
+        "type": "string",
+        "title": "Describe the Incident"
+      },
+      "photo_evidence": {
+        "type": "array",
+        "title": "Photo Evidence",
+        "items": {
+          "type": "string",
+          "format": "data-url"
+        }
+      },
+      "gps_location": {
+        "type": "string",
+        "title": "GPS Coordinates",
+        "readOnly": true,
+        "description": "Auto-populated on submission"
+      },
+      "witness_signature": {
+        "type": "string",
+        "title": "Witness Signature",
+        "format": "data-url",
+        "description": "Requires a custom react-signature-canvas widget — no built-in signaturepad in RJSF"
+      }
+    },
+    "if": {
+      "properties": { "incident_type": { "const": "theft" } }
+    },
+    "then": {
+      "required": ["stolen_items"],
+      "_note": "RJSF honours required changes from if/then/else but does NOT hide fields — fields remain visible regardless. Use a custom ObjectFieldTemplate or @rjsf-team/rjsf-conditionals for show/hide."
+    },
+    "else": {
+      "if": {
+        "properties": { "incident_type": { "const": "medical" } }
+      },
+      "then": {
+        "required": ["victim_name"]
+      },
+      "else": {
+        "if": {
+          "properties": { "incident_type": { "const": "other" } }
+        },
+        "then": {
+          "required": ["other_description"]
+        }
+      }
+    }
+  },
+
+  "uiSchema": {
+    "incident_type": {
+      "ui:widget": "select"
+    },
+    "stolen_items": {
+      "ui:widget": "textarea",
+      "ui:options": { "rows": 3 }
+    },
+    "other_description": {
+      "ui:widget": "textarea",
+      "ui:options": { "rows": 4 }
+    },
+    "ambulance_called": {
+      "ui:widget": "checkbox"
+    },
+    "photo_evidence": {
+      "ui:options": { "accept": "image/*" }
+    },
+    "gps_location": {
+      "ui:readonly": true,
+      "ui:help": "Auto-populated on submission"
+    },
+    "witness_signature": {
+      "ui:widget": "signaturePad",
+      "ui:help": "Custom widget — register via widgets prop: <Form widgets={{ signaturePad: SignaturePadWidget }} />"
+    }
+  },
+
+  "_rendering_example": {
+    "code": "import Form from '@rjsf/core'; import validator from '@rjsf/validator-ajv8'; <Form schema={schema} uiSchema={uiSchema} validator={validator} onSubmit={({ formData }) => handleSubmit(formData)} />",
+    "packages": ["@rjsf/core", "@rjsf/utils", "@rjsf/validator-ajv8"],
+    "all_mit": true
+  },
+
+  "_comparison_vs_surveyjs": {
+    "pros": [
+      "100% MIT — no commercial licence needed for any feature",
+      "JSON Schema standard — schemas reusable with other validators (AJV, Zod)",
+      "Tiny bundle (~45KB gzip vs SurveyJS ~180KB)",
+      "Direct TypeScript types for the schema"
+    ],
+    "cons": [
+      "No visual drag-and-drop builder — developer-only workflow",
+      "Conditional show/hide requires custom code; not declarative",
+      "No built-in signature pad — custom widget required",
+      "No built-in PDF export",
+      "Non-developer admins cannot configure templates without custom builder UI"
+    ]
+  }
+}

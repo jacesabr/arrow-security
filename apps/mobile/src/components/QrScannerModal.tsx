@@ -1,6 +1,15 @@
-import React, { useEffect, useRef } from 'react'
-import { IonModal, IonHeader, IonToolbar, IonTitle, IonContent, IonButton } from '@ionic/react'
-import { Html5Qrcode } from 'html5-qrcode'
+import React, { useEffect } from 'react'
+import {
+  IonModal,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonContent,
+  IonButton,
+  IonIcon,
+} from '@ionic/react'
+import { BarcodeScanner } from '@capacitor-community/barcode-scanner'
+import { qrCodeOutline } from 'ionicons/icons'
 
 interface Props {
   isOpen: boolean
@@ -10,67 +19,113 @@ interface Props {
 }
 
 export const QrScannerModal: React.FC<Props> = ({ isOpen, onScan, onClose, title = 'Scan QR Code' }) => {
-  const scannerRef = useRef<Html5Qrcode | null>(null)
-  const containerId = 'qr-scan-container'
-
   useEffect(() => {
-    if (!isOpen) return
-
-    const timer = setTimeout(() => {
-      const scanner = new Html5Qrcode(containerId)
-      scannerRef.current = scanner
-
-      scanner
-        .start(
-          { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          (decodedText) => {
-            stopScanner()
-            onScan(decodedText)
-          },
-          undefined,
-        )
-        .catch(console.error)
-    }, 300)
-
-    return () => clearTimeout(timer)
+    if (isOpen) {
+      startScan()
+    } else {
+      stopScan()
+    }
+    return () => { stopScan() }
   }, [isOpen])
 
-  function stopScanner() {
-    if (scannerRef.current?.isScanning) {
-      scannerRef.current.stop().catch(console.error)
+  async function startScan() {
+    try {
+      // Check/request camera permission
+      const status = await BarcodeScanner.checkPermission({ force: true })
+      if (!status.granted) {
+        onClose()
+        return
+      }
+      // Make background transparent so camera shows through
+      BarcodeScanner.hideBackground()
+      document.body.classList.add('scanner-active')
+
+      const result = await BarcodeScanner.startScan()
+      document.body.classList.remove('scanner-active')
+      BarcodeScanner.showBackground()
+
+      if (result.hasContent) {
+        onScan(result.content)
+      } else {
+        onClose()
+      }
+    } catch (err) {
+      console.error('QR scan error:', err)
+      document.body.classList.remove('scanner-active')
+      BarcodeScanner.showBackground()
+      onClose()
     }
-    scannerRef.current = null
+  }
+
+  async function stopScan() {
+    try {
+      await BarcodeScanner.stopScan()
+      document.body.classList.remove('scanner-active')
+      BarcodeScanner.showBackground()
+    } catch { /* ignore */ }
   }
 
   function handleClose() {
-    stopScanner()
+    stopScan()
     onClose()
   }
+
+  if (!isOpen) return null
 
   return (
     <IonModal isOpen={isOpen} onDidDismiss={handleClose}>
       <IonHeader>
-        <IonToolbar style={{ '--background': '#0f172a', '--color': '#fff' }}>
+        <IonToolbar style={{ '--background': '#1a1916', '--color': '#eeece8' }}>
           <IonTitle>{title}</IonTitle>
         </IonToolbar>
       </IonHeader>
-      <IonContent style={{ '--background': '#0f172a' }}>
-        <div style={{ padding: 16 }}>
-          <div
-            id={containerId}
-            style={{ width: '100%', borderRadius: 12, overflow: 'hidden' }}
-          />
-          <p style={{ color: '#64748b', textAlign: 'center', marginTop: 16, fontSize: 14 }}>
-            Point the camera at a QR code to scan
+      <IonContent style={{ '--background': 'transparent' }}>
+        {/* Scanner viewfinder overlay */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          gap: 24,
+          padding: 24,
+        }}>
+          <div style={{
+            width: 250,
+            height: 250,
+            border: '3px solid #c96442',
+            borderRadius: 16,
+            position: 'relative',
+          }}>
+            {/* Corner decorations */}
+            {['topLeft', 'topRight', 'bottomLeft', 'bottomRight'].map((corner) => (
+              <div key={corner} style={{
+                position: 'absolute',
+                width: 24,
+                height: 24,
+                borderColor: '#c96442',
+                borderStyle: 'solid',
+                borderWidth: corner.includes('top') ? '3px 0 0 3px' : '0 3px 3px 0',
+                ...(corner.includes('top') ? { top: -3 } : { bottom: -3 }),
+                ...(corner.includes('Left') ? { left: -3 } : { right: -3 }),
+              }} />
+            ))}
+            <IonIcon icon={qrCodeOutline} style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              fontSize: 48,
+              color: '#c9644244',
+            }} />
+          </div>
+          <p style={{ color: '#eeece8', textAlign: 'center', margin: 0 }}>
+            Point camera at QR code
           </p>
-        </div>
-        <div style={{ padding: '0 16px' }}>
           <IonButton
-            expand="block"
             fill="outline"
             onClick={handleClose}
-            style={{ '--color': '#94a3b8', '--border-color': '#334155' }}
+            style={{ '--color': '#a3a098', '--border-color': '#4a4845' }}
           >
             Cancel
           </IonButton>

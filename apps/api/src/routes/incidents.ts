@@ -1,9 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { db, incidents } from '@secureops/db'
-import { eq, and, desc } from 'drizzle-orm'
+import { db, incidents, users } from '@secureops/db'
+import { eq, and, desc, isNotNull } from 'drizzle-orm'
 import { requireAuth, requireSupervisor } from '../lib/auth'
 import { SLA_HOURS } from '@secureops/shared'
+import { appendAuditEntry } from '../lib/audit'
+import { sendPush } from '../lib/push'
 
 const createIncidentSchema = z.object({
   siteId: z.string(),
@@ -65,12 +67,24 @@ export const incidentsRoutes: FastifyPluginAsync = async (fastify) => {
       })
       .returning()
 
+    appendAuditEntry({ tenantId: payload.tenantId, userId: payload.sub, action: 'incident.created', resourceType: 'incident', resourceId: incident.id, payload: { title: body.title, severity: body.severity } })
+
+    // Push to supervisors/admins for the tenant
+    ;(async () => {
+      const supervisors = await db
+        .select({ fcmToken: users.fcmToken })
+        .from(users)
+        .where(and(eq(users.tenantId, payload.tenantId), isNotNull(users.fcmToken)))
+      const tokens = supervisors.map(s => s.fcmToken!).filter(Boolean)
+      await sendPush(tokens, `New ${body.severity.toUpperCase()} Incident`, body.title, { incidentId: incident.id })
+    })().catch(() => {})
+
     return reply.code(201).send({ data: incident })
   })
 
   fastify.patch('/:id/status', { preHandler: requireSupervisor }, async (request, reply) => {
     const { id } = request.params as { id: string }
-    const payload = request.user as { tenantId: string }
+    const payload = request.user as { tenantId: string; sub: string }
     const { status } = z.object({
       status: z.enum(['open', 'acknowledged', 'in_progress', 'resolved', 'closed']),
     }).parse(request.body)
@@ -88,6 +102,7 @@ export const incidentsRoutes: FastifyPluginAsync = async (fastify) => {
       .returning()
 
     if (!incident) return reply.code(404).send({ error: 'Not found', message: 'Incident not found', statusCode: 404 })
+    appendAuditEntry({ tenantId: payload.tenantId, userId: payload.sub, action: 'incident.status_changed', resourceType: 'incident', resourceId: id, payload: { status } })
     return reply.send({ data: incident })
   })
 }

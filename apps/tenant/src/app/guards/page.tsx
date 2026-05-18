@@ -1,13 +1,15 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sidebar } from '../../components/Sidebar'
+import { PageShell, Main, PageHeader, Card, DataTable, TR, TD, Badge, Btn, Modal, Field, Input, Select, ErrorMsg, ModalActions } from '../../components/ui'
 import { tdApi } from '../../lib/api'
 
-const ROLE_COLORS: Record<string, string> = {
-  guard: 'bg-blue-900 text-blue-300',
-  supervisor: 'bg-yellow-900 text-yellow-300',
-  tenant_admin: 'bg-purple-900 text-purple-300',
+const ROLE_BADGE: Record<string, { color: string; bg: string }> = {
+  guard:          { color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
+  supervisor:     { color: '#c96442', bg: 'rgba(201,100,66,0.12)' },
+  tenant_admin:   { color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+  platform_admin: { color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+  client_viewer:  { color: '#5c5855', bg: 'rgba(163,160,152,0.12)' },
 }
 
 export default function GuardsPage() {
@@ -56,160 +58,72 @@ export default function GuardsPage() {
     }
   }
 
+  const roleBadge = (role: string) => {
+    const c = ROLE_BADGE[role] ?? { color: '#5c5855', bg: 'rgba(163,160,152,0.12)' }
+    return <Badge label={role} color={c.color} bg={c.bg} />
+  }
+
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 p-8">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Guards</h1>
-            <p className="text-slate-400 mt-1">{users.length} users</p>
-          </div>
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+    <PageShell>
+      <Main>
+        <PageHeader
+          title="Guards"
+          subtitle={`${users.length} users`}
+          action={<Btn variant="primary" onClick={() => setShowModal(true)}>+ Add Guard</Btn>}
+        />
+
+        <Card overflow="hidden">
+          <DataTable
+            cols={['Name', 'Email', 'Phone', 'Role', 'Face Enrolled', 'Last Login']}
+            loading={loading}
+            empty="No users yet. Add a guard to get started."
           >
-            + Add Guard
-          </button>
-        </div>
+            {users.map((u) => (
+              <TR key={u.id}>
+                <TD>{u.name}</TD>
+                <TD muted>{u.email}</TD>
+                <TD muted>{u.phone ?? '—'}</TD>
+                <TD>{roleBadge(u.role)}</TD>
+                <TD>
+                  {u.faceEnrolled
+                    ? <span style={{ color: '#10b981', fontSize: 13 }}>Enrolled</span>
+                    : <span style={{ color: 'var(--text-3)', fontSize: 13 }}>Not enrolled</span>
+                  }
+                </TD>
+                <TD muted>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('en-IN') : '—'}</TD>
+              </TR>
+            ))}
+          </DataTable>
+        </Card>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-800">
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Name</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Email</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Phone</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Role</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Face Enrolled</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Last Login</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
-                    Loading...
-                  </td>
-                </tr>
-              ) : users.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
-                    No users yet. Add a guard to get started.
-                  </td>
-                </tr>
-              ) : (
-                users.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-800/50 transition-colors">
-                    <td className="px-6 py-4 text-white font-medium">{u.name}</td>
-                    <td className="px-6 py-4 text-slate-400 text-sm">{u.email}</td>
-                    <td className="px-6 py-4 text-slate-400 text-sm">{u.phone ?? '—'}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                          ROLE_COLORS[u.role] ?? 'bg-slate-700 text-slate-300'
-                        }`}
-                      >
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      {u.faceEnrolled ? (
-                        <span className="text-emerald-400">✓ Enrolled</span>
-                      ) : (
-                        <span className="text-slate-600">— Not enrolled</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-slate-400 text-sm">
-                      {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('en-IN') : '—'}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </main>
-
-      {/* Add Guard Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 w-full max-w-md shadow-2xl">
-            <h2 className="text-white font-bold text-lg mb-6">Add Guard</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1.5">Full Name</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1.5">Email</label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1.5">Password</label>
-                <input
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1.5">Phone</label>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1.5">Role</label>
-                <select
-                  value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value })}
-                  className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="guard">Guard</option>
-                  <option value="supervisor">Supervisor</option>
-                </select>
-              </div>
-
-              {error && <p className="text-red-400 text-sm">{error}</p>}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowModal(false); setError(null) }}
-                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {saving ? 'Saving...' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+        <Modal open={showModal} onClose={() => { setShowModal(false); setError(null) }} title="Add Guard">
+          <form onSubmit={handleCreate}>
+            <Field label="Full Name">
+              <Input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            </Field>
+            <Field label="Email">
+              <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+            </Field>
+            <Field label="Password">
+              <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+            </Field>
+            <Field label="Phone">
+              <Input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            </Field>
+            <Field label="Role">
+              <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+                <option value="guard">Guard</option>
+                <option value="supervisor">Supervisor</option>
+              </Select>
+            </Field>
+            <ErrorMsg msg={error} />
+            <ModalActions>
+              <Btn variant="secondary" onClick={() => { setShowModal(false); setError(null) }}>Cancel</Btn>
+              <Btn variant="primary" type="submit" loading={saving}>Create</Btn>
+            </ModalActions>
+          </form>
+        </Modal>
+      </Main>
+    </PageShell>
   )
 }

@@ -7,7 +7,6 @@ export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [tenantSlug, setTenantSlug] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -16,7 +15,7 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await tdApi.auth.login(email, password, tenantSlug)
+      const res = await tdApi.auth.login(email, password, process.env.NEXT_PUBLIC_TENANT_SLUG ?? '')
       const { role } = res.data.user
       if (role !== 'tenant_admin' && role !== 'supervisor' && role !== 'guard') {
         setError('Access denied. Tenant users only.')
@@ -33,61 +32,130 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600 mb-4">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+    <div style={{
+      minHeight: '100vh',
+      background: '#fafaf9',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+    }}>
+      <div style={{ width: '100%', maxWidth: 400 }}>
+        {/* Brand */}
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 56,
+            height: 56,
+            borderRadius: 14,
+            background: '#c96442',
+            marginBottom: 14,
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white">SecureOps</h1>
-          <p className="text-slate-400 mt-1">Tenant Portal</p>
+          <h1 style={{ color: '#1a1916', fontSize: 22, fontWeight: 700, margin: 0 }}>Arrow Security</h1>
+          <p style={{ color: '#9a9490', marginTop: 4, fontSize: 13 }}>Operations Portal</p>
         </div>
 
-        <form onSubmit={handleLogin} className="bg-slate-900 rounded-2xl p-8 shadow-xl border border-slate-800">
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-slate-400 mb-1.5">Company Slug</label>
-            <input
-              type="text"
-              value={tenantSlug}
-              onChange={(e) => setTenantSlug(e.target.value)}
-              className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-              placeholder="my-security-company"
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-slate-400 mb-1.5">Email</label>
+        {/* Form card */}
+        <form
+          onSubmit={handleLogin}
+          style={{
+            background: '#ffffff',
+            border: '1px solid #e8e5e0',
+            borderRadius: 14,
+            padding: 28,
+            boxShadow: '0 2px 16px rgba(26,25,22,0.06)',
+          }}
+        >
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', color: '#5c5855', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
+              Email
+            </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-              placeholder="admin@yourcompany.com"
+              style={{
+                width: '100%',
+                background: '#fafaf9',
+                color: '#1a1916',
+                border: '1.5px solid #e8e5e0',
+                borderRadius: 8,
+                padding: '9px 13px',
+                fontSize: 14,
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+              placeholder="admin@arrowsecurity.com"
               required
+              onFocus={e => (e.currentTarget.style.borderColor = '#c96442')}
+              onBlur={e => (e.currentTarget.style.borderColor = '#e8e5e0')}
             />
           </div>
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-slate-400 mb-1.5">Password</label>
+
+          <div style={{ marginBottom: 22 }}>
+            <label style={{ display: 'block', color: '#5c5855', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
+              Password
+            </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
+              style={{
+                width: '100%',
+                background: '#fafaf9',
+                color: '#1a1916',
+                border: '1.5px solid #e8e5e0',
+                borderRadius: 8,
+                padding: '9px 13px',
+                fontSize: 14,
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
               placeholder="••••••••"
               required
+              onFocus={e => (e.currentTarget.style.borderColor = '#c96442')}
+              onBlur={e => (e.currentTarget.style.borderColor = '#e8e5e0')}
             />
           </div>
 
-          {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+          {error && (
+            <div style={{
+              background: 'rgba(239,68,68,0.06)',
+              border: '1px solid rgba(239,68,68,0.2)',
+              borderRadius: 8,
+              padding: '8px 12px',
+              color: '#ef4444',
+              fontSize: 13,
+              marginBottom: 14,
+            }}>
+              {error}
+            </div>
+          )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50"
+            style={{
+              width: '100%',
+              background: '#c96442',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              padding: '11px 0',
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: loading ? 'default' : 'pointer',
+              opacity: loading ? 0.65 : 1,
+              transition: 'opacity 0.15s',
+            }}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
       </div>

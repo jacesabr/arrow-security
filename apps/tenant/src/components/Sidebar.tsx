@@ -1,23 +1,87 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useViewAs, type ViewAsRole } from '../context/ViewAsContext'
+import { useTour } from './AppTour'
 
 const NAV = [
-  { href: '/dashboard', label: 'Dashboard', icon: '📊' },
-  { href: '/guards', label: 'Guards', icon: '👮' },
-  { href: '/sites', label: 'Sites', icon: '📍' },
-  { href: '/shifts', label: 'Shifts', icon: '📅' },
-  { href: '/incidents', label: 'Incidents', icon: '⚠️' },
-  { href: '/patrols', label: 'Patrols', icon: '🚶' },
-  { href: '/cameras', label: 'Cameras', icon: '📷' },
-  { href: '/checkpoints', label: 'Checkpoints', icon: '✅' },
-  { href: '/clients', label: 'Clients', icon: '🏢' },
-  { href: '/settings', label: 'Settings', icon: '⚙️' },
+  { href: '/dashboard',     label: 'Dashboard' },
+  { href: '/guards',        label: 'Guards' },
+  { href: '/certifications',label: 'Certifications' },
+  { href: '/sites',         label: 'Sites' },
+  { href: '/shifts',        label: 'Shifts' },
+  { href: '/roster',        label: 'Roster' },
+  { href: '/incidents',     label: 'Incidents' },
+  { href: '/panic',         label: '🚨 Panic Alerts' },
+  { href: '/patrols',       label: 'Patrols' },
+  { href: '/checkpoints',   label: 'Checkpoints' },
+  { href: '/map',           label: 'Live Map' },
+  { href: '/cameras',       label: 'Cameras' },
+  { href: '/clients',       label: 'Clients' },
+  { href: '/leave-requests',label: 'Leave Requests' },
+  { href: '/post-orders',   label: 'Post Orders' },
+  { href: '/payroll',       label: 'Payroll' },
+  { href: '/settings',      label: 'Settings' },
 ]
+
+const ROLE_LABELS: Record<ViewAsRole, string> = {
+  owner: 'Owner',
+  supervisor: 'Supervisor',
+  guard: 'Guard',
+}
+
+function ViewAsSwitcher() {
+  const { viewAs, setViewAs, isSimulating } = useViewAs()
+
+  return (
+    <div style={{ padding: '12px 16px', borderTop: '1px solid #e8e5e0' }}>
+      {isSimulating && (
+        <div style={{
+          marginBottom: 8,
+          padding: '4px 8px',
+          borderRadius: 6,
+          fontSize: 12,
+          textAlign: 'center',
+          background: 'rgba(201,100,66,0.08)',
+          border: '1px solid rgba(201,100,66,0.2)',
+          color: '#c96442',
+        }}>
+          Viewing as {viewAs}
+        </div>
+      )}
+      <p style={{ color: '#9a9490', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+        View As
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {(Object.keys(ROLE_LABELS) as ViewAsRole[]).map((role) => (
+          <button
+            key={role}
+            onClick={() => setViewAs(role)}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              padding: '6px 10px',
+              borderRadius: 6,
+              fontSize: 13,
+              background: viewAs === role ? 'rgba(201,100,66,0.08)' : 'transparent',
+              border: `1px solid ${viewAs === role ? 'rgba(201,100,66,0.2)' : 'transparent'}`,
+              color: viewAs === role ? '#c96442' : '#9a9490',
+              cursor: 'pointer',
+              transition: 'color 0.1s',
+            }}
+          >
+            {ROLE_LABELS[role]}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { start } = useTour()
 
   function logout() {
     localStorage.removeItem('td_token')
@@ -26,45 +90,107 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-60 min-h-screen bg-slate-900 border-r border-slate-800 flex flex-col">
-      <div className="p-6 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-sm">🛡️</div>
+    <aside style={{
+      width: 220,
+      minHeight: '100vh',
+      background: '#ffffff',
+      borderRight: '1px solid #e8e5e0',
+      display: 'flex',
+      flexDirection: 'column',
+      flexShrink: 0,
+    }}>
+      {/* Brand header */}
+      <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid #e8e5e0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <div style={{
+            width: 30, height: 30, borderRadius: 7, background: '#c96442',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </div>
           <div>
-            <div className="text-white font-bold text-sm">SecureOps</div>
-            <div className="text-slate-500 text-xs">Tenant Portal</div>
+            <div style={{ color: '#1a1916', fontWeight: 700, fontSize: 13, lineHeight: 1.2 }}>Arrow Security</div>
+            <div style={{ color: '#9a9490', fontSize: 10, marginTop: 1 }}>Operations Portal</div>
           </div>
         </div>
+        <button
+          onClick={start}
+          title="Developer reference"
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+            background: '#fafaf9', border: '1px solid #e8e5e0',
+            color: '#9a9490', fontSize: 11,
+            fontFamily: '"JetBrains Mono","Cascadia Code",ui-monospace,monospace',
+            transition: 'border-color 0.15s, color 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#c96442'; e.currentTarget.style.color = '#c96442' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#e8e5e0'; e.currentTarget.style.color = '#9a9490' }}
+        >
+          <span style={{ fontSize: 11 }}>◈</span> dev reference
+        </button>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+      {/* Nav */}
+      <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
         {NAV.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                active
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '7px 10px',
+                borderRadius: 7,
+                fontSize: 13.5,
+                fontWeight: active ? 600 : 400,
+                textDecoration: 'none',
+                background: active ? 'rgba(201,100,66,0.08)' : 'transparent',
+                border: `1px solid ${active ? 'rgba(201,100,66,0.15)' : 'transparent'}`,
+                color: active ? '#c96442' : '#5c5855',
+                transition: 'color 0.1s, background 0.1s',
+              }}
+              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = '#f4f2ef'; (e.currentTarget as HTMLElement).style.color = '#1a1916' } }}
+              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#5c5855' } }}
             >
-              <span>{item.icon}</span>
               {item.label}
             </Link>
           )
         })}
       </nav>
 
-      <div className="p-4 border-t border-slate-800">
+      {/* View As Switcher */}
+      <ViewAsSwitcher />
+
+      {/* Sign out */}
+      <div style={{ padding: '10px 8px', borderTop: '1px solid #e8e5e0' }}>
         <button
           onClick={logout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '7px 10px',
+            borderRadius: 7,
+            fontSize: 13.5,
+            fontWeight: 400,
+            background: 'transparent',
+            border: '1px solid transparent',
+            color: '#9a9490',
+            cursor: 'pointer',
+            transition: 'color 0.1s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
+          onMouseLeave={e => (e.currentTarget.style.color = '#9a9490')}
         >
-          <span>🚪</span> Sign Out
+          Sign Out
         </button>
       </div>
+
     </aside>
   )
 }

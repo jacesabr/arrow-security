@@ -1,5 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import type { UserRole } from '@secureops/shared'
+import { db, supervisorSites } from '@secureops/db'
+import { eq } from 'drizzle-orm'
 
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
   try {
@@ -29,4 +31,21 @@ export function requireTenantAdmin(request: FastifyRequest, reply: FastifyReply)
 
 export function requireSupervisor(request: FastifyRequest, reply: FastifyReply) {
   return requireRole('platform_admin', 'tenant_admin', 'supervisor')(request, reply)
+}
+
+/**
+ * Returns null for admins (no scoping needed).
+ * Returns string[] of site IDs for supervisors (may be empty).
+ */
+export async function getSupervisorSiteIds(
+  userId: string,
+  role: string
+): Promise<string[] | null> {
+  if (role === 'platform_admin' || role === 'tenant_admin') return null
+  if (role !== 'supervisor') return null
+  const rows = await db
+    .select({ siteId: supervisorSites.siteId })
+    .from(supervisorSites)
+    .where(eq(supervisorSites.supervisorId, userId))
+  return rows.map((r) => r.siteId)
 }

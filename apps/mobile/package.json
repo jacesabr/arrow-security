@@ -12,6 +12,8 @@
     "open:ios": "cap open ios"
   },
   "dependencies": {
+    "@capacitor-community/background-geolocation": "^1.2.26",
+    "@capacitor-community/barcode-scanner": "^4.0.1",
     "@capacitor/android": "^6.0.0",
     "@capacitor/app": "^6.0.0",
     "@capacitor/core": "^6.0.0",
@@ -28,14 +30,15 @@
     "@ionic/react-router": "^8.0.0",
     "@secureops/shared": "workspace:*",
     "ionicons": "^7.0.0",
+    "maplibre-gl": "^5.24.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^5.3.4",
-    "html5-qrcode": "^2.3.8",
     "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.0.0",
+    "@types/maplibre-gl": "^1.14.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@types/react-router-dom": "^5.3.3",

@@ -112,26 +112,26 @@ export const PatrolPage: React.FC = () => {
   return (
     <IonPage>
       <IonHeader>
-        <IonToolbar style={{ '--background': '#0f172a', '--color': '#fff' }}>
+        <IonToolbar style={{ '--background': '#ffffff', '--color': '#1a1916' }}>
           <IonTitle>Patrol</IonTitle>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent style={{ '--background': '#0f172a' }}>
+      <IonContent style={{ '--background': '#fafaf9' }}>
         {!patrol ? (
           <div className="ion-padding" style={{ textAlign: 'center', paddingTop: 48 }}>
             <IonIcon icon={walkOutline} style={{ fontSize: 72, color: '#10b981', marginBottom: 24 }} />
-            <h2 style={{ color: '#fff', marginBottom: 8 }}>Start a Patrol</h2>
+            <h2 style={{ color: '#1a1916', marginBottom: 8 }}>Start a Patrol</h2>
 
             {sites.length > 1 && (
-              <div style={{ background: '#1e293b', borderRadius: 8, padding: 4, marginBottom: 16, textAlign: 'left' }}>
+              <div style={{ background: '#ffffff', borderRadius: 8, padding: 4, marginBottom: 16, textAlign: 'left' }}>
                 <IonItem lines="none" style={{ '--background': 'transparent' }}>
-                  <IonLabel style={{ color: '#94a3b8' }}>Site</IonLabel>
+                  <IonLabel style={{ color: '#5c5855' }}>Site</IonLabel>
                   <IonSelect
                     value={selectedSite}
                     onIonChange={(e) => setSelectedSite(e.detail.value)}
                     interface="action-sheet"
-                    style={{ '--color': '#fff' }}
+                    style={{ '--color': '#1a1916' }}
                   >
                     {sites.map((s) => (
                       <IonSelectOption key={s.id} value={s.id}>{s.name}</IonSelectOption>
@@ -141,7 +141,7 @@ export const PatrolPage: React.FC = () => {
               </div>
             )}
 
-            <p style={{ color: '#94a3b8', marginBottom: 24 }}>
+            <p style={{ color: '#5c5855', marginBottom: 24 }}>
               {checkpoints.length} checkpoint{checkpoints.length !== 1 ? 's' : ''} on this route
             </p>
 
@@ -156,7 +156,7 @@ export const PatrolPage: React.FC = () => {
           </div>
         ) : (
           <div>
-            <div className="ion-padding" style={{ background: '#1e293b', marginBottom: 1 }}>
+            <div className="ion-padding" style={{ background: '#f4f2ef', marginBottom: 1 }}>
               <p style={{ color: '#10b981', margin: 0, fontWeight: 600 }}>
                 Patrol in progress · {scanned.size}/{checkpoints.length} checkpoints
               </p>
@@ -168,16 +168,21 @@ export const PatrolPage: React.FC = () => {
                 return (
                   <IonItem
                     key={cp.id}
-                    style={{ '--background': done ? '#1a2e22' : '#1e293b', '--color': '#fff', marginBottom: 2 }}
+                    style={{
+                      '--background': done ? '#10b98114' : '#ffffff',
+                      '--color': '#1a1916',
+                      border: done ? '1px solid #10b98133' : 'none',
+                      marginBottom: 2,
+                    }}
                   >
                     <IonIcon
                       icon={done ? checkmarkOutline : qrCodeOutline}
                       slot="start"
-                      style={{ color: done ? '#10b981' : '#64748b' }}
+                      style={{ color: done ? '#10b981' : '#9a9490' }}
                     />
                     <IonLabel>
-                      <h3 style={{ color: '#fff' }}>{cp.name}</h3>
-                      {cp.orderInRoute && <p style={{ color: '#64748b', fontSize: 12 }}>Stop {cp.orderInRoute}</p>}
+                      <h3 style={{ color: '#1a1916' }}>{cp.name}</h3>
+                      {cp.orderInRoute && <p style={{ color: '#9a9490', fontSize: 12 }}>Stop {cp.orderInRoute}</p>}
                     </IonLabel>
                     {done ? (
                       <IonBadge color="success" slot="end">Done</IonBadge>
@@ -187,7 +192,7 @@ export const PatrolPage: React.FC = () => {
                           size="small"
                           fill="outline"
                           onClick={() => openQrScanner(cp.id)}
-                          style={{ '--color': '#6366f1', '--border-color': '#6366f1' }}
+                          style={{ '--color': '#10b981', '--border-color': '#10b981' }}
                         >
                           <IonIcon icon={qrCodeOutline} slot="start" />
                           QR
@@ -196,7 +201,7 @@ export const PatrolPage: React.FC = () => {
                           size="small"
                           fill="outline"
                           onClick={() => markCheckpoint(cp, 'manual')}
-                          style={{ '--color': '#94a3b8', '--border-color': '#475569' }}
+                          style={{ '--color': '#5c5855', '--border-color': '#e8e5e0' }}
                         >
                           <IonIcon icon={handLeftOutline} slot="start" />
                           Manual
@@ -213,7 +218,7 @@ export const PatrolPage: React.FC = () => {
                 <IonButton
                   expand="block"
                   onClick={completePatrol}
-                  style={{ '--background': '#6366f1', '--border-radius': '12px' }}
+                  style={{ '--background': '#c96442', '--border-radius': '12px' }}
                 >
                   Complete Patrol
                 </IonButton>

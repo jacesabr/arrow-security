@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { db, attendanceRecords, sites } from '@secureops/db'
-import { eq, and, desc } from 'drizzle-orm'
-import { requireAuth } from '../lib/auth'
+import { db, attendanceRecords, sites, users } from '@secureops/db'
+import { eq, and, desc, gte, lte, sql } from 'drizzle-orm'
+import { requireAuth, requireSupervisor } from '../lib/auth'
 
 function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000
@@ -24,6 +24,52 @@ const checkInSchema = z.object({
 })
 
 export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
+  // GET /report — attendance compliance report (supervisors+)
+  fastify.get('/report', { preHandler: requireSupervisor }, async (request, reply) => {
+    const payload = request.user as { tenantId: string }
+    const now = new Date()
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+    const query = z.object({
+      since: z.string().optional(),
+      until: z.string().optional(),
+      guardId: z.string().optional(),
+      siteId: z.string().optional(),
+    }).parse(request.query)
+
+    const since = query.since ? new Date(query.since) : thirtyDaysAgo
+    const until = query.until ? new Date(query.until) : now
+
+    const conditions = [
+      eq(attendanceRecords.tenantId, payload.tenantId),
+      gte(attendanceRecords.verifiedAt, since),
+      lte(attendanceRecords.verifiedAt, until),
+    ]
+    if (query.guardId) conditions.push(eq(attendanceRecords.guardId, query.guardId))
+    if (query.siteId) conditions.push(eq(attendanceRecords.siteId, query.siteId))
+
+    const rows = await db
+      .select({
+        guardId: attendanceRecords.guardId,
+        guardName: users.name,
+        checkIns: sql<number>`sum(case when ${attendanceRecords.type} = 'check_in' then 1 else 0 end)`,
+        checkOuts: sql<number>`sum(case when ${attendanceRecords.type} = 'check_out' then 1 else 0 end)`,
+        withinGeofence: sql<number>`sum(case when ${attendanceRecords.isWithinGeofence} = true then 1 else 0 end)`,
+        outsideGeofence: sql<number>`sum(case when ${attendanceRecords.isWithinGeofence} = false then 1 else 0 end)`,
+        faceMethod: sql<number>`sum(case when ${attendanceRecords.method} = 'face' then 1 else 0 end)`,
+        qrMethod: sql<number>`sum(case when ${attendanceRecords.method} = 'qr' then 1 else 0 end)`,
+        manualMethod: sql<number>`sum(case when ${attendanceRecords.method} = 'manual' then 1 else 0 end)`,
+        lastSeen: sql<string>`max(${attendanceRecords.verifiedAt})`,
+      })
+      .from(attendanceRecords)
+      .innerJoin(users, eq(attendanceRecords.guardId, users.id))
+      .where(and(...conditions))
+      .groupBy(attendanceRecords.guardId, users.name)
+      .orderBy(users.name)
+
+    return reply.send({ data: rows })
+  })
+
   fastify.get('/', { preHandler: requireAuth }, async (request, reply) => {
     const payload = request.user as { tenantId: string; sub: string; role: string }
     const query = z.object({

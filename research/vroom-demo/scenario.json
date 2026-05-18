@@ -1,0 +1,186 @@
+{
+  "_comment": "Arrow Security — patrol route optimization demo",
+  "_scenario": "3 mobile patrol units, 15 sites across a city, 8-hour shift (06:00-14:00 = seconds 0-28800)",
+  "_time_unit": "seconds from shift start (06:00 = 0)",
+  "_service_note": "service durations vary 5-30 min; guard must scan checkpoint, inspect perimeter, sign logbook",
+
+  "vehicles": [
+    {
+      "id": 1,
+      "description": "Guard Alpha",
+      "profile": "car",
+      "start": [77.5946, 12.9716],
+      "end":   [77.5946, 12.9716],
+      "time_window": [0, 28800],
+      "max_tasks": 8,
+      "breaks": [
+        {
+          "id": 101,
+          "time_windows": [[10800, 14400]],
+          "service": 1800,
+          "description": "Mid-shift break (30 min between 3h-4h mark)"
+        }
+      ],
+      "costs": { "fixed": 0, "per_hour": 3600 }
+    },
+    {
+      "id": 2,
+      "description": "Guard Bravo",
+      "profile": "car",
+      "start": [77.6101, 12.9342],
+      "end":   [77.6101, 12.9342],
+      "time_window": [0, 28800],
+      "max_tasks": 8,
+      "breaks": [
+        {
+          "id": 102,
+          "time_windows": [[10800, 14400]],
+          "service": 1800,
+          "description": "Mid-shift break"
+        }
+      ],
+      "costs": { "fixed": 0, "per_hour": 3600 }
+    },
+    {
+      "id": 3,
+      "description": "Guard Charlie",
+      "profile": "car",
+      "start": [77.5600, 12.9500],
+      "end":   [77.5600, 12.9500],
+      "time_window": [0, 28800],
+      "max_tasks": 8,
+      "breaks": [
+        {
+          "id": 103,
+          "time_windows": [[10800, 14400]],
+          "service": 1800,
+          "description": "Mid-shift break"
+        }
+      ],
+      "costs": { "fixed": 0, "per_hour": 3600 }
+    }
+  ],
+
+  "jobs": [
+    {
+      "id": 1,
+      "description": "Site A — Tech Park Tower 1",
+      "location": [77.5980, 12.9789],
+      "service": 1800,
+      "time_windows": [[0, 14400]],
+      "priority": 90
+    },
+    {
+      "id": 2,
+      "description": "Site B — Tech Park Tower 2",
+      "location": [77.5995, 12.9775],
+      "service": 900,
+      "time_windows": [[0, 14400]],
+      "priority": 80
+    },
+    {
+      "id": 3,
+      "description": "Site C — Mall North Entrance",
+      "location": [77.6050, 12.9650],
+      "service": 1200,
+      "time_windows": [[3600, 18000]],
+      "priority": 70
+    },
+    {
+      "id": 4,
+      "description": "Site D — Mall South Entrance",
+      "location": [77.6055, 12.9640],
+      "service": 1200,
+      "time_windows": [[3600, 18000]],
+      "priority": 70
+    },
+    {
+      "id": 5,
+      "description": "Site E — Hospital Main Gate",
+      "location": [77.5810, 12.9600],
+      "service": 1800,
+      "time_windows": [[0, 28800]],
+      "priority": 100
+    },
+    {
+      "id": 6,
+      "description": "Site F — Hospital Emergency",
+      "location": [77.5815, 12.9595],
+      "service": 600,
+      "time_windows": [[0, 28800]],
+      "priority": 100
+    },
+    {
+      "id": 7,
+      "description": "Site G — Warehouse District A",
+      "location": [77.5720, 12.9420],
+      "service": 1800,
+      "time_windows": [[0, 21600]],
+      "priority": 60
+    },
+    {
+      "id": 8,
+      "description": "Site H — Warehouse District B",
+      "location": [77.5730, 12.9410],
+      "service": 1800,
+      "time_windows": [[0, 21600]],
+      "priority": 60
+    },
+    {
+      "id": 9,
+      "description": "Site I — Office Complex West",
+      "location": [77.5650, 12.9550],
+      "service": 900,
+      "time_windows": [[7200, 28800]],
+      "priority": 50
+    },
+    {
+      "id": 10,
+      "description": "Site J — Office Complex East",
+      "location": [77.5900, 12.9500],
+      "service": 900,
+      "time_windows": [[7200, 28800]],
+      "priority": 50
+    },
+    {
+      "id": 11,
+      "description": "Site K — Residential Gate 1",
+      "location": [77.5750, 12.9700],
+      "service": 300,
+      "time_windows": [[0, 28800]],
+      "priority": 40
+    },
+    {
+      "id": 12,
+      "description": "Site L — Residential Gate 2",
+      "location": [77.5760, 12.9690],
+      "service": 300,
+      "time_windows": [[0, 28800]],
+      "priority": 40
+    },
+    {
+      "id": 13,
+      "description": "Site M — Construction Site",
+      "location": [77.6100, 12.9300],
+      "service": 1800,
+      "time_windows": [[0, 14400]],
+      "priority": 55
+    },
+    {
+      "id": 14,
+      "description": "Site N — Bank Branch",
+      "location": [77.5850, 12.9650],
+      "service": 600,
+      "time_windows": [[14400, 25200]],
+      "priority": 85
+    },
+    {
+      "id": 15,
+      "description": "Site O — ATM Cluster",
+      "location": [77.5870, 12.9660],
+      "service": 300,
+      "time_windows": [[14400, 25200]],
+      "priority": 75
+    }
+  ]
+}

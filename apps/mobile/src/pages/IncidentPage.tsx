@@ -40,12 +40,12 @@ export const IncidentPage: React.FC = () => {
   return (
     <IonPage>
       <IonHeader>
-        <IonToolbar style={{ '--background': '#0f172a', '--color': '#fff' }}>
+        <IonToolbar style={{ '--background': '#ffffff', '--color': '#1a1916' }}>
           <IonTitle>Incidents</IonTitle>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent style={{ '--background': '#0f172a' }}>
+      <IonContent style={{ '--background': '#fafaf9' }}>
         {loading ? (
           <div className="ion-padding">
             {[...Array(5)].map((_, i) => (
@@ -54,8 +54,8 @@ export const IncidentPage: React.FC = () => {
           </div>
         ) : incidents.length === 0 ? (
           <div style={{ textAlign: 'center', paddingTop: 80 }}>
-            <IonIcon icon={warningOutline} style={{ fontSize: 64, color: '#334155' }} />
-            <p style={{ color: '#64748b' }}>No incidents reported</p>
+            <IonIcon icon={warningOutline} style={{ fontSize: 64, color: '#e8e5e0' }} />
+            <p style={{ color: '#9a9490' }}>No incidents reported</p>
           </div>
         ) : (
           <IonList style={{ background: 'transparent', padding: 8 }}>
@@ -64,11 +64,11 @@ export const IncidentPage: React.FC = () => {
                 key={inc.id}
                 button
                 onClick={() => history.push(`/tabs/incidents/${inc.id}`)}
-                style={{ '--background': '#1e293b', '--color': '#fff', borderRadius: 8, marginBottom: 8 }}
+                style={{ '--background': '#ffffff', '--color': '#1a1916', borderRadius: 8, marginBottom: 8 }}
               >
                 <IonLabel>
-                  <h2 style={{ color: '#fff' }}>{inc.title}</h2>
-                  <p style={{ color: '#64748b' }}>
+                  <h2 style={{ color: '#1a1916' }}>{inc.title}</h2>
+                  <p style={{ color: '#9a9490' }}>
                     {new Date(inc.createdAt).toLocaleString('en-IN')}
                   </p>
                 </IonLabel>

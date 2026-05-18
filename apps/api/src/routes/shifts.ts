@@ -1,8 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { db, shifts } from '@secureops/db'
-import { eq, and, gte, lte } from 'drizzle-orm'
-import { requireAuth, requireTenantAdmin } from '../lib/auth'
+import { db, shifts, users } from '@secureops/db'
+import { eq, and, gte, lte, inArray } from 'drizzle-orm'
+import { requireAuth, requireTenantAdmin, requireSupervisor, getSupervisorSiteIds } from '../lib/auth'
+import { solveSchedule } from '../lib/scheduler'
 
 export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/', { preHandler: requireAuth }, async (request, reply) => {
@@ -17,6 +18,16 @@ export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
     const conditions = [eq(shifts.tenantId, payload.tenantId)]
     if (payload.role === 'guard') conditions.push(eq(shifts.guardId, payload.sub))
     else if (query.guardId) conditions.push(eq(shifts.guardId, query.guardId))
+
+    // Scope supervisors to their assigned sites
+    if (payload.role === 'supervisor') {
+      const siteIds = await getSupervisorSiteIds(payload.sub, payload.role)
+      if (siteIds !== null) {
+        if (siteIds.length === 0) return reply.send({ data: [] })
+        conditions.push(inArray(shifts.siteId, siteIds))
+      }
+    }
+
     if (query.siteId) conditions.push(eq(shifts.siteId, query.siteId))
     if (query.from) conditions.push(gte(shifts.startsAt, new Date(query.from)))
     if (query.to) conditions.push(lte(shifts.endsAt, new Date(query.to)))
@@ -58,5 +69,73 @@ export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
 
     if (!shift) return reply.code(404).send({ error: 'Not found', message: 'Shift not found', statusCode: 404 })
     return reply.send({ data: shift })
+  })
+
+  // POST /api/shifts/solve — run CP-SAT solver to re-assign guards for a week
+  fastify.post('/solve', { preHandler: requireSupervisor }, async (request, reply) => {
+    const payload = request.user as { tenantId: string }
+    const { weekStart } = z.object({ weekStart: z.string() }).parse(request.body) // ISO date string e.g. "2025-05-19"
+
+    const weekStartDate = new Date(weekStart)
+    const weekEndDate = new Date(weekStartDate.getTime() + 7 * 24 * 60 * 60 * 1000)
+
+    // Fetch all shifts in the week for this tenant
+    const weekShifts = await db
+      .select()
+      .from(shifts)
+      .where(
+        and(
+          eq(shifts.tenantId, payload.tenantId),
+          gte(shifts.startsAt, weekStartDate),
+          lte(shifts.startsAt, weekEndDate),
+        )
+      )
+
+    if (weekShifts.length === 0) {
+      return reply.send({ data: { status: 'no_shifts', assignments: [], solve_ms: 0, gaps: [] } })
+    }
+
+    // Fetch all guards for this tenant
+    const guards = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.tenantId, payload.tenantId), eq(users.role, 'guard')))
+
+    if (guards.length === 0) {
+      return reply.send({ data: { status: 'no_guards', assignments: [], solve_ms: 0, gaps: weekShifts.map(s => s.id) } })
+    }
+
+    // Build solver-compatible shift objects derived from startsAt/endsAt timestamps
+    const solverShifts = weekShifts.map(s => {
+      const start = new Date(s.startsAt)
+      const end = new Date(s.endsAt)
+      // getDay() returns 0=Sun, adjust to 0=Mon
+      const rawDay = start.getDay()
+      const day = rawDay === 0 ? 6 : rawDay - 1
+      const startHour = start.getHours()
+      const durationHours = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60)))
+      return { id: s.id, site_id: s.siteId, day, start_hour: startHour, duration_hours: durationHours }
+    })
+
+    const uniqueSiteIds = [...new Set(weekShifts.map(s => s.siteId))]
+
+    // Simplification: all guards are eligible for all sites in scope
+    const solverGuards = guards.map(g => ({
+      id: g.id,
+      site_ids: uniqueSiteIds,
+      max_hours_per_week: 48,
+    }))
+
+    const result = await solveSchedule({ guards: solverGuards, shifts: solverShifts, max_solve_seconds: 5 })
+
+    // Apply assignments back to DB
+    for (const a of result.assignments) {
+      await db
+        .update(shifts)
+        .set({ guardId: a.guard_id, updatedAt: new Date() })
+        .where(and(eq(shifts.id, a.shift_id), eq(shifts.tenantId, payload.tenantId)))
+    }
+
+    return reply.send({ data: result })
   })
 }

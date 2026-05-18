@@ -87,6 +87,19 @@ export const api = {
     },
   },
 
+  locations: {
+    track: (payload: {
+      latitude: number
+      longitude: number
+      accuracy?: number
+      heading?: number
+      speed?: number
+      altitude?: number
+      shiftId?: string
+      recordedAt?: string
+    }) => request<{ data: any }>('/locations', { method: 'POST', body: JSON.stringify(payload) }),
+  },
+
   cameras: {
     list: (siteId?: string) => {
       const qs = siteId ? `?siteId=${siteId}` : ''
@@ -100,5 +113,20 @@ export const api = {
 
   clients: {
     list: () => request<{ data: any[] }>('/clients'),
+  },
+
+  leaveRequests: {
+    list: () => request<{ data: any[] }>('/leave-requests'),
+    create: (body: { leaveType?: string; startDate: string; endDate: string; reason?: string }) =>
+      request<{ data: any }>('/leave-requests', { method: 'POST', body: JSON.stringify(body) }),
+    cancel: (id: string) => request<{ data: any }>(`/leave-requests/${id}/cancel`, { method: 'PATCH' }),
+  },
+
+  panic: {
+    trigger: (data: { shiftId?: string; latitude?: number; longitude?: number; accuracy?: number }) =>
+      request<{ data: any }>('/panic', { method: 'POST', body: JSON.stringify(data) }),
+    list: () => request<{ data: any[] }>('/panic'),
+    resolve: (id: string, notes?: string) =>
+      request<{ data: any }>(`/panic/${id}/resolve`, { method: 'PATCH', body: JSON.stringify({ notes }) }),
   },
 }

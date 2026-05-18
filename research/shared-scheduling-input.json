@@ -1,0 +1,21 @@
+{
+  "horizon_days": 7,
+  "sites": [
+    { "id": "S1", "name": "Office Tower A", "required_qualifications": ["unarmed"] },
+    { "id": "S2", "name": "Construction Site B", "required_qualifications": ["unarmed", "outdoor"] },
+    { "id": "S3", "name": "Bank Branch C", "required_qualifications": ["armed"] }
+  ],
+  "guards": [
+    { "id": "G1", "name": "Alice",   "qualifications": ["unarmed", "outdoor"] },
+    { "id": "G2", "name": "Bob",     "qualifications": ["unarmed"] },
+    { "id": "G3", "name": "Carlos",  "qualifications": ["unarmed", "armed"] },
+    { "id": "G4", "name": "Dana",    "qualifications": ["unarmed", "outdoor", "armed"] },
+    { "id": "G5", "name": "Evelyn",  "qualifications": ["unarmed"] }
+  ],
+  "constraints": {
+    "max_hours_per_week": 40,
+    "min_rest_hours_between_shifts": 8,
+    "each_shift_exactly_one_guard": true,
+    "guard_must_have_all_site_qualifications": true
+  }
+}

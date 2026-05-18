@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sidebar } from '../../components/Sidebar'
+import { PageShell, Main, PageHeader, Card, DataTable, TR, TD, Badge, Btn, Modal, Field, Input, Select, ErrorMsg, ModalActions } from '../../components/ui'
 import { tdApi } from '../../lib/api'
 
 export default function SitesPage() {
@@ -62,159 +62,73 @@ export default function SitesPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 p-8">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Sites</h1>
-            <p className="text-slate-400 mt-1">{sites.length} sites</p>
-          </div>
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+    <PageShell>
+      <Main>
+        <PageHeader
+          title="Sites"
+          subtitle={`${sites.length} sites`}
+          action={<Btn variant="primary" onClick={() => setShowModal(true)}>+ Add Site</Btn>}
+        />
+
+        <Card overflow="hidden">
+          <DataTable
+            cols={['Name', 'Address', 'Geofence Radius', 'Client', 'Status']}
+            loading={loading}
+            empty="No sites yet. Add one to get started."
           >
-            + Add Site
-          </button>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-800">
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Name</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Address</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Geofence Radius</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Client</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {loading ? (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">Loading...</td></tr>
-              ) : sites.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">No sites yet. Add one to get started.</td></tr>
-              ) : (
-                sites.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-800/50 transition-colors">
-                    <td className="px-6 py-4 text-white font-medium">{s.name}</td>
-                    <td className="px-6 py-4 text-slate-400 text-sm max-w-xs truncate">{s.address}</td>
-                    <td className="px-6 py-4 text-slate-400 text-sm">
-                      {s.geofenceRadiusMeters ? `${s.geofenceRadiusMeters}m` : '—'}
-                    </td>
-                    <td className="px-6 py-4 text-slate-400 text-sm">
-                      {clients.find((c) => c.id === s.clientId)?.name ?? '—'}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        s.status === 'active' ? 'bg-emerald-900 text-emerald-300' : 'bg-slate-700 text-slate-400'
-                      }`}>
-                        {s.status ?? 'active'}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </main>
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 w-full max-w-md shadow-2xl">
-            <h2 className="text-white font-bold text-lg mb-6">Add Site</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1.5">Site Name</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1.5">Address</label>
-                <input
-                  type="text"
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-1.5">Latitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={form.latitude}
-                    onChange={(e) => setForm({ ...form, latitude: e.target.value })}
-                    className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                    placeholder="12.9716"
+            {sites.map((s) => (
+              <TR key={s.id}>
+                <TD>{s.name}</TD>
+                <TD muted style={{ maxWidth: 200 }}>{s.address}</TD>
+                <TD muted>{s.geofenceRadiusMeters ? `${s.geofenceRadiusMeters}m` : '—'}</TD>
+                <TD muted>{clients.find((c) => c.id === s.clientId)?.name ?? '—'}</TD>
+                <TD>
+                  <Badge
+                    label={s.status ?? 'active'}
+                    color={s.status === 'active' ? '#10b981' : '#a3a098'}
+                    bg={s.status === 'active' ? 'rgba(16,185,129,0.12)' : 'rgba(163,160,152,0.12)'}
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-1.5">Longitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={form.longitude}
-                    onChange={(e) => setForm({ ...form, longitude: e.target.value })}
-                    className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                    placeholder="77.5946"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1.5">Geofence Radius (meters)</label>
-                <input
-                  type="number"
-                  value={form.geofenceRadiusMeters}
-                  onChange={(e) => setForm({ ...form, geofenceRadiusMeters: e.target.value })}
-                  className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                  placeholder="100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1.5">Client</label>
-                <select
-                  value={form.clientId}
-                  onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-                  className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="">— No client —</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
+                </TD>
+              </TR>
+            ))}
+          </DataTable>
+        </Card>
 
-              {error && <p className="text-red-400 text-sm">{error}</p>}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowModal(false); setError(null) }}
-                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {saving ? 'Saving...' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+        <Modal open={showModal} onClose={() => { setShowModal(false); setError(null) }} title="Add Site">
+          <form onSubmit={handleCreate}>
+            <Field label="Site Name">
+              <Input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            </Field>
+            <Field label="Address">
+              <Input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required />
+            </Field>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <Field label="Latitude">
+                <Input type="number" step="any" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} placeholder="12.9716" />
+              </Field>
+              <Field label="Longitude">
+                <Input type="number" step="any" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} placeholder="77.5946" />
+              </Field>
+            </div>
+            <Field label="Geofence Radius (meters)">
+              <Input type="number" value={form.geofenceRadiusMeters} onChange={(e) => setForm({ ...form, geofenceRadiusMeters: e.target.value })} placeholder="100" />
+            </Field>
+            <Field label="Client">
+              <Select value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })}>
+                <option value="">— No client —</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </Select>
+            </Field>
+            <ErrorMsg msg={error} />
+            <ModalActions>
+              <Btn variant="secondary" onClick={() => { setShowModal(false); setError(null) }}>Cancel</Btn>
+              <Btn variant="primary" type="submit" loading={saving}>Create</Btn>
+            </ModalActions>
+          </form>
+        </Modal>
+      </Main>
+    </PageShell>
   )
 }

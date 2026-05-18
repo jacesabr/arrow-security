@@ -90,26 +90,26 @@ export const CheckInPage: React.FC = () => {
   return (
     <IonPage>
       <IonHeader>
-        <IonToolbar style={{ '--background': '#0f172a', '--color': '#fff' }}>
+        <IonToolbar style={{ '--background': '#ffffff', '--color': '#1a1916' }}>
           <IonTitle>Check In / Out</IonTitle>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent style={{ '--background': '#0f172a' }} className="ion-padding">
+      <IonContent style={{ '--background': '#fafaf9' }} className="ion-padding">
         {/* Type toggle */}
         <IonSegment
           value={type}
           onIonChange={(e) => setType(e.detail.value as 'check_in' | 'check_out')}
-          style={{ marginBottom: 20, '--background': '#1e293b' }}
+          style={{ marginBottom: 20, '--background': '#f4f2ef' }}
         >
           <IonSegmentButton value="check_in"><IonLabel>Check In</IonLabel></IonSegmentButton>
           <IonSegmentButton value="check_out"><IonLabel>Check Out</IonLabel></IonSegmentButton>
         </IonSegment>
 
         {/* Location */}
-        <div style={{ background: '#1e293b', borderRadius: 12, padding: '12px 16px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <IonIcon icon={locationOutline} style={{ color: location ? '#10b981' : '#64748b', fontSize: 20 }} />
-          <span style={{ color: location ? '#10b981' : '#64748b', fontSize: 14 }}>
+        <div style={{ background: '#ffffff', borderRadius: 12, padding: '12px 16px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <IonIcon icon={locationOutline} style={{ color: location ? '#10b981' : '#9a9490', fontSize: 20 }} />
+          <span style={{ color: location ? '#10b981' : '#9a9490', fontSize: 14 }}>
             {location ? `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}` : 'Getting location…'}
           </span>
           {geofenceStatus !== null && (
@@ -120,14 +120,14 @@ export const CheckInPage: React.FC = () => {
         </div>
 
         {/* Site */}
-        <div style={{ background: '#1e293b', borderRadius: 8, padding: 4, marginBottom: 12 }}>
+        <div style={{ background: '#ffffff', borderRadius: 8, padding: 4, marginBottom: 12 }}>
           <IonItem lines="none" style={{ '--background': 'transparent' }}>
-            <IonLabel style={{ color: '#94a3b8' }}>Site</IonLabel>
+            <IonLabel style={{ color: '#5c5855' }}>Site</IonLabel>
             <IonSelect
               value={selectedSite}
               onIonChange={(e) => setSelectedSite(e.detail.value)}
               placeholder="Select site"
-              style={{ '--color': '#fff' }}
+              style={{ '--color': '#1a1916' }}
               interface="action-sheet"
             >
               {sites.map((s) => (
@@ -138,8 +138,8 @@ export const CheckInPage: React.FC = () => {
         </div>
 
         {/* Method */}
-        <div style={{ background: '#1e293b', borderRadius: 8, padding: 16, marginBottom: 12 }}>
-          <p style={{ color: '#64748b', margin: '0 0 12px', fontSize: 13 }}>Verification Method</p>
+        <div style={{ background: '#ffffff', borderRadius: 8, padding: 16, marginBottom: 12 }}>
+          <p style={{ color: '#9a9490', margin: '0 0 12px', fontSize: 13 }}>Verification Method</p>
           <div style={{ display: 'flex', gap: 8 }}>
             {[
               { value: 'manual', icon: handLeftOutline, label: 'Manual' },
@@ -151,11 +151,11 @@ export const CheckInPage: React.FC = () => {
                 onClick={() => setMethod(value as any)}
                 style={{
                   flex: 1,
-                  background: method === value ? accentColor + '22' : '#0f172a',
-                  border: `1px solid ${method === value ? accentColor : '#334155'}`,
+                  background: method === value ? accentColor + '22' : '#fafaf9',
+                  border: `1px solid ${method === value ? accentColor : '#e8e5e0'}`,
                   borderRadius: 8,
                   padding: '10px 4px',
-                  color: method === value ? accentColor : '#64748b',
+                  color: method === value ? accentColor : '#9a9490',
                   cursor: 'pointer',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                 }}
@@ -167,18 +167,18 @@ export const CheckInPage: React.FC = () => {
           </div>
 
           {method === 'qr' && (
-            <div style={{ marginTop: 12, padding: 10, background: '#0f172a', borderRadius: 8, textAlign: 'center' }}>
+            <div style={{ marginTop: 12, padding: 10, background: '#fafaf9', borderRadius: 8, textAlign: 'center' }}>
               {qrVerified ? (
                 <span style={{ color: '#10b981', fontSize: 13 }}>✓ QR code verified — tap button to submit</span>
               ) : (
-                <span style={{ color: '#94a3b8', fontSize: 13 }}>Tap the button below to scan QR code</span>
+                <span style={{ color: '#5c5855', fontSize: 13 }}>Tap the button below to scan QR code</span>
               )}
             </div>
           )}
 
           {method === 'face' && (
-            <div style={{ marginTop: 12, padding: 10, background: '#0f172a', borderRadius: 8, textAlign: 'center' }}>
-              <span style={{ color: '#fbbf24', fontSize: 13 }}>Face recognition coming soon — use Manual for now</span>
+            <div style={{ marginTop: 12, padding: 10, background: '#fafaf9', borderRadius: 8, textAlign: 'center' }}>
+              <span style={{ color: '#f59e0b', fontSize: 13 }}>Face recognition coming soon — use Manual for now</span>
             </div>
           )}
         </div>

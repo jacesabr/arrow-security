@@ -1,23 +1,22 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { Sidebar } from '../../components/Sidebar'
+import { PageShell, Main, PageHeader, Card, DataTable, TR, TD, Badge, FilterRow, FilterField, Select } from '../../components/ui'
 import { tdApi } from '../../lib/api'
 
-const SEV_COLORS: Record<string, string> = {
-  low: 'bg-slate-700 text-slate-300',
-  medium: 'bg-yellow-900 text-yellow-300',
-  high: 'bg-orange-900 text-orange-300',
-  critical: 'bg-red-900 text-red-300',
+const SEV_BADGE: Record<string, { color: string; bg: string }> = {
+  low:      { color: '#5c5855', bg: 'rgba(163,160,152,0.12)' },
+  medium:   { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+  high:     { color: '#fb923c', bg: 'rgba(251,146,60,0.12)' },
+  critical: { color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  open: 'bg-red-900 text-red-300',
-  acknowledged: 'bg-yellow-900 text-yellow-300',
-  in_progress: 'bg-blue-900 text-blue-300',
-  resolved: 'bg-emerald-900 text-emerald-300',
-  closed: 'bg-slate-700 text-slate-400',
+const STATUS_BADGE: Record<string, { color: string; bg: string }> = {
+  open:         { color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+  acknowledged: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+  in_progress:  { color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
+  resolved:     { color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+  closed:       { color: '#9a9490', bg: 'rgba(122,119,115,0.12)' },
 }
 
 export default function IncidentsPage() {
@@ -56,101 +55,66 @@ export default function IncidentsPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 p-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Incidents</h1>
-          <p className="text-slate-400 mt-1">{incidents.length} total</p>
-        </div>
+    <PageShell>
+      <Main>
+        <PageHeader title="Incidents" subtitle={`${incidents.length} total`} />
 
-        {/* Filters */}
-        <div className="flex gap-3 mb-6 flex-wrap">
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="bg-slate-800 text-white text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-indigo-500"
-          >
-            <option value="">All statuses</option>
-            <option value="open">Open</option>
-            <option value="acknowledged">Acknowledged</option>
-            <option value="in_progress">In Progress</option>
-            <option value="resolved">Resolved</option>
-            <option value="closed">Closed</option>
-          </select>
-          <select
-            value={filterSeverity}
-            onChange={(e) => setFilterSeverity(e.target.value)}
-            className="bg-slate-800 text-white text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-indigo-500"
-          >
-            <option value="">All severities</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
-          </select>
-        </div>
+        <FilterRow>
+          <FilterField label="Status">
+            <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ width: 160 }}>
+              <option value="">All statuses</option>
+              <option value="open">Open</option>
+              <option value="acknowledged">Acknowledged</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+            </Select>
+          </FilterField>
+          <FilterField label="Severity">
+            <Select value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value)} style={{ width: 160 }}>
+              <option value="">All severities</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </Select>
+          </FilterField>
+        </FilterRow>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-800">
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Incident</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Site</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Severity</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Status</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">SLA Deadline</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Reported</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {loading ? (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-500">Loading...</td></tr>
-              ) : incidents.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-500">No incidents found.</td></tr>
-              ) : (
-                incidents.map((inc) => {
-                  const slaPast =
-                    inc.slaDeadline &&
-                    new Date(inc.slaDeadline) < new Date() &&
-                    inc.status !== 'resolved' &&
-                    inc.status !== 'closed'
-                  return (
-                    <tr
-                      key={inc.id}
-                      onClick={() => router.push(`/incidents/${inc.id}`)}
-                      className="hover:bg-slate-800/50 transition-colors cursor-pointer"
-                    >
-                      <td className="px-6 py-4 max-w-xs">
-                        <div className="text-white font-medium truncate">{inc.title}</div>
-                        <div className="text-slate-500 text-sm truncate">{inc.description}</div>
-                      </td>
-                      <td className="px-6 py-4 text-slate-400 text-sm">{inc.siteId ? siteName(inc.siteId) : '—'}</td>
-                      <td className="px-6 py-4">
-                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${SEV_COLORS[inc.severity] ?? 'bg-slate-700 text-slate-300'}`}>
-                          {inc.severity}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_COLORS[inc.status] ?? 'bg-slate-700 text-slate-300'}`}>
-                          {inc.status?.replace(/_/g, ' ')}
-                        </span>
-                      </td>
-                      <td className={`px-6 py-4 text-sm ${slaPast ? 'text-red-400 font-semibold' : 'text-slate-400'}`}>
-                        {inc.slaDeadline ? new Date(inc.slaDeadline).toLocaleString('en-IN') : '—'}
-                        {slaPast && ' ⚠️'}
-                      </td>
-                      <td className="px-6 py-4 text-slate-400 text-sm">
-                        {new Date(inc.createdAt).toLocaleString('en-IN')}
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </main>
-    </div>
+        <Card overflow="hidden">
+          <DataTable
+            cols={['Incident', 'Site', 'Severity', 'Status', 'SLA Deadline', 'Reported']}
+            loading={loading}
+            empty="No incidents found."
+          >
+            {incidents.map((inc) => {
+              const slaPast =
+                inc.slaDeadline &&
+                new Date(inc.slaDeadline) < new Date() &&
+                inc.status !== 'resolved' &&
+                inc.status !== 'closed'
+              const sev = SEV_BADGE[inc.severity] ?? SEV_BADGE.low
+              const sta = STATUS_BADGE[inc.status] ?? STATUS_BADGE.closed
+              return (
+                <TR key={inc.id} onClick={() => router.push(`/incidents/${inc.id}`)}>
+                  <TD style={{ maxWidth: 240 }}>
+                    <div style={{ color: 'var(--text)', fontWeight: 500, fontSize: 13.5 }}>{inc.title}</div>
+                    <div style={{ color: 'var(--text-3)', fontSize: 12, marginTop: 2 }}>{inc.description}</div>
+                  </TD>
+                  <TD muted>{inc.siteId ? siteName(inc.siteId) : '—'}</TD>
+                  <TD><Badge label={inc.severity} color={sev.color} bg={sev.bg} /></TD>
+                  <TD><Badge label={inc.status?.replace(/_/g, ' ')} color={sta.color} bg={sta.bg} /></TD>
+                  <TD style={{ color: slaPast ? '#ef4444' : 'var(--text-2)', fontWeight: slaPast ? 600 : 400 }}>
+                    {inc.slaDeadline ? new Date(inc.slaDeadline).toLocaleString('en-IN') : '—'}
+                    {slaPast && ' !'}
+                  </TD>
+                  <TD muted>{new Date(inc.createdAt).toLocaleString('en-IN')}</TD>
+                </TR>
+              )
+            })}
+          </DataTable>
+        </Card>
+      </Main>
+    </PageShell>
   )
 }

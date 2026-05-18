@@ -3,10 +3,10 @@ import { z } from 'zod'
 import { db, users } from '@secureops/db'
 import { eq, and } from 'drizzle-orm'
 import { requireAuth, requireTenantAdmin } from '../lib/auth'
-import { createHash } from 'crypto'
+import { hash, Algorithm } from '@node-rs/argon2'
 
-function hashPassword(pw: string): string {
-  return createHash('sha256').update(pw + process.env.PASSWORD_SALT!).digest('hex')
+async function hashPassword(pw: string): Promise<string> {
+  return hash(pw, { algorithm: Algorithm.Argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 })
 }
 
 const createUserSchema = z.object({
@@ -46,7 +46,7 @@ export const usersRoutes: FastifyPluginAsync = async (fastify) => {
     const { password, ...rest } = body
     const [user] = await db
       .insert(users)
-      .values({ ...rest, tenantId: payload.tenantId, passwordHash: hashPassword(password) })
+      .values({ ...rest, tenantId: payload.tenantId, passwordHash: await hashPassword(password) })
       .returning({
         id: users.id,
         name: users.name,
@@ -76,5 +76,17 @@ export const usersRoutes: FastifyPluginAsync = async (fastify) => {
       })
     if (!user) return reply.code(404).send({ error: 'Not found', message: 'User not found', statusCode: 404 })
     return reply.send({ data: user })
+  })
+
+  fastify.patch('/me/fcm-token', { preHandler: requireAuth }, async (request, reply) => {
+    const payload = request.user as { sub: string; tenantId: string }
+    const { token } = z.object({ token: z.string().min(1) }).parse(request.body)
+    const [updated] = await db
+      .update(users)
+      .set({ fcmToken: token, updatedAt: new Date() })
+      .where(and(eq(users.id, payload.sub), eq(users.tenantId, payload.tenantId)))
+      .returning({ id: users.id })
+    if (!updated) return reply.code(404).send({ error: 'Not found', message: 'User not found', statusCode: 404 })
+    return reply.send({ data: { ok: true } })
   })
 }

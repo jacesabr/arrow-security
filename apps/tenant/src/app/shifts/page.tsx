@@ -1,14 +1,16 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sidebar } from '../../components/Sidebar'
+import { PageShell, Main, PageHeader, Card, DataTable, TR, TD, Badge, Btn, Modal, Field, Input, Select, Textarea, ErrorMsg, ModalActions, FilterRow, FilterField } from '../../components/ui'
 import { tdApi } from '../../lib/api'
 
-const STATUS_COLORS: Record<string, string> = {
-  scheduled: 'bg-slate-700 text-slate-300',
-  active: 'bg-emerald-900 text-emerald-300',
-  completed: 'bg-blue-900 text-blue-300',
-  missed: 'bg-red-900 text-red-300',
+const STATUS_BADGE: Record<string, { color: string; bg: string }> = {
+  scheduled: { color: '#5c5855', bg: 'rgba(163,160,152,0.12)' },
+  active:    { color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+  completed: { color: '#9a9490', bg: 'rgba(122,119,115,0.12)' },
+  cancelled: { color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+  missed:    { color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+  draft:     { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
 }
 
 export default function ShiftsPage() {
@@ -93,206 +95,96 @@ export default function ShiftsPage() {
   }
 
   const guards = users.filter((u) => u.role === 'guard' || u.role === 'supervisor')
+  const filtered = filterStatus ? shifts.filter((s) => s.status === filterStatus) : shifts
 
-  const filtered = filterStatus
-    ? shifts.filter((s) => s.status === filterStatus)
-    : shifts
-
-  function guardName(id: string) {
-    return users.find((u) => u.id === id)?.name ?? id
-  }
-  function siteName(id: string) {
-    return sites.find((s) => s.id === id)?.name ?? id
-  }
+  function guardName(id: string) { return users.find((u) => u.id === id)?.name ?? id }
+  function siteName(id: string) { return sites.find((s) => s.id === id)?.name ?? id }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 p-8">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Shifts</h1>
-            <p className="text-slate-400 mt-1">{filtered.length} shifts</p>
-          </div>
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
-          >
-            + Schedule Shift
-          </button>
-        </div>
+    <PageShell>
+      <Main>
+        <PageHeader
+          title="Shifts"
+          subtitle={`${filtered.length} shifts`}
+          action={<Btn variant="primary" onClick={() => setShowModal(true)}>+ Schedule Shift</Btn>}
+        />
 
-        {/* Filters */}
-        <div className="flex gap-3 mb-6 flex-wrap">
-          <div>
-            <label className="block text-xs text-slate-500 mb-1">From</label>
-            <input
-              type="date"
-              value={filterFrom}
-              onChange={(e) => setFilterFrom(e.target.value)}
-              className="bg-slate-800 text-white text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-indigo-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-slate-500 mb-1">To</label>
-            <input
-              type="date"
-              value={filterTo}
-              onChange={(e) => setFilterTo(e.target.value)}
-              className="bg-slate-800 text-white text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-indigo-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-slate-500 mb-1">Status</label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="bg-slate-800 text-white text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-indigo-500"
-            >
+        <FilterRow>
+          <FilterField label="From">
+            <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} style={{ width: 160 }} />
+          </FilterField>
+          <FilterField label="To">
+            <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} style={{ width: 160 }} />
+          </FilterField>
+          <FilterField label="Status">
+            <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ width: 160 }}>
               <option value="">All statuses</option>
               <option value="scheduled">Scheduled</option>
               <option value="active">Active</option>
               <option value="completed">Completed</option>
               <option value="missed">Missed</option>
-            </select>
-          </div>
-        </div>
+            </Select>
+          </FilterField>
+        </FilterRow>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-800">
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Guard</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Site</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Start</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">End</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Status</th>
-                <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Notes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {loading ? (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-500">Loading...</td></tr>
-              ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-500">No shifts found.</td></tr>
-              ) : (
-                filtered.map((sh) => (
-                  <tr key={sh.id} className="hover:bg-slate-800/50 transition-colors">
-                    <td className="px-6 py-4 text-white font-medium">{guardName(sh.guardId)}</td>
-                    <td className="px-6 py-4 text-slate-400 text-sm">{siteName(sh.siteId)}</td>
-                    <td className="px-6 py-4 text-slate-400 text-sm">
-                      {new Date(sh.startsAt).toLocaleString('en-IN')}
-                    </td>
-                    <td className="px-6 py-4 text-slate-400 text-sm">
-                      {new Date(sh.endsAt).toLocaleString('en-IN')}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_COLORS[sh.status] ?? 'bg-slate-700 text-slate-300'}`}>
-                        {sh.status ?? 'scheduled'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-500 text-sm truncate max-w-xs">{sh.notes ?? '—'}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </main>
+        <Card overflow="hidden">
+          <DataTable
+            cols={['Guard', 'Site', 'Start', 'End', 'Status', 'Notes']}
+            loading={loading}
+            empty="No shifts found."
+          >
+            {filtered.map((sh) => {
+              const sta = STATUS_BADGE[sh.status] ?? STATUS_BADGE.scheduled
+              return (
+                <TR key={sh.id}>
+                  <TD>{guardName(sh.guardId)}</TD>
+                  <TD muted>{siteName(sh.siteId)}</TD>
+                  <TD muted>{new Date(sh.startsAt).toLocaleString('en-IN')}</TD>
+                  <TD muted>{new Date(sh.endsAt).toLocaleString('en-IN')}</TD>
+                  <TD><Badge label={sh.status ?? 'scheduled'} color={sta.color} bg={sta.bg} /></TD>
+                  <TD muted>{sh.notes ?? '—'}</TD>
+                </TR>
+              )
+            })}
+          </DataTable>
+        </Card>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 w-full max-w-md shadow-2xl">
-            <h2 className="text-white font-bold text-lg mb-6">Schedule Shift</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1.5">Site</label>
-                <select
-                  value={form.siteId}
-                  onChange={(e) => setForm({ ...form, siteId: e.target.value })}
-                  className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                  required
-                >
-                  <option value="">Select site...</option>
-                  {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1.5">Guard</label>
-                <select
-                  value={form.guardId}
-                  onChange={(e) => setForm({ ...form, guardId: e.target.value })}
-                  className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                  required
-                >
-                  <option value="">Select guard...</option>
-                  {guards.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1.5">Date</label>
-                <input
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-1.5">Start Time</label>
-                  <input
-                    type="time"
-                    value={form.startTime}
-                    onChange={(e) => setForm({ ...form, startTime: e.target.value })}
-                    className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-1.5">End Time</label>
-                  <input
-                    type="time"
-                    value={form.endTime}
-                    onChange={(e) => setForm({ ...form, endTime: e.target.value })}
-                    className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1.5">Notes</label>
-                <textarea
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  rows={2}
-                  className="w-full bg-slate-800 text-white rounded-lg px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500 resize-none"
-                />
-              </div>
-
-              {error && <p className="text-red-400 text-sm">{error}</p>}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowModal(false); setError(null) }}
-                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {saving ? 'Saving...' : 'Schedule'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+        <Modal open={showModal} onClose={() => { setShowModal(false); setError(null) }} title="Schedule Shift">
+          <form onSubmit={handleCreate}>
+            <Field label="Site">
+              <Select value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} required>
+                <option value="">Select site...</option>
+                {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </Select>
+            </Field>
+            <Field label="Guard">
+              <Select value={form.guardId} onChange={(e) => setForm({ ...form, guardId: e.target.value })} required>
+                <option value="">Select guard...</option>
+                {guards.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </Select>
+            </Field>
+            <Field label="Date">
+              <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
+            </Field>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <Field label="Start Time">
+                <Input type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} required />
+              </Field>
+              <Field label="End Time">
+                <Input type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} required />
+              </Field>
+            </div>
+            <Field label="Notes">
+              <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} />
+            </Field>
+            <ErrorMsg msg={error} />
+            <ModalActions>
+              <Btn variant="secondary" onClick={() => { setShowModal(false); setError(null) }}>Cancel</Btn>
+              <Btn variant="primary" type="submit" loading={saving}>Schedule</Btn>
+            </ModalActions>
+          </form>
+        </Modal>
+      </Main>
+    </PageShell>
   )
 }

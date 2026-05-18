@@ -2,34 +2,45 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Sidebar } from '../../components/Sidebar'
+import { PageShell, Main, Card, CardHeader } from '../../components/ui'
 import { tdApi } from '../../lib/api'
 
-const SEV_COLORS: Record<string, string> = {
-  low: 'bg-slate-700 text-slate-300',
-  medium: 'bg-yellow-900 text-yellow-300',
-  high: 'bg-orange-900 text-orange-300',
-  critical: 'bg-red-900 text-red-300',
+const SEV_COLOR: Record<string, { color: string; bg: string }> = {
+  low:      { color: '#5c5855', bg: 'rgba(163,160,152,0.1)' },
+  medium:   { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+  high:     { color: '#c96442', bg: 'rgba(201,100,66,0.1)' },
+  critical: { color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
 }
 
 function StatCard({
   label,
   value,
-  color,
+  valueColor,
   href,
 }: {
   label: string
   value: string | number
-  color: string
+  valueColor?: string
   href?: string
 }) {
   const inner = (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-colors">
-      <p className="text-slate-400 text-sm">{label}</p>
-      <p className={`text-3xl font-bold mt-1 ${color}`}>{value}</p>
+    <div style={{
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 12,
+      padding: '20px 24px',
+      transition: 'border-color 0.15s',
+    }}
+      onMouseEnter={e => (e.currentTarget.style.borderColor = '#5a5855')}
+      onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+    >
+      <p style={{ color: 'var(--text-2)', fontSize: 13, margin: 0 }}>{label}</p>
+      <p style={{ color: valueColor ?? 'var(--text)', fontSize: 28, fontWeight: 700, margin: '4px 0 0' }}>{value}</p>
     </div>
   )
-  return href ? <Link href={href}>{inner}</Link> : inner
+  return href ? (
+    <Link href={href} style={{ textDecoration: 'none', display: 'block' }}>{inner}</Link>
+  ) : inner
 }
 
 export default function DashboardPage() {
@@ -52,12 +63,11 @@ export default function DashboardPage() {
   }, [router])
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 p-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="text-slate-400 mt-1">
+    <PageShell>
+      <Main>
+        <div style={{ marginBottom: 28 }}>
+          <h1 style={{ color: 'var(--text)', fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: '-0.025em' }}>Dashboard</h1>
+          <p style={{ color: 'var(--text-3)', fontSize: 13, margin: '4px 0 0' }}>
             {new Date().toLocaleDateString('en-IN', {
               weekday: 'long',
               year: 'numeric',
@@ -67,37 +77,39 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Stats */}
+        {/* Stats grid */}
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 14, marginBottom: 28 }}>
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-slate-900 border border-slate-800 rounded-xl p-6 animate-pulse h-24" />
+              <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, height: 90 }} />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
-            <StatCard label="Guards" value={stats?.guards ?? '—'} color="text-white" href="/guards" />
-            <StatCard label="Sites" value={stats?.sites ?? '—'} color="text-indigo-400" href="/sites" />
-            <StatCard label="Open Incidents" value={stats?.openIncidents ?? '—'} color="text-red-400" href="/incidents" />
-            <StatCard label="Active Shifts" value={stats?.activeShifts ?? '—'} color="text-emerald-400" href="/shifts" />
-            <StatCard label="Today's Patrols" value={stats?.todayPatrols ?? '—'} color="text-cyan-400" href="/patrols" />
-            <StatCard label="Today's Attendance" value={stats?.todayAttendance ?? '—'} color="text-yellow-400" />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 14, marginBottom: 28 }}>
+            <StatCard label="Guards" value={stats?.guards ?? '—'} href="/guards" />
+            <StatCard label="Sites" value={stats?.sites ?? '—'} valueColor="#c96442" href="/sites" />
+            <StatCard label="Open Incidents" value={stats?.openIncidents ?? '—'} valueColor="#f87171" href="/incidents" />
+            <StatCard label="Active Shifts" value={stats?.activeShifts ?? '—'} valueColor="#10b981" href="/shifts" />
+            <StatCard label="Today's Patrols" value={stats?.todayPatrols ?? '—'} valueColor="#3b82f6" href="/patrols" />
+            <StatCard label="Today's Attendance" value={stats?.todayAttendance ?? '—'} valueColor="#fbbf24" />
           </div>
         )}
 
         {/* Recent Incidents */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl mb-8">
-          <div className="p-6 border-b border-slate-800 flex items-center justify-between">
-            <h2 className="text-white font-semibold">Recent Incidents</h2>
-            <Link href="/incidents" className="text-indigo-400 text-sm hover:text-indigo-300">
-              View all →
-            </Link>
-          </div>
-          <div className="divide-y divide-slate-800">
+        <Card style={{ marginBottom: 28 }}>
+          <CardHeader
+            title="Recent Incidents"
+            action={
+              <Link href="/incidents" style={{ color: '#c96442', fontSize: 13, textDecoration: 'none' }}>
+                View all →
+              </Link>
+            }
+          />
+          <div>
             {loading ? (
-              <div className="p-6 text-slate-500">Loading...</div>
+              <div style={{ padding: '20px 22px', color: 'var(--text-3)', fontSize: 13 }}>Loading...</div>
             ) : incidents.length === 0 ? (
-              <div className="p-6 text-slate-500">No incidents reported.</div>
+              <div style={{ padding: '20px 22px', color: 'var(--text-3)', fontSize: 13 }}>No incidents reported.</div>
             ) : (
               incidents.map((inc) => {
                 const slaPast =
@@ -105,25 +117,41 @@ export default function DashboardPage() {
                   new Date(inc.slaDeadline) < new Date() &&
                   inc.status !== 'resolved' &&
                   inc.status !== 'closed'
+                const sev = SEV_COLOR[inc.severity] ?? { color: '#5c5855', bg: 'rgba(163,160,152,0.1)' }
                 return (
                   <Link
                     key={inc.id}
                     href={`/incidents/${inc.id}`}
-                    className="px-6 py-4 flex items-center justify-between hover:bg-slate-800/50 transition-colors block"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '14px 22px',
+                      borderBottom: '1px solid var(--border)',
+                      textDecoration: 'none',
+                      transition: 'background 0.1s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
                     <div>
-                      <p className="text-white font-medium">{inc.title}</p>
-                      <p className="text-slate-500 text-sm">
-                        {inc.status?.replace(/_/g, ' ')} ·{' '}
-                        {new Date(inc.createdAt).toLocaleString('en-IN')}
-                        {slaPast && <span className="text-red-400 ml-2">SLA breached</span>}
+                      <p style={{ color: 'var(--text)', fontWeight: 500, fontSize: 14, margin: 0 }}>{inc.title}</p>
+                      <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>
+                        {inc.status?.replace(/_/g, ' ')} · {new Date(inc.createdAt).toLocaleString('en-IN')}
+                        {slaPast && <span style={{ color: '#f87171', marginLeft: 8 }}>SLA breached</span>}
                       </p>
                     </div>
-                    <span
-                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        SEV_COLORS[inc.severity] ?? 'bg-slate-700 text-slate-300'
-                      }`}
-                    >
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '2px 9px',
+                      borderRadius: 20,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: sev.color,
+                      background: sev.bg,
+                      border: `1px solid ${sev.color}30`,
+                      flexShrink: 0,
+                    }}>
                       {inc.severity}
                     </span>
                   </Link>
@@ -131,27 +159,36 @@ export default function DashboardPage() {
               })
             )}
           </div>
-        </div>
+        </Card>
 
-        {/* Quick Links */}
-        <div className="grid grid-cols-3 gap-4">
+        {/* Quick links */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           {[
-            { href: '/guards', label: 'Manage Guards', icon: '👮', desc: 'Add or view guard profiles' },
-            { href: '/shifts', label: 'Schedule Shifts', icon: '📅', desc: 'Assign guards to sites' },
-            { href: '/incidents', label: 'View Incidents', icon: '⚠️', desc: 'Track open incidents' },
+            { href: '/guards', label: 'Manage Guards', desc: 'Add or view guard profiles' },
+            { href: '/shifts', label: 'Schedule Shifts', desc: 'Assign guards to sites' },
+            { href: '/incidents', label: 'View Incidents', desc: 'Track open incidents' },
           ].map((q) => (
             <Link
               key={q.href}
               href={q.href}
-              className="bg-slate-900 border border-slate-800 rounded-xl p-6 hover:border-indigo-600 transition-colors"
+              style={{
+                display: 'block',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                padding: '20px 24px',
+                textDecoration: 'none',
+                transition: 'border-color 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.borderColor = '#c96442')}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
             >
-              <div className="text-2xl mb-3">{q.icon}</div>
-              <p className="text-white font-medium">{q.label}</p>
-              <p className="text-slate-500 text-sm mt-1">{q.desc}</p>
+              <p style={{ color: 'var(--text)', fontWeight: 600, fontSize: 14, margin: 0 }}>{q.label}</p>
+              <p style={{ color: 'var(--text-3)', fontSize: 13, margin: '4px 0 0' }}>{q.desc}</p>
             </Link>
           ))}
         </div>
-      </main>
-    </div>
+      </Main>
+    </PageShell>
   )
 }

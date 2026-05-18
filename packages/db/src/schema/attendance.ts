@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, doublePrecision, real, pgEnum } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, doublePrecision, real, pgEnum, boolean } from 'drizzle-orm/pg-core'
 import { tenants } from './tenants'
 import { sites } from './sites'
 import { users } from './users'
@@ -19,7 +19,7 @@ export const attendanceRecords = pgTable('attendance_records', {
   longitude: doublePrecision('longitude'),
   selfieUrl: text('selfie_url'),
   livenessScore: real('liveness_score'),
-  isWithinGeofence: text('is_within_geofence'),
+  isWithinGeofence: boolean('is_within_geofence'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 

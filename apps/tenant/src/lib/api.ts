@@ -100,13 +100,20 @@ export const tdApi = {
       orderInRoute?: number
     }) => request<{ data: any }>('/patrol/checkpoints', { method: 'POST', body: JSON.stringify(body) }),
   },
-  cameras: {
-    list: (siteId?: string) => {
-      const qs = siteId ? `?siteId=${siteId}` : ''
-      return request<{ data: any[] }>(`/cameras${qs}`)
-    },
-    create: (body: { siteId: string; name: string; rtspUrl: string; go2rtcStream?: string }) =>
-      request<{ data: any }>('/cameras', { method: 'POST', body: JSON.stringify(body) }),
+  payroll: {
+    listPeriods: () => request<{ data: any[] }>('/payroll'),
+    createPeriod: (body: { periodStart: string; periodEnd: string }) =>
+      request<{ data: any }>('/payroll', { method: 'POST', body: JSON.stringify(body) }),
+    getPeriod: (id: string) => request<{ data: { period: any; records: any[] } }>(`/payroll/${id}`),
+    calculate: (id: string, dailyRates?: Record<string, number>) =>
+      request<{ data: any[] }>(`/payroll/${id}/calculate`, {
+        method: 'POST',
+        body: JSON.stringify({ dailyRates }),
+      }),
+    updateRecord: (recordId: string, body: { bonusPaise?: number; otherDeductionsPaise?: number; notes?: string }) =>
+      request<{ data: any }>(`/payroll/records/${recordId}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    finalize: (id: string) =>
+      request<{ data: any }>(`/payroll/${id}/finalize`, { method: 'POST' }),
   },
   attendance: {
     list: (params?: { guardId?: string; siteId?: string; limit?: number }) => {
@@ -114,6 +121,19 @@ export const tdApi = {
       const qs = entries.length ? '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString() : ''
       return request<{ data: any[] }>(`/attendance${qs}`)
     },
+    report: (params?: { since?: string; until?: string; guardId?: string; siteId?: string }) => {
+      const entries = Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== '')
+      const qs = entries.length ? '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString() : ''
+      return request<{ data: any[] }>(`/attendance/report${qs}`)
+    },
+  },
+  locations: {
+    history: (params: { guardId?: string; shiftId?: string; since?: string; limit?: number }) => {
+      const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+      const qs = entries.length ? '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString() : ''
+      return request<{ data: any[] }>(`/locations/history${qs}`)
+    },
+    liveUrl: () => `${API_URL}/locations/live`,
   },
   clients: {
     list: () => request<{ data: any[] }>('/clients'),
@@ -123,5 +143,70 @@ export const tdApi = {
       contactEmail: string
       contactPhone: string
     }) => request<{ data: any }>('/clients', { method: 'POST', body: JSON.stringify(body) }),
+  },
+  postOrders: {
+    list: (siteId?: string) => {
+      const qs = siteId ? `?siteId=${siteId}` : ''
+      return request<{ data: any[] }>(`/post-orders${qs}`)
+    },
+    create: (body: { siteId: string; title: string; content: string; requiresAck: boolean }) =>
+      request<{ data: any }>('/post-orders', { method: 'POST', body: JSON.stringify(body) }),
+    get: (id: string) => request<{ data: any }>(`/post-orders/${id}`),
+    ack: (id: string) => request<{ data: any }>(`/post-orders/${id}/ack`, { method: 'POST' }),
+  },
+  certifications: {
+    list: (params?: { guardId?: string; status?: string }) => {
+      const entries = Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== '')
+      const qs = entries.length ? '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString() : ''
+      return request<{ data: any[] }>(`/certifications${qs}`)
+    },
+    create: (body: { guardId: string; certType: string; certNumber?: string; issuedBy?: string; issuedAt?: string; expiresAt?: string }) =>
+      request<{ data: any }>('/certifications', { method: 'POST', body: JSON.stringify(body) }),
+    update: (id: string, body: any) =>
+      request<{ data: any }>(`/certifications/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  },
+  leaveRequests: {
+    list: (params?: { guardId?: string; status?: string }) => {
+      const entries = Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== '')
+      const qs = entries.length ? '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString() : ''
+      return request<{ data: any[] }>(`/leave-requests${qs}`)
+    },
+    create: (body: { leaveType: string; startDate: string; endDate: string; reason?: string }) =>
+      request<{ data: any }>('/leave-requests', { method: 'POST', body: JSON.stringify(body) }),
+    review: (id: string, body: { status: 'approved' | 'rejected'; reviewNote?: string }) =>
+      request<{ data: any }>(`/leave-requests/${id}/review`, { method: 'PATCH', body: JSON.stringify(body) }),
+  },
+  passdowns: {
+    list: (params?: { siteId?: string; limit?: number }) => {
+      const entries = Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== '')
+      const qs = entries.length ? '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString() : ''
+      return request<{ data: any[] }>(`/passdowns${qs}`)
+    },
+    create: (body: { siteId: string; toGuardId?: string; fromShiftId?: string; notes: string }) =>
+      request<{ data: any }>('/passdowns', { method: 'POST', body: JSON.stringify(body) }),
+  },
+  exceptions: {
+    list: (params?: { guardId?: string; shiftId?: string }) => {
+      const entries = Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== '')
+      const qs = entries.length ? '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString() : ''
+      return request<{ data: any[] }>(`/exceptions${qs}`)
+    },
+    resolve: (id: string, resolutionNote?: string) =>
+      request<{ data: any }>(`/exceptions/${id}/resolve`, { method: 'PATCH', body: JSON.stringify({ resolutionNote }) }),
+  },
+  cameras: {
+    list: (siteId?: string) => {
+      const qs = siteId ? `?siteId=${siteId}` : ''
+      return request<{ data: any[] }>(`/cameras${qs}`)
+    },
+    create: (body: { name: string; siteId: string; rtspUrl: string; go2rtcStream?: string }) =>
+      request<{ data: any }>('/cameras', { method: 'POST', body: JSON.stringify(body) }),
+  },
+  panic: {
+    list: () => request<{ data: any[] }>('/panic'),
+    acknowledge: (id: string) =>
+      request<{ data: any }>(`/panic/${id}/acknowledge`, { method: 'PATCH' }),
+    resolve: (id: string, notes?: string) =>
+      request<{ data: any }>(`/panic/${id}/resolve`, { method: 'PATCH', body: JSON.stringify({ notes }) }),
   },
 }

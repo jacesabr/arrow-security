@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sidebar } from '../../components/Sidebar'
+import { PageShell, Main, PageHeader, Card, DataTable, TR, TD, Badge, FilterRow, FilterField, Select } from '../../components/ui'
 import { tdApi } from '../../lib/api'
 
 export default function PatrolsPage() {
@@ -38,12 +38,8 @@ export default function PatrolsPage() {
       .finally(() => setLoading(false))
   }, [router])
 
-  function guardName(id: string) {
-    return users.find((u) => u.id === id)?.name ?? id
-  }
-  function siteName(id: string) {
-    return sites.find((s) => s.id === id)?.name ?? id
-  }
+  function guardName(id: string) { return users.find((u) => u.id === id)?.name ?? id }
+  function siteName(id: string) { return sites.find((s) => s.id === id)?.name ?? id }
 
   const filtered = patrols.filter((p) => {
     if (filterSite && p.siteId !== filterSite) return false
@@ -51,97 +47,65 @@ export default function PatrolsPage() {
     return true
   })
 
+  const statusBadge = (status: string) => {
+    if (status === 'completed') return <Badge label="completed" color="#7a7773" bg="rgba(122,119,115,0.12)" />
+    if (status === 'in_progress') return <Badge label="in progress" color="#3b82f6" bg="rgba(59,130,246,0.12)" />
+    if (status === 'missed') return <Badge label="missed" color="#ef4444" bg="rgba(239,68,68,0.12)" />
+    return <Badge label={status ?? 'unknown'} color="#a3a098" bg="rgba(163,160,152,0.12)" />
+  }
+
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 p-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Patrols</h1>
-          <p className="text-slate-400 mt-1">Guard patrol sessions and scan logs</p>
-        </div>
+    <PageShell>
+      <Main>
+        <PageHeader title="Patrols" subtitle="Guard patrol sessions and scan logs" />
 
         {notAvailable ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center">
-            <div className="text-4xl mb-4">🚶</div>
-            <h2 className="text-white font-semibold text-lg mb-2">No Patrol Data Available</h2>
-            <p className="text-slate-500 text-sm">
+          <Card style={{ padding: 48, textAlign: 'center' }}>
+            <h2 style={{ color: 'var(--text)', fontWeight: 600, fontSize: 16, margin: '0 0 8px' }}>No Patrol Data Available</h2>
+            <p style={{ color: 'var(--text-3)', fontSize: 13, margin: 0 }}>
               The patrol tracking endpoint is not yet available. Patrol logs will appear here once guards begin scanning checkpoints via the mobile app.
             </p>
-          </div>
+          </Card>
         ) : (
           <>
-            {/* Filters */}
-            <div className="flex gap-3 mb-6 flex-wrap">
-              <select
-                value={filterSite}
-                onChange={(e) => setFilterSite(e.target.value)}
-                className="bg-slate-800 text-white text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-indigo-500"
-              >
-                <option value="">All sites</option>
-                {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="bg-slate-800 text-white text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-indigo-500"
-              >
-                <option value="">All statuses</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="missed">Missed</option>
-              </select>
-            </div>
+            <FilterRow>
+              <FilterField label="Site">
+                <Select value={filterSite} onChange={(e) => setFilterSite(e.target.value)} style={{ width: 180 }}>
+                  <option value="">All sites</option>
+                  {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </Select>
+              </FilterField>
+              <FilterField label="Status">
+                <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ width: 160 }}>
+                  <option value="">All statuses</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="missed">Missed</option>
+                </Select>
+              </FilterField>
+            </FilterRow>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-800">
-                    <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Guard</th>
-                    <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Site</th>
-                    <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Started</th>
-                    <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Completed</th>
-                    <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Status</th>
-                    <th className="text-left px-6 py-4 text-slate-400 text-sm font-medium">Checkpoints</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {loading ? (
-                    <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-500">Loading...</td></tr>
-                  ) : filtered.length === 0 ? (
-                    <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-500">No patrols found.</td></tr>
-                  ) : (
-                    filtered.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-800/50 transition-colors">
-                        <td className="px-6 py-4 text-white font-medium">{guardName(p.guardId)}</td>
-                        <td className="px-6 py-4 text-slate-400 text-sm">{siteName(p.siteId)}</td>
-                        <td className="px-6 py-4 text-slate-400 text-sm">
-                          {p.startedAt ? new Date(p.startedAt).toLocaleString('en-IN') : '—'}
-                        </td>
-                        <td className="px-6 py-4 text-slate-400 text-sm">
-                          {p.completedAt ? new Date(p.completedAt).toLocaleString('en-IN') : '—'}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                            p.status === 'completed' ? 'bg-emerald-900 text-emerald-300'
-                            : p.status === 'in_progress' ? 'bg-blue-900 text-blue-300'
-                            : p.status === 'missed' ? 'bg-red-900 text-red-300'
-                            : 'bg-slate-700 text-slate-300'
-                          }`}>
-                            {p.status ?? 'unknown'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-slate-400 text-sm">
-                          {p.scannedCheckpoints ?? 0} / {p.totalCheckpoints ?? '?'}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <Card overflow="hidden">
+              <DataTable
+                cols={['Guard', 'Site', 'Started', 'Completed', 'Status', 'Checkpoints']}
+                loading={loading}
+                empty="No patrols found."
+              >
+                {filtered.map((p) => (
+                  <TR key={p.id}>
+                    <TD>{guardName(p.guardId)}</TD>
+                    <TD muted>{siteName(p.siteId)}</TD>
+                    <TD muted>{p.startedAt ? new Date(p.startedAt).toLocaleString('en-IN') : '—'}</TD>
+                    <TD muted>{p.completedAt ? new Date(p.completedAt).toLocaleString('en-IN') : '—'}</TD>
+                    <TD>{statusBadge(p.status)}</TD>
+                    <TD muted>{p.scannedCheckpoints ?? 0} / {p.totalCheckpoints ?? '?'}</TD>
+                  </TR>
+                ))}
+              </DataTable>
+            </Card>
           </>
         )}
-      </main>
-    </div>
+      </Main>
+    </PageShell>
   )
 }

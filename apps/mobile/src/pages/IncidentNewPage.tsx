@@ -59,32 +59,32 @@ export const IncidentNewPage: React.FC = () => {
     }
   }
 
-  const itemStyle = { '--background': '#1e293b', '--color': '#fff', borderRadius: 8, marginBottom: 12 }
+  const itemStyle = { '--background': '#ffffff', '--color': '#1a1916', borderRadius: 8, marginBottom: 12 }
   const severityColors: Record<string, string> = {
-    low: '#22d3ee', medium: '#fbbf24', high: '#f97316', critical: '#ef4444',
+    low: '#3b82f6', medium: '#fbbf24', high: '#f97316', critical: '#ef4444',
   }
 
   return (
     <IonPage>
       <IonHeader>
-        <IonToolbar style={{ '--background': '#0f172a', '--color': '#fff' }}>
+        <IonToolbar style={{ '--background': '#ffffff', '--color': '#1a1916' }}>
           <IonButtons slot="start">
-            <IonBackButton defaultHref="/tabs/incidents" style={{ color: '#fff' }} />
+            <IonBackButton defaultHref="/tabs/incidents" style={{ color: '#1a1916' }} />
           </IonButtons>
           <IonTitle>Report Incident</IonTitle>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent style={{ '--background': '#0f172a' }} className="ion-padding">
+      <IonContent style={{ '--background': '#fafaf9' }} className="ion-padding">
         {/* Site */}
         <IonItem lines="none" style={itemStyle}>
-          <IonLabel style={{ color: '#94a3b8' }}>Site *</IonLabel>
+          <IonLabel style={{ color: '#5c5855' }}>Site *</IonLabel>
           <IonSelect
             value={siteId}
             onIonChange={(e) => setSiteId(e.detail.value)}
             placeholder="Select site"
             interface="action-sheet"
-            style={{ '--color': '#fff' }}
+            style={{ '--color': '#1a1916' }}
           >
             {sites.map((s) => (
               <IonSelectOption key={s.id} value={s.id}>{s.name}</IonSelectOption>
@@ -94,18 +94,18 @@ export const IncidentNewPage: React.FC = () => {
 
         {/* Title */}
         <IonItem lines="none" style={itemStyle}>
-          <IonLabel position="stacked" style={{ color: '#94a3b8', marginBottom: 4 }}>Title *</IonLabel>
+          <IonLabel position="stacked" style={{ color: '#5c5855', marginBottom: 4 }}>Title *</IonLabel>
           <IonInput
             value={title}
             onIonInput={(e) => setTitle(e.detail.value!)}
             placeholder="Brief description of incident"
-            style={{ '--color': '#fff' }}
+            style={{ '--color': '#1a1916' }}
           />
         </IonItem>
 
         {/* Severity */}
         <IonItem lines="none" style={itemStyle}>
-          <IonLabel style={{ color: '#94a3b8' }}>Severity</IonLabel>
+          <IonLabel style={{ color: '#5c5855' }}>Severity</IonLabel>
           <IonSelect
             value={severity}
             onIonChange={(e) => setSeverity(e.detail.value)}
@@ -121,19 +121,19 @@ export const IncidentNewPage: React.FC = () => {
 
         {/* Details */}
         <IonItem lines="none" style={{ ...itemStyle, alignItems: 'flex-start', paddingTop: 8 }}>
-          <IonLabel position="stacked" style={{ color: '#94a3b8', marginBottom: 4 }}>Details *</IonLabel>
+          <IonLabel position="stacked" style={{ color: '#5c5855', marginBottom: 4 }}>Details *</IonLabel>
           <IonTextarea
             value={description}
             onIonInput={(e) => setDescription(e.detail.value!)}
             rows={5}
             placeholder="Describe what happened, location, people involved..."
-            style={{ '--color': '#fff' }}
+            style={{ '--color': '#1a1916' }}
           />
         </IonItem>
 
         {/* Photo */}
-        <div style={{ background: '#1e293b', borderRadius: 8, padding: 16, marginBottom: 12 }}>
-          <p style={{ color: '#94a3b8', margin: '0 0 12px', fontSize: 14 }}>Photo Evidence (optional)</p>
+        <div style={{ background: '#ffffff', borderRadius: 8, padding: 16, marginBottom: 12 }}>
+          <p style={{ color: '#5c5855', margin: '0 0 12px', fontSize: 14 }}>Photo Evidence (optional)</p>
           {photoPreview ? (
             <div style={{ position: 'relative' }}>
               <img src={photoPreview} alt="Preview" style={{ width: '100%', borderRadius: 8, maxHeight: 200, objectFit: 'cover' }} />
@@ -149,11 +149,11 @@ export const IncidentNewPage: React.FC = () => {
           ) : (
             <label style={{ display: 'block', cursor: 'pointer' }}>
               <div style={{
-                border: '2px dashed #334155',
+                border: '2px dashed #e8e5e0',
                 borderRadius: 8,
                 padding: 24,
                 textAlign: 'center',
-                color: '#64748b',
+                color: '#9a9490',
               }}>
                 <IonIcon icon={cameraOutline} style={{ fontSize: 32, marginBottom: 8, display: 'block', margin: '0 auto 8px' }} />
                 <span style={{ fontSize: 14 }}>Tap to add photo</span>

@@ -1,0 +1,114 @@
+{
+  "title": "Security Incident Report",
+  "description": "SurveyJS JSON schema. Rendered by survey-react-ui (MIT). Created by Survey Creator (commercial licence required for drag-and-drop builder UI).",
+  "logoPosition": "right",
+  "pages": [
+    {
+      "name": "incident_details",
+      "title": "Incident Details",
+      "elements": [
+        {
+          "type": "dropdown",
+          "name": "incident_type",
+          "title": "Incident Type",
+          "isRequired": true,
+          "choices": [
+            { "value": "theft",      "text": "Theft" },
+            { "value": "trespass",   "text": "Trespass / Unauthorised Entry" },
+            { "value": "medical",    "text": "Medical Emergency" },
+            { "value": "vandalism",  "text": "Vandalism / Property Damage" },
+            { "value": "other",      "text": "Other" }
+          ]
+        },
+        {
+          "type": "text",
+          "name": "stolen_items",
+          "title": "Description of Stolen Items",
+          "isRequired": true,
+          "visibleIf": "{incident_type} = 'theft'",
+          "placeholder": "List items taken"
+        },
+        {
+          "type": "text",
+          "name": "estimated_value",
+          "title": "Estimated Value (₹)",
+          "inputType": "number",
+          "min": 0,
+          "visibleIf": "{incident_type} = 'theft'",
+          "placeholder": "0"
+        },
+        {
+          "type": "text",
+          "name": "victim_name",
+          "title": "Victim / Patient Name",
+          "isRequired": true,
+          "visibleIf": "{incident_type} = 'medical'",
+          "placeholder": "Full name"
+        },
+        {
+          "type": "boolean",
+          "name": "ambulance_called",
+          "title": "Was an ambulance called?",
+          "visibleIf": "{incident_type} = 'medical'",
+          "renderAs": "checkbox"
+        },
+        {
+          "type": "text",
+          "name": "other_description",
+          "title": "Describe the Incident",
+          "isRequired": true,
+          "visibleIf": "{incident_type} = 'other'",
+          "placeholder": "Provide details"
+        }
+      ]
+    },
+    {
+      "name": "evidence",
+      "title": "Evidence & Location",
+      "elements": [
+        {
+          "type": "file",
+          "name": "photo_evidence",
+          "title": "Photo Evidence",
+          "acceptedTypes": "image/*",
+          "allowMultiple": true,
+          "maxSize": 10485760,
+          "storeDataAsText": false,
+          "description": "Upload photos from the scene. Set storeDataAsText=true to store as base64 in JSONB, or implement a MinIO upload handler."
+        },
+        {
+          "type": "text",
+          "name": "gps_location",
+          "title": "GPS Coordinates",
+          "readOnly": true,
+          "defaultValueExpression": "",
+          "description": "Auto-populated before survey mounts: survey.setValue('gps_location', `${lat},${lng}`)"
+        }
+      ]
+    },
+    {
+      "name": "sign_off",
+      "title": "Sign Off",
+      "elements": [
+        {
+          "type": "signaturepad",
+          "name": "witness_signature",
+          "title": "Witness Signature",
+          "signatureWidth": 400,
+          "signatureHeight": 150,
+          "description": "Witness signs here"
+        }
+      ]
+    }
+  ],
+  "showProgressBar": "top",
+  "progressBarType": "pages",
+  "showQuestionNumbers": "off",
+  "completedHtml": "<h4>Report submitted. Stay on scene until supervisor confirms.</h4>",
+  "_notes": {
+    "rendering": "import { Model } from 'survey-core'; import { Survey } from 'survey-react-ui'; const model = new Model(schema); <Survey model={model} onComplete={onComplete} />",
+    "gps_injection": "Before mount: const pos = await Geolocation.getCurrentPosition(); model.setValue('gps_location', `${pos.coords.latitude},${pos.coords.longitude}`);",
+    "pdf_export": "import { SurveyPDF } from 'survey-pdf'; const pdf = new SurveyPDF(schema); pdf.data = survey.data; pdf.save('incident-report.pdf');",
+    "server_validation": "Run survey-core in Node.js to re-validate required fields on POST /api/incidents/:id/form-response"
+  }
+}

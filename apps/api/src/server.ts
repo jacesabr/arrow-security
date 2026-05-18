@@ -4,6 +4,7 @@ import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import jwt from '@fastify/jwt'
 import rateLimit from '@fastify/rate-limit'
+import Redis from 'ioredis'
 
 import tenantPlugin from './plugins/tenant'
 import { authRoutes } from './routes/auth'
@@ -14,9 +15,23 @@ import { attendanceRoutes } from './routes/attendance'
 import { patrolRoutes } from './routes/patrol'
 import { incidentsRoutes } from './routes/incidents'
 import { shiftsRoutes } from './routes/shifts'
+import { locationsRoutes } from './routes/locations'
 import { camerasRoutes } from './routes/cameras'
 import { statsRoutes } from './routes/stats'
 import { clientsRoutes } from './routes/clients'
+import { supervisorSitesRoutes } from './routes/supervisor-sites'
+import { leaveRequestsRoutes } from './routes/leave-requests'
+import { payrollRoutes } from './routes/payroll'
+import { certificationsRoutes } from './routes/certifications'
+import { postOrdersRoutes } from './routes/post-orders'
+import { panicRoutes } from './routes/panic'
+import { passdownsRoutes } from './routes/passdowns'
+import { exceptionsRoutes } from './routes/exceptions'
+import { auditLogRoutes } from './routes/audit-log'
+import { shiftTemplatesRoutes } from './routes/shift-templates'
+import { incidentFormsRoutes } from './routes/incident-forms'
+import { uploadRoutes } from './routes/upload'
+import { ensureBucket } from './lib/storage'
 
 const app = Fastify({
   logger: {
@@ -34,7 +49,11 @@ async function build() {
     origin: process.env.CORS_ORIGIN?.split(',') ?? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],
     credentials: true,
   })
-  await app.register(rateLimit, { max: 200, timeWindow: '1 minute' })
+  await app.register(rateLimit, {
+    max: 200,
+    timeWindow: '1 minute',
+    redis: new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379'),
+  })
   await app.register(jwt, {
     secret: process.env.JWT_SECRET!,
     sign: { expiresIn: '24h' },
@@ -53,6 +72,19 @@ async function build() {
   await app.register(camerasRoutes, { prefix: '/api/cameras' })
   await app.register(statsRoutes, { prefix: '/api/stats' })
   await app.register(clientsRoutes, { prefix: '/api/clients' })
+  await app.register(supervisorSitesRoutes, { prefix: '/api/supervisor-sites' })
+  await app.register(locationsRoutes, { prefix: '/api/locations' })
+  await app.register(leaveRequestsRoutes, { prefix: '/api/leave-requests' })
+  await app.register(payrollRoutes, { prefix: '/api/payroll' })
+  await app.register(certificationsRoutes, { prefix: '/api/certifications' })
+  await app.register(postOrdersRoutes, { prefix: '/api/post-orders' })
+  await app.register(panicRoutes, { prefix: '/api/panic' })
+  await app.register(passdownsRoutes, { prefix: '/api/passdowns' })
+  await app.register(exceptionsRoutes, { prefix: '/api/exceptions' })
+  await app.register(auditLogRoutes, { prefix: '/api/audit-log' })
+  await app.register(shiftTemplatesRoutes, { prefix: '/api/shift-templates' })
+  await app.register(incidentFormsRoutes, { prefix: '/api/incident-forms' })
+  await app.register(uploadRoutes, { prefix: '/api/upload' })
 
   app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 
@@ -61,6 +93,11 @@ async function build() {
 
 async function start() {
   const server = await build()
+  try {
+    await ensureBucket()
+  } catch (err) {
+    server.log.warn({ err }, 'MinIO bucket init failed — uploads will not work until MinIO is reachable')
+  }
   try {
     await server.listen({ port: Number(process.env.PORT ?? 4000), host: '0.0.0.0' })
   } catch (err) {

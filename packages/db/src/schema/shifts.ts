@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, pgEnum } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, pgEnum, boolean } from 'drizzle-orm/pg-core'
 import { tenants } from './tenants'
 import { sites } from './sites'
 import { users } from './users'
@@ -15,6 +15,7 @@ export const shifts = pgTable('shifts', {
   endsAt: timestamp('ends_at').notNull(),
   status: shiftStatusEnum('status').notNull().default('scheduled'),
   notes: text('notes'),
+  published: boolean('published').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })

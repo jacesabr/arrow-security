@@ -1,26 +1,91 @@
 :root {
-  --ion-color-primary: #6366f1;
-  --ion-color-primary-rgb: 99, 102, 241;
+  --ion-color-primary: #c96442;
+  --ion-color-primary-rgb: 201, 100, 66;
   --ion-color-primary-contrast: #ffffff;
-  --ion-color-primary-shade: #5759d3;
-  --ion-color-primary-tint: #7375f3;
+  --ion-color-primary-shade: #b3573a;
+  --ion-color-primary-tint: #d4754f;
 
   --ion-color-secondary: #10b981;
   --ion-color-secondary-rgb: 16, 185, 129;
+  --ion-color-secondary-contrast: #ffffff;
+  --ion-color-secondary-shade: #0da271;
+  --ion-color-secondary-tint: #28c496;
 
   --ion-color-success: #10b981;
+  --ion-color-success-rgb: 16, 185, 129;
+  --ion-color-success-contrast: #ffffff;
+  --ion-color-success-shade: #0da271;
+  --ion-color-success-tint: #28c496;
+
   --ion-color-warning: #f59e0b;
+  --ion-color-warning-rgb: 245, 158, 11;
+  --ion-color-warning-contrast: #000000;
+  --ion-color-warning-shade: #d97706;
+  --ion-color-warning-tint: #fbbf24;
+
   --ion-color-danger: #ef4444;
+  --ion-color-danger-rgb: 239, 68, 68;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-shade: #dc2626;
+  --ion-color-danger-tint: #f87171;
 
-  --ion-background-color: #0f172a;
-  --ion-text-color: #f8fafc;
+  --ion-color-medium: #9a9490;
+  --ion-color-medium-rgb: 154, 148, 144;
+  --ion-color-medium-contrast: #ffffff;
+  --ion-color-medium-shade: #87817d;
+  --ion-color-medium-tint: #a8a39f;
 
-  --ion-toolbar-background: #0f172a;
-  --ion-toolbar-color: #f8fafc;
-  --ion-tab-bar-background: #0f172a;
-  --ion-tab-bar-color: #64748b;
-  --ion-tab-bar-color-selected: #6366f1;
+  --ion-color-light: #f4f2ef;
+  --ion-color-light-rgb: 244, 242, 239;
+  --ion-color-light-contrast: #1a1916;
+  --ion-color-light-shade: #e8e5e0;
+  --ion-color-light-tint: #fafaf9;
 
-  --ion-item-background: #1e293b;
-  --ion-card-background: #1e293b;
+  --ion-background-color: #fafaf9;
+  --ion-background-color-rgb: 250, 250, 249;
+  --ion-text-color: #1a1916;
+  --ion-text-color-rgb: 26, 25, 22;
+
+  --ion-toolbar-background: #ffffff;
+  --ion-toolbar-color: #1a1916;
+  --ion-toolbar-border-color: #e8e5e0;
+
+  --ion-tab-bar-background: #ffffff;
+  --ion-tab-bar-border-color: #e8e5e0;
+  --ion-tab-bar-color: #9a9490;
+  --ion-tab-bar-color-selected: #c96442;
+
+  --ion-item-background: #ffffff;
+  --ion-item-border-color: #e8e5e0;
+  --ion-item-color: #1a1916;
+
+  --ion-card-background: #ffffff;
+
+  --ion-color-step-50: #f7f6f4;
+  --ion-color-step-100: #f4f2ef;
+  --ion-color-step-150: #f0edea;
+  --ion-color-step-200: #ece9e4;
+  --ion-color-step-250: #e8e5e0;
+  --ion-color-step-300: #dedad4;
+  --ion-color-step-350: #ccc9c3;
+  --ion-color-step-400: #b8b4ae;
+  --ion-color-step-450: #a8a39e;
+  --ion-color-step-500: #9a9490;
+  --ion-color-step-550: #87817d;
+  --ion-color-step-600: #7a7773;
+  --ion-color-step-650: #6b6865;
+  --ion-color-step-700: #5c5855;
+  --ion-color-step-750: #4a4845;
+  --ion-color-step-800: #383634;
+  --ion-color-step-850: #2b2a27;
+  --ion-color-step-900: #232120;
+  --ion-color-step-950: #1a1916;
+}
+
+/* QR scanner: make background transparent when camera is active */
+body.scanner-active ion-modal {
+  --background: transparent;
+}
+body.scanner-active ion-modal .modal-wrapper {
+  background: transparent !important;
 }

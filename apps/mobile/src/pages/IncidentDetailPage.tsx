@@ -20,11 +20,11 @@ import { useAuthStore } from '../store/auth'
 import { api } from '../services/api'
 
 const SEVERITY_COLOR: Record<string, string> = {
-  low: '#22d3ee', medium: '#fbbf24', high: '#f97316', critical: '#ef4444',
+  low: '#3b82f6', medium: '#fbbf24', high: '#f97316', critical: '#ef4444',
 }
 const STATUS_COLOR: Record<string, string> = {
   open: '#ef4444', acknowledged: '#f97316', in_progress: '#fbbf24',
-  resolved: '#10b981', closed: '#64748b',
+  resolved: '#10b981', closed: '#9a9490',
 }
 
 const STATUS_FLOW: Record<string, { label: string; next: string }> = {
@@ -73,15 +73,15 @@ export const IncidentDetailPage: React.FC = () => {
   return (
     <IonPage>
       <IonHeader>
-        <IonToolbar style={{ '--background': '#0f172a', '--color': '#fff' }}>
+        <IonToolbar style={{ '--background': '#ffffff', '--color': '#1a1916' }}>
           <IonButtons slot="start">
-            <IonBackButton defaultHref="/tabs/incidents" style={{ color: '#fff' }} />
+            <IonBackButton defaultHref="/tabs/incidents" style={{ color: '#1a1916' }} />
           </IonButtons>
           <IonTitle>Incident</IonTitle>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent style={{ '--background': '#0f172a' }} className="ion-padding">
+      <IonContent style={{ '--background': '#fafaf9' }} className="ion-padding">
         {loading ? (
           <>
             {[...Array(4)].map((_, i) => (
@@ -90,13 +90,13 @@ export const IncidentDetailPage: React.FC = () => {
           </>
         ) : !incident ? (
           <div style={{ textAlign: 'center', paddingTop: 80 }}>
-            <IonIcon icon={warningOutline} style={{ fontSize: 64, color: '#334155' }} />
-            <p style={{ color: '#64748b' }}>Incident not found</p>
+            <IonIcon icon={warningOutline} style={{ fontSize: 64, color: '#e8e5e0' }} />
+            <p style={{ color: '#9a9490' }}>Incident not found</p>
           </div>
         ) : (
           <>
             {/* Header card */}
-            <div style={{ background: '#1e293b', borderRadius: 12, padding: 20, marginBottom: 16 }}>
+            <div style={{ background: '#ffffff', borderRadius: 12, padding: 20, marginBottom: 16 }}>
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                 <span style={{
                   background: SEVERITY_COLOR[incident.severity] + '22',
@@ -113,22 +113,22 @@ export const IncidentDetailPage: React.FC = () => {
                   {incident.status.replace('_', ' ').toUpperCase()}
                 </span>
               </div>
-              <h2 style={{ color: '#fff', margin: '0 0 8px', fontSize: 18, fontWeight: 700 }}>{incident.title}</h2>
-              <p style={{ color: '#94a3b8', margin: 0, lineHeight: 1.6 }}>{incident.description}</p>
+              <h2 style={{ color: '#1a1916', margin: '0 0 8px', fontSize: 18, fontWeight: 700 }}>{incident.title}</h2>
+              <p style={{ color: '#5c5855', margin: 0, lineHeight: 1.6 }}>{incident.description}</p>
             </div>
 
             {/* SLA */}
             {incident.status !== 'resolved' && incident.status !== 'closed' && (
               <div style={{
-                background: slaExpired ? '#451a1a' : '#1e293b',
-                border: `1px solid ${slaExpired ? '#ef4444' : '#334155'}`,
+                background: slaExpired ? '#fff0f0' : '#ffffff',
+                border: `1px solid ${slaExpired ? '#ef4444' : '#e8e5e0'}`,
                 borderRadius: 12, padding: 16, marginBottom: 16,
                 display: 'flex', alignItems: 'center', gap: 12,
               }}>
-                <IonIcon icon={timeOutline} style={{ color: slaExpired ? '#ef4444' : '#64748b', fontSize: 22 }} />
+                <IonIcon icon={timeOutline} style={{ color: slaExpired ? '#ef4444' : '#9a9490', fontSize: 22 }} />
                 <div>
-                  <p style={{ color: '#94a3b8', margin: 0, fontSize: 12 }}>SLA Deadline</p>
-                  <p style={{ color: slaExpired ? '#ef4444' : '#fff', margin: 0, fontWeight: 600 }}>
+                  <p style={{ color: '#5c5855', margin: 0, fontSize: 12 }}>SLA Deadline</p>
+                  <p style={{ color: slaExpired ? '#ef4444' : '#1a1916', margin: 0, fontWeight: 600 }}>
                     {slaExpired ? `Overdue by ${slaHours}h ${slaMins}m` : `${slaHours}h ${slaMins}m remaining`}
                   </p>
                 </div>
@@ -136,8 +136,8 @@ export const IncidentDetailPage: React.FC = () => {
             )}
 
             {/* Timeline */}
-            <div style={{ background: '#1e293b', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-              <p style={{ color: '#64748b', margin: '0 0 12px', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Timeline</p>
+            <div style={{ background: '#ffffff', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+              <p style={{ color: '#9a9490', margin: '0 0 12px', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Timeline</p>
               {[
                 { label: 'Reported', time: incident.createdAt, done: true },
                 { label: 'Acknowledged', time: incident.acknowledgedAt, done: !!incident.acknowledgedAt },
@@ -147,11 +147,11 @@ export const IncidentDetailPage: React.FC = () => {
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
                   <div style={{
                     width: 10, height: 10, borderRadius: '50%',
-                    background: step.done ? '#10b981' : '#334155', flexShrink: 0,
+                    background: step.done ? '#10b981' : '#e8e5e0', flexShrink: 0,
                   }} />
-                  <span style={{ color: step.done ? '#fff' : '#475569', fontSize: 14, flex: 1 }}>{step.label}</span>
+                  <span style={{ color: step.done ? '#1a1916' : '#9a9490', fontSize: 14, flex: 1 }}>{step.label}</span>
                   {step.time && (
-                    <span style={{ color: '#64748b', fontSize: 12 }}>
+                    <span style={{ color: '#5c5855', fontSize: 12 }}>
                       {new Date(step.time).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </span>
                   )}
@@ -161,8 +161,8 @@ export const IncidentDetailPage: React.FC = () => {
 
             {/* Media */}
             {incident.mediaUrls?.length > 0 && (
-              <div style={{ background: '#1e293b', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-                <p style={{ color: '#64748b', margin: '0 0 12px', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Photos</p>
+              <div style={{ background: '#ffffff', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                <p style={{ color: '#9a9490', margin: '0 0 12px', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Photos</p>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {incident.mediaUrls.map((url: string, i: number) => (
                     <img key={i} src={url} alt="" style={{ width: 80, height: 80, borderRadius: 8, objectFit: 'cover' }} />
@@ -177,7 +177,7 @@ export const IncidentDetailPage: React.FC = () => {
                 expand="block"
                 onClick={advanceStatus}
                 disabled={updating}
-                style={{ '--background': '#6366f1', '--border-radius': '12px', height: 52, marginTop: 8 }}
+                style={{ '--background': '#c96442', '--border-radius': '12px', height: 52, marginTop: 8 }}
               >
                 {updating ? <IonSpinner name="crescent" /> : STATUS_FLOW[incident.status].label}
               </IonButton>

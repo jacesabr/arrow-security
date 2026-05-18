@@ -1,11 +1,20 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sidebar } from '../../components/Sidebar'
+import { PageShell, Main, PageHeader, Card } from '../../components/ui'
 
 function ComingSoonBadge() {
   return (
-    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-700 text-slate-400 ml-2">
+    <span style={{
+      fontSize: 11,
+      fontWeight: 600,
+      padding: '2px 8px',
+      borderRadius: 20,
+      background: 'var(--surface-2)',
+      color: 'var(--text-3)',
+      marginLeft: 8,
+      border: '1px solid var(--border)',
+    }}>
       Coming soon
     </span>
   )
@@ -13,23 +22,42 @@ function ComingSoonBadge() {
 
 function Section({ title, children, badge }: { title: string; children: React.ReactNode; badge?: boolean }) {
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 mb-6">
-      <h2 className="text-white font-semibold mb-4 flex items-center">
+    <Card style={{ padding: 24, marginBottom: 16 }}>
+      <h2 style={{ color: 'var(--text)', fontWeight: 600, fontSize: 15, margin: '0 0 16px', display: 'flex', alignItems: 'center' }}>
         {title}
         {badge && <ComingSoonBadge />}
       </h2>
       {children}
-    </div>
+    </Card>
   )
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between py-2.5 border-b border-slate-800 last:border-0">
-      <span className="text-slate-400 text-sm">{label}</span>
-      <span className="text-white text-sm font-medium">{value}</span>
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '10px 0',
+      borderBottom: '1px solid var(--border)',
+    }}>
+      <span style={{ color: 'var(--text-2)', fontSize: 13.5 }}>{label}</span>
+      <span style={{ color: 'var(--text)', fontSize: 13.5, fontWeight: 500 }}>{value}</span>
     </div>
   )
+}
+
+const disabledInput: React.CSSProperties = {
+  width: '100%',
+  background: 'var(--surface-2)',
+  color: 'var(--text-3)',
+  border: '1.5px solid var(--border)',
+  borderRadius: 8,
+  padding: '8px 12px',
+  fontSize: 13.5,
+  cursor: 'not-allowed',
+  opacity: 0.6,
+  boxSizing: 'border-box',
 }
 
 export default function SettingsPage() {
@@ -44,21 +72,15 @@ export default function SettingsPage() {
     try {
       const u = JSON.parse(localStorage.getItem('td_user') ?? '{}')
       setUser(u)
-
-      // Decode JWT payload to get tenantId
       const payload = JSON.parse(atob(token.split('.')[1]))
       setTenantId(payload.tenantId ?? u.tenantId ?? '—')
     } catch {}
   }, [router])
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 p-8 max-w-3xl">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Settings</h1>
-          <p className="text-slate-400 mt-1">Account and tenant configuration</p>
-        </div>
+    <PageShell>
+      <Main maxWidth={720}>
+        <PageHeader title="Settings" subtitle="Account and tenant configuration" />
 
         {/* User Info */}
         <Section title="My Account">
@@ -70,74 +92,71 @@ export default function SettingsPage() {
               <InfoRow label="Phone" value={user.phone ?? '—'} />
             </>
           ) : (
-            <p className="text-slate-500 text-sm">Loading user info...</p>
+            <p style={{ color: 'var(--text-3)', fontSize: 13 }}>Loading user info...</p>
           )}
         </Section>
 
         {/* Tenant Info */}
         <Section title="Tenant">
           <InfoRow label="Tenant ID" value={tenantId} />
-          <InfoRow label="Tenant Slug" value={user?.tenantSlug ?? '—'} />
         </Section>
 
-        {/* Notifications - Coming Soon */}
+        {/* Notifications */}
         <Section title="Notification Settings" badge>
-          <div className="space-y-3">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {['Email alerts for critical incidents', 'SMS alerts for SLA breaches', 'Push notifications for mobile app', 'Daily summary report'].map((item) => (
-              <div key={item} className="flex items-center justify-between">
-                <span className="text-slate-500 text-sm">{item}</span>
-                <div className="w-10 h-5 bg-slate-700 rounded-full opacity-40" />
+              <div key={item} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-3)', fontSize: 13.5 }}>{item}</span>
+                <div style={{ width: 36, height: 20, background: 'var(--surface-2)', borderRadius: 10, opacity: 0.4, border: '1px solid var(--border)' }} />
               </div>
             ))}
           </div>
         </Section>
 
-        {/* Integrations - Coming Soon */}
+        {/* Integrations */}
         <Section title="Integrations" badge>
-          <div className="space-y-4">
-            <div>
-              <p className="text-slate-400 text-sm font-medium mb-1.5">Frappe / ERPNext URL</p>
-              <input
-                disabled
-                placeholder="https://erp.yourcompany.com"
-                className="w-full bg-slate-800 text-slate-600 rounded-lg px-4 py-2.5 border border-slate-700 cursor-not-allowed"
-              />
-            </div>
-            <div>
-              <p className="text-slate-400 text-sm font-medium mb-1.5">Zammad Help Desk URL</p>
-              <input
-                disabled
-                placeholder="https://helpdesk.yourcompany.com"
-                className="w-full bg-slate-800 text-slate-600 rounded-lg px-4 py-2.5 border border-slate-700 cursor-not-allowed"
-              />
-            </div>
-            <div>
-              <p className="text-slate-400 text-sm font-medium mb-1.5">Webhook URL</p>
-              <input
-                disabled
-                placeholder="https://yourwebhook.example.com/events"
-                className="w-full bg-slate-800 text-slate-600 rounded-lg px-4 py-2.5 border border-slate-700 cursor-not-allowed"
-              />
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {[
+              { label: 'Frappe / ERPNext URL', placeholder: 'https://erp.yourcompany.com' },
+              { label: 'Zammad Help Desk URL', placeholder: 'https://helpdesk.yourcompany.com' },
+              { label: 'Webhook URL', placeholder: 'https://yourwebhook.example.com/events' },
+            ].map((f) => (
+              <div key={f.label}>
+                <p style={{ color: 'var(--text-2)', fontSize: 13.5, fontWeight: 500, margin: '0 0 6px' }}>{f.label}</p>
+                <input disabled placeholder={f.placeholder} style={disabledInput} />
+              </div>
+            ))}
           </div>
         </Section>
 
-        {/* Branding - Coming Soon */}
+        {/* Branding */}
         <Section title="Branding" badge>
-          <div className="space-y-4">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
-              <p className="text-slate-400 text-sm font-medium mb-1.5">Company Logo</p>
-              <div className="w-24 h-24 bg-slate-800 rounded-xl border border-slate-700 flex items-center justify-center text-slate-600 text-xs opacity-40">
+              <p style={{ color: 'var(--text-2)', fontSize: 13.5, fontWeight: 500, margin: '0 0 6px' }}>Company Logo</p>
+              <div style={{
+                width: 88,
+                height: 88,
+                background: 'var(--surface-2)',
+                borderRadius: 12,
+                border: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-3)',
+                fontSize: 12,
+                opacity: 0.5,
+              }}>
                 Upload
               </div>
             </div>
             <div>
-              <p className="text-slate-400 text-sm font-medium mb-1.5">Primary Color</p>
-              <div className="w-10 h-10 bg-indigo-600 rounded-lg border border-slate-700 opacity-40" />
+              <p style={{ color: 'var(--text-2)', fontSize: 13.5, fontWeight: 500, margin: '0 0 6px' }}>Primary Color</p>
+              <div style={{ width: 36, height: 36, background: '#c96442', borderRadius: 8, border: '1px solid var(--border)', opacity: 0.6 }} />
             </div>
           </div>
         </Section>
-      </main>
-    </div>
+      </Main>
+    </PageShell>
   )
 }
