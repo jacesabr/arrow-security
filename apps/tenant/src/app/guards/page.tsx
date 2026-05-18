@@ -87,7 +87,7 @@ export default function GuardsPage() {
             empty="No users yet. Add a guard to get started."
           >
             {users.map((u) => (
-              <TR key={u.id}>
+              <TR key={u.id} onClick={() => router.push(`/guards/${u.id}`)}>
                 <TD>{u.name}</TD>
                 <TD muted>{u.email}</TD>
                 <TD muted>{u.phone ?? '—'}</TD>

@@ -113,6 +113,14 @@ export const tdApi = {
       const qs = entries.length ? '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString() : ''
       return request<{ data: any[] }>(`/attendance/report${qs}`)
     },
+    logsheet: (params: { guardId: string; since?: string; until?: string }) => {
+      const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+      const qs = entries.length ? '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString() : ''
+      return request<{ data: { guard: any; rows: any[]; summary: any } }>(`/attendance/logsheet${qs}`)
+    },
+  },
+  upload: {
+    getUrl: (key: string) => request<{ data: { url: string } }>(`/upload/url?key=${encodeURIComponent(key)}`),
   },
   locations: {
     history: (params: { guardId?: string; shiftId?: string; since?: string; limit?: number }) => {

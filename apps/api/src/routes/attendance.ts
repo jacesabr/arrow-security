@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { db, attendanceRecords, sites, users } from '@secureops/db'
+import { db, attendanceRecords, sites, users, shifts } from '@secureops/db'
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm'
 import { requireAuth, requireSupervisor } from '../lib/auth'
 
@@ -29,6 +29,176 @@ const checkInSchema = z.object({
 })
 
 export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
+  // GET /logsheet — per-guard rolling 30-day logsheet with paired check-in/out rows
+  fastify.get('/logsheet', { preHandler: requireSupervisor }, async (request, reply) => {
+    const payload = request.user as { tenantId: string }
+    const now = new Date()
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+    const query = z.object({
+      guardId: z.string(),
+      since: z.string().optional(),
+      until: z.string().optional(),
+    }).parse(request.query)
+
+    const since = query.since ? new Date(query.since) : thirtyDaysAgo
+    const until = query.until ? new Date(query.until) : now
+
+    const [guard] = await db
+      .select({ id: users.id, name: users.name, email: users.email, phone: users.phone, role: users.role, faceEnrolled: users.faceEnrolled, lastLoginAt: users.lastLoginAt })
+      .from(users)
+      .where(and(eq(users.id, query.guardId), eq(users.tenantId, payload.tenantId)))
+      .limit(1)
+
+    if (!guard) return reply.code(404).send({ error: 'Not found', message: 'Guard not found', statusCode: 404 })
+
+    const records = await db
+      .select({
+        id: attendanceRecords.id,
+        type: attendanceRecords.type,
+        method: attendanceRecords.method,
+        verifiedAt: attendanceRecords.verifiedAt,
+        siteId: attendanceRecords.siteId,
+        siteName: sites.name,
+        selfieUrl: attendanceRecords.selfieUrl,
+        isWithinGeofence: attendanceRecords.isWithinGeofence,
+        selfieReviewStatus: attendanceRecords.selfieReviewStatus,
+      })
+      .from(attendanceRecords)
+      .innerJoin(sites, eq(attendanceRecords.siteId, sites.id))
+      .where(and(
+        eq(attendanceRecords.tenantId, payload.tenantId),
+        eq(attendanceRecords.guardId, query.guardId),
+        gte(attendanceRecords.verifiedAt, since),
+        lte(attendanceRecords.verifiedAt, until),
+      ))
+      .orderBy(attendanceRecords.verifiedAt)
+
+    // Extend range 12 h back to catch overnight shifts starting just before `since`
+    const extendedSince = new Date(since.getTime() - 12 * 60 * 60 * 1000)
+    const guardShifts = await db
+      .select({ id: shifts.id, siteId: shifts.siteId, startsAt: shifts.startsAt, endsAt: shifts.endsAt, status: shifts.status })
+      .from(shifts)
+      .where(and(
+        eq(shifts.tenantId, payload.tenantId),
+        eq(shifts.guardId, query.guardId),
+        gte(shifts.endsAt, extendedSince),
+        lte(shifts.startsAt, until),
+      ))
+
+    // Pair check_in / check_out using a FIFO queue per siteId
+    type Row = {
+      date: string
+      siteId: string
+      siteName: string
+      checkInId: string
+      checkInTime: Date
+      checkInMethod: string
+      checkInGeofence: boolean | null
+      checkInSelfieUrl: string | null
+      checkInSelfieReview: string | null
+      checkOutId: string | null
+      checkOutTime: Date | null
+      checkOutMethod: string | null
+      hoursWorked: number | null
+      scheduledStart: Date | null
+      scheduledEnd: Date | null
+      checkInOnTime: boolean | null
+      checkOutOnTime: boolean | null
+    }
+
+    const openQueue = new Map<string, (typeof records)[0][]>()
+    const rows: Row[] = []
+
+    function findShift(siteId: string, checkInTime: Date) {
+      return guardShifts.find(
+        (s) => s.siteId === siteId && Math.abs(s.startsAt.getTime() - checkInTime.getTime()) < 4 * 60 * 60 * 1000,
+      ) ?? null
+    }
+
+    for (const r of records) {
+      if (!r.verifiedAt) continue
+      if (r.type === 'check_in') {
+        if (!openQueue.has(r.siteId)) openQueue.set(r.siteId, [])
+        openQueue.get(r.siteId)!.push(r)
+      } else {
+        const queue = openQueue.get(r.siteId)
+        if (queue && queue.length > 0) {
+          const checkIn = queue.shift()!
+          const hoursWorked = (r.verifiedAt.getTime() - checkIn.verifiedAt!.getTime()) / 3_600_000
+          const matched = findShift(r.siteId, checkIn.verifiedAt!)
+          rows.push({
+            date: checkIn.verifiedAt!.toISOString().split('T')[0],
+            siteId: r.siteId,
+            siteName: r.siteName,
+            checkInId: checkIn.id,
+            checkInTime: checkIn.verifiedAt!,
+            checkInMethod: checkIn.method,
+            checkInGeofence: checkIn.isWithinGeofence,
+            checkInSelfieUrl: checkIn.selfieUrl ?? null,
+            checkInSelfieReview: checkIn.selfieReviewStatus ?? null,
+            checkOutId: r.id,
+            checkOutTime: r.verifiedAt,
+            checkOutMethod: r.method,
+            hoursWorked: Math.round(hoursWorked * 10) / 10,
+            scheduledStart: matched?.startsAt ?? null,
+            scheduledEnd: matched?.endsAt ?? null,
+            checkInOnTime: matched ? checkIn.verifiedAt!.getTime() <= matched.startsAt.getTime() + 15 * 60_000 : null,
+            checkOutOnTime: matched ? r.verifiedAt.getTime() >= matched.endsAt.getTime() - 30 * 60_000 : null,
+          })
+        }
+      }
+    }
+
+    // Flush any unmatched check_ins (no check_out yet)
+    for (const [, queue] of openQueue) {
+      for (const checkIn of queue) {
+        if (!checkIn.verifiedAt) continue
+        const matched = findShift(checkIn.siteId, checkIn.verifiedAt)
+        rows.push({
+          date: checkIn.verifiedAt.toISOString().split('T')[0],
+          siteId: checkIn.siteId,
+          siteName: checkIn.siteName,
+          checkInId: checkIn.id,
+          checkInTime: checkIn.verifiedAt,
+          checkInMethod: checkIn.method,
+          checkInGeofence: checkIn.isWithinGeofence,
+          checkInSelfieUrl: checkIn.selfieUrl ?? null,
+          checkInSelfieReview: checkIn.selfieReviewStatus ?? null,
+          checkOutId: null,
+          checkOutTime: null,
+          checkOutMethod: null,
+          hoursWorked: null,
+          scheduledStart: matched?.startsAt ?? null,
+          scheduledEnd: matched?.endsAt ?? null,
+          checkInOnTime: matched ? checkIn.verifiedAt.getTime() <= matched.startsAt.getTime() + 15 * 60_000 : null,
+          checkOutOnTime: null,
+        })
+      }
+    }
+
+    rows.sort((a, b) => a.checkInTime.getTime() - b.checkInTime.getTime())
+
+    const completedRows = rows.filter((r) => r.hoursWorked !== null)
+    const totalHours = completedRows.reduce((s, r) => s + (r.hoursWorked ?? 0), 0)
+
+    return reply.send({
+      data: {
+        guard,
+        rows,
+        summary: {
+          totalShifts: rows.length,
+          completedShifts: completedRows.length,
+          totalHours: Math.round(totalHours * 10) / 10,
+          onTimeCheckIns: rows.filter((r) => r.checkInOnTime === true).length,
+          lateCheckIns: rows.filter((r) => r.checkInOnTime === false).length,
+          since: since.toISOString(),
+          until: until.toISOString(),
+        },
+      },
+    })
+  })
+
   // GET /report — attendance compliance report (supervisors+)
   fastify.get('/report', { preHandler: requireSupervisor }, async (request, reply) => {
     const payload = request.user as { tenantId: string }
