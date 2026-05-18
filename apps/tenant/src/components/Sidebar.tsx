@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useViewAs, type ViewAsRole } from '../context/ViewAsContext'
-import { useTour } from './AppTour'
 
 const DEV_ACCOUNTS = [
   { label: 'Admin', email: 'admin@acme.secureops.in', password: 'acme123', color: '#10b981' },
@@ -146,7 +145,6 @@ function ViewAsSwitcher() {
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { start } = useTour()
 
   function logout() {
     localStorage.removeItem('td_token')
@@ -181,8 +179,8 @@ export function Sidebar() {
           </div>
         </div>
         <button
-          onClick={start}
-          title="Developer reference"
+          onClick={() => window.open('/dev-ref', '_blank')}
+          title="Developer reference — opens in new tab"
           style={{
             width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             padding: '5px 10px', borderRadius: 6, cursor: 'pointer',

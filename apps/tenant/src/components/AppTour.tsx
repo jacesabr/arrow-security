@@ -689,10 +689,9 @@ Incident: "Suspicious individual near Gate A" (medium, open)`}</Code>
 /* ─── Trigger Button ───────────────────────────────────────────────────────── */
 
 export function TourTrigger() {
-  const { start } = useTour()
   return (
     <button
-      onClick={start}
+      onClick={() => window.open('/dev-ref', '_blank')}
       title="Developer reference (architecture + credentials)"
       style={{
         position: 'fixed', bottom: 24, left: 24, zIndex: 900,
