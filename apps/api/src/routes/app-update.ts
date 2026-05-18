@@ -54,7 +54,7 @@ export const appUpdateRoutes: FastifyPluginAsync = async (fastify) => {
     return reply
       .header('Content-Type', 'application/zip')
       .header('Content-Disposition', `attachment; filename="bundle-${current.version}.zip"`)
-      .header('Cache-Control', 'public, max-age=31536000, immutable')
+      .header('Cache-Control', 'no-cache')
       .send(buffer)
   })
 
