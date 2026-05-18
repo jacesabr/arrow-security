@@ -64,6 +64,12 @@ jobs:
         working-directory: apps/mobile
         run: pnpm exec cap sync android
 
+      - name: Patch compileSdk to 35
+        working-directory: apps/mobile/android
+        run: |
+          sed -i 's/compileSdkVersion = 34/compileSdkVersion = 35/' variables.gradle
+          sed -i 's/targetSdkVersion = 34/targetSdkVersion = 35/' variables.gradle
+
       - name: Write local.properties
         working-directory: apps/mobile/android
         run: echo "sdk.dir=$ANDROID_HOME" > local.properties
