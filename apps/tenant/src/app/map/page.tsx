@@ -2,8 +2,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Sidebar } from '../../components/Sidebar'
 import { tdApi } from '../../lib/api'
-import 'maplibre-gl/dist/maplibre-gl.css'
-
 const GUARD_COLOURS = [
   '#c96442', '#10b981', '#f59e0b', '#ef4444', '#3b82f6',
   '#fb923c', '#10b981', '#f59e0b', '#3b82f6', '#ef4444',
