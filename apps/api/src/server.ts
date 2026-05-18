@@ -21,7 +21,6 @@ import { patrolRoutes } from './routes/patrol'
 import { incidentsRoutes } from './routes/incidents'
 import { shiftsRoutes } from './routes/shifts'
 import { locationsRoutes } from './routes/locations'
-import { camerasRoutes } from './routes/cameras'
 import { statsRoutes } from './routes/stats'
 import { clientsRoutes } from './routes/clients'
 import { supervisorSitesRoutes } from './routes/supervisor-sites'
@@ -75,7 +74,6 @@ async function build() {
   await app.register(patrolRoutes, { prefix: '/api/patrol' })
   await app.register(incidentsRoutes, { prefix: '/api/incidents' })
   await app.register(shiftsRoutes, { prefix: '/api/shifts' })
-  await app.register(camerasRoutes, { prefix: '/api/cameras' })
   await app.register(statsRoutes, { prefix: '/api/stats' })
   await app.register(clientsRoutes, { prefix: '/api/clients' })
   await app.register(supervisorSitesRoutes, { prefix: '/api/supervisor-sites' })

@@ -87,19 +87,6 @@ export const tdApi = {
   patrols: {
     list: () => request<{ data: any[] }>('/patrol'),
   },
-  checkpoints: {
-    list: (siteId?: string) => {
-      const qs = siteId ? `?siteId=${siteId}` : ''
-      return request<{ data: any[] }>(`/patrol/checkpoints${qs}`)
-    },
-    create: (body: {
-      siteId: string
-      name: string
-      latitude?: number
-      longitude?: number
-      orderInRoute?: number
-    }) => request<{ data: any }>('/patrol/checkpoints', { method: 'POST', body: JSON.stringify(body) }),
-  },
   payroll: {
     listPeriods: () => request<{ data: any[] }>('/payroll'),
     createPeriod: (body: { periodStart: string; periodEnd: string }) =>
@@ -221,14 +208,6 @@ export const tdApi = {
       }),
     removeSite: (supervisorId: string, siteId: string) =>
       request<{ data: any }>(`/supervisor-sites/${supervisorId}/${siteId}`, { method: 'DELETE' }),
-  },
-  cameras: {
-    list: (siteId?: string) => {
-      const qs = siteId ? `?siteId=${siteId}` : ''
-      return request<{ data: any[] }>(`/cameras${qs}`)
-    },
-    create: (body: { name: string; siteId: string; rtspUrl: string; go2rtcStream?: string }) =>
-      request<{ data: any }>('/cameras', { method: 'POST', body: JSON.stringify(body) }),
   },
   panic: {
     list: () => request<{ data: any[] }>('/panic'),
