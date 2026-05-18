@@ -12,6 +12,7 @@
     "open:ios": "cap open ios"
   },
   "dependencies": {
+    "@capgo/capacitor-updater": "^6.0.0",
     "@capacitor-community/background-geolocation": "^1.2.26",
     "@capacitor-community/barcode-scanner": "^4.0.1",
     "@capacitor/android": "^6.0.0",

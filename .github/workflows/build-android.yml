@@ -1,7 +1,7 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch:          # manual trigger from GitHub Actions tab
+  workflow_dispatch:
   push:
     branches: [master]
     paths:
@@ -39,6 +39,21 @@ jobs:
         env:
           VITE_API_URL: https://arrow-security-api.onrender.com/api
           VITE_TENANT_SLUG: acme
+
+      - name: Publish JS bundle to live-update server
+        working-directory: apps/mobile
+        run: |
+          VERSION=$(echo "$GITHUB_SHA" | cut -c1-8)
+          zip -r bundle.zip dist/
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X POST \
+            -H "X-Update-Token: ${{ secrets.APP_UPDATE_TOKEN }}" \
+            -F "bundle=@bundle.zip" \
+            "https://arrow-security-api.onrender.com/api/app-update/publish?version=${VERSION}" \
+            | tee /tmp/publish_status
+          STATUS=$(cat /tmp/publish_status)
+          echo "Publish status: $STATUS"
+          [ "$STATUS" = "201" ] || echo "Warning: bundle publish returned $STATUS (non-fatal)"
 
       - name: Add Android platform
         working-directory: apps/mobile

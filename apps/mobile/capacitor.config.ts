@@ -8,6 +8,12 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
   },
   plugins: {
+    CapacitorUpdater: {
+      updateUrl: 'https://arrow-security-api.onrender.com/api/app-update',
+      statsUrl: '',        // disable Capgo cloud telemetry
+      autoUpdate: true,
+      resetWhenUpdate: false,
+    },
     SplashScreen: {
       launchShowDuration: 0,
     },

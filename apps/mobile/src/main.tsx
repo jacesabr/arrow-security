@@ -1,6 +1,11 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
+import { CapacitorUpdater } from '@capgo/capacitor-updater'
 import App from './App'
+
+// Tell the updater the current bundle loaded successfully — prevents auto-rollback.
+// Must be called before the app becomes interactive.
+CapacitorUpdater.notifyAppReady()
 
 /* Ionic CSS */
 import '@ionic/react/css/core.css'

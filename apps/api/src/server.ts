@@ -37,6 +37,7 @@ import { shiftTemplatesRoutes } from './routes/shift-templates'
 import { incidentFormsRoutes } from './routes/incident-forms'
 import { uploadRoutes } from './routes/upload'
 import { guardStatusRoutes } from './routes/guard-status'
+import { appUpdateRoutes } from './routes/app-update'
 import { ensureBucket } from './lib/storage'
 
 const app = Fastify({
@@ -91,6 +92,7 @@ async function build() {
   await app.register(incidentFormsRoutes, { prefix: '/api/incident-forms' })
   await app.register(uploadRoutes, { prefix: '/api/upload' })
   await app.register(guardStatusRoutes, { prefix: '/api/guard-status' })
+  await app.register(appUpdateRoutes, { prefix: '/api/app-update' })
 
   app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 
