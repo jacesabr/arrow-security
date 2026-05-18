@@ -64,9 +64,10 @@ jobs:
         working-directory: apps/mobile
         run: pnpm exec cap sync android
 
-      - name: Patch compileSdk to 35
+      - name: Patch Android SDK versions for @capgo/capacitor-updater
         working-directory: apps/mobile/android
         run: |
+          sed -i 's/minSdkVersion = 22/minSdkVersion = 23/' variables.gradle
           sed -i 's/compileSdkVersion = 34/compileSdkVersion = 35/' variables.gradle
           sed -i 's/targetSdkVersion = 34/targetSdkVersion = 35/' variables.gradle
 
