@@ -12,7 +12,7 @@ export const selfieRecords = pgTable('selfie_records', {
   siteId: text('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
   attendanceRecordId: text('attendance_record_id').references(() => attendanceRecords.id, { onDelete: 'set null' }),
   checkType: attendanceTypeEnum('check_type').notNull(),
-  imageData: text('image_data').notNull(),
+  imageKey: text('image_key').notNull(),
   latitude: doublePrecision('latitude'),
   longitude: doublePrecision('longitude'),
   capturedAt: timestamp('captured_at').defaultNow().notNull(),

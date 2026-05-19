@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { db, selfieRecords, attendanceRecords, sites, users } from '@secureops/db'
 import { eq, and, desc } from 'drizzle-orm'
 import { requireAuth, requireSupervisor } from '../lib/auth'
+import { putObject, getDownloadUrl } from '../lib/storage'
 
 function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000
@@ -11,6 +12,12 @@ function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number)
   const dLon = toRad(lon2 - lon1)
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function dataUrlToBuffer(dataUrl: string): { buffer: Buffer; contentType: string } {
+  const [header, b64] = dataUrl.split(',')
+  const contentType = header.match(/:(.*?);/)?.[1] ?? 'image/jpeg'
+  return { buffer: Buffer.from(b64, 'base64'), contentType }
 }
 
 const submitSchema = z.object({
@@ -27,12 +34,11 @@ const reviewSchema = z.object({
 })
 
 export const selfiesRoutes: FastifyPluginAsync = async (fastify) => {
-  // POST / — guard submits selfie; creates selfie_record + attendance_record atomically
+  // POST / — guard submits selfie; uploads image to R2, creates selfie_record + attendance_record atomically
   fastify.post('/', { preHandler: requireAuth }, async (request, reply) => {
     const payload = request.user as { tenantId: string; sub: string }
     const body = submitSchema.parse(request.body)
 
-    // Verify site belongs to this tenant
     const [site] = await db
       .select()
       .from(sites)
@@ -48,6 +54,16 @@ export const selfiesRoutes: FastifyPluginAsync = async (fastify) => {
       isWithinGeofence = distanceMeters <= (site.geofenceRadiusMeters ?? 200)
     }
 
+    // Upload image to R2 before writing DB records
+    const { buffer, contentType } = dataUrlToBuffer(body.imageData)
+    const now = new Date()
+    const dateStr = now.toISOString().slice(0, 10) // YYYY-MM-DD
+    // Key: {tenantId}/selfies/{YYYY-MM-DD}/{guardId}-{timestamp}.jpg
+    const ext = contentType === 'image/png' ? 'png' : 'jpg'
+    const imageKey = `${payload.tenantId}/selfies/${dateStr}/${payload.sub}-${now.getTime()}.${ext}`
+
+    await putObject(imageKey, buffer, contentType)
+
     const result = await db.transaction(async (tx) => {
       const [attendance] = await tx
         .insert(attendanceRecords)
@@ -60,7 +76,7 @@ export const selfiesRoutes: FastifyPluginAsync = async (fastify) => {
           latitude: body.latitude,
           longitude: body.longitude,
           isWithinGeofence,
-          verifiedAt: new Date(),
+          verifiedAt: now,
           selfieReviewStatus: 'pending',
         })
         .returning()
@@ -73,10 +89,10 @@ export const selfiesRoutes: FastifyPluginAsync = async (fastify) => {
           siteId: body.siteId,
           attendanceRecordId: attendance.id,
           checkType: body.checkType,
-          imageData: body.imageData,
+          imageKey,
           latitude: body.latitude,
           longitude: body.longitude,
-          capturedAt: new Date(),
+          capturedAt: now,
         })
         .returning()
 
@@ -86,7 +102,7 @@ export const selfiesRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.code(201).send({ data: result })
   })
 
-  // GET / — supervisor/admin lists selfies with guard + site detail
+  // GET / — supervisor/admin lists selfies (no image data, just metadata + presigned URL)
   fastify.get('/', { preHandler: requireSupervisor }, async (request, reply) => {
     const payload = request.user as { tenantId: string }
     const query = z.object({
@@ -110,7 +126,7 @@ export const selfiesRoutes: FastifyPluginAsync = async (fastify) => {
         siteName: sites.name,
         attendanceRecordId: selfieRecords.attendanceRecordId,
         checkType: selfieRecords.checkType,
-        imageData: selfieRecords.imageData,
+        imageKey: selfieRecords.imageKey,
         latitude: selfieRecords.latitude,
         longitude: selfieRecords.longitude,
         capturedAt: selfieRecords.capturedAt,
@@ -125,10 +141,18 @@ export const selfiesRoutes: FastifyPluginAsync = async (fastify) => {
       .orderBy(desc(selfieRecords.capturedAt))
       .limit(query.limit)
 
-    return reply.send({ data: rows })
+    // Attach a short-lived presigned URL to each row
+    const withUrls = await Promise.all(
+      rows.map(async (r) => ({
+        ...r,
+        imageUrl: await getDownloadUrl(r.imageKey).catch(() => null),
+      })),
+    )
+
+    return reply.send({ data: withUrls })
   })
 
-  // GET /:id — single selfie (image included)
+  // GET /:id — single selfie with presigned image URL
   fastify.get('/:id', { preHandler: requireSupervisor }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const payload = request.user as { tenantId: string }
@@ -142,7 +166,7 @@ export const selfiesRoutes: FastifyPluginAsync = async (fastify) => {
         siteName: sites.name,
         attendanceRecordId: selfieRecords.attendanceRecordId,
         checkType: selfieRecords.checkType,
-        imageData: selfieRecords.imageData,
+        imageKey: selfieRecords.imageKey,
         latitude: selfieRecords.latitude,
         longitude: selfieRecords.longitude,
         capturedAt: selfieRecords.capturedAt,
@@ -157,10 +181,12 @@ export const selfiesRoutes: FastifyPluginAsync = async (fastify) => {
       .limit(1)
 
     if (!row) return reply.code(404).send({ error: 'Not found', message: 'Selfie not found', statusCode: 404 })
-    return reply.send({ data: row })
+
+    const imageUrl = await getDownloadUrl(row.imageKey).catch(() => null)
+    return reply.send({ data: { ...row, imageUrl } })
   })
 
-  // PATCH /:id/review — supervisor marks approved or flagged
+  // PATCH /:id/review — supervisor approves or flags
   fastify.patch('/:id/review', { preHandler: requireSupervisor }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const payload = request.user as { tenantId: string; sub: string }

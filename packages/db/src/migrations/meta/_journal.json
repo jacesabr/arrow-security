@@ -29,6 +29,13 @@
       "when": 1779076861310,
       "tag": "0004_selfie_records",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1779076861320,
+      "tag": "0005_selfie_image_key",
+      "breakpoints": true
     }
   ]
 }
