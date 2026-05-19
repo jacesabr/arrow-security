@@ -10,7 +10,7 @@ import {
 import { Route, Redirect } from 'react-router-dom'
 import {
   homeOutline,
-  qrCodeOutline,
+  cameraOutline,
   walkOutline,
   warningOutline,
   calendarOutline,
@@ -689,7 +689,7 @@ export const TabLayout: React.FC = () => {
               <IonIcon icon={homeOutline} /><IonLabel>Home</IonLabel>
             </IonTabButton>
             <IonTabButton tab="checkin" href="/tabs/checkin">
-              <IonIcon icon={qrCodeOutline} /><IonLabel>Check In</IonLabel>
+              <IonIcon icon={cameraOutline} /><IonLabel>Check In</IonLabel>
             </IonTabButton>
             <IonTabButton tab="patrol" href="/tabs/patrol">
               <IonIcon icon={walkOutline} /><IonLabel>Patrol</IonLabel>

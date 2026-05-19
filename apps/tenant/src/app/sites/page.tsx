@@ -40,6 +40,7 @@ export default function SitesPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
+    if (!form.clientId) { setError('Please select a client.'); return }
     setSaving(true)
     setError(null)
     try {
@@ -49,7 +50,7 @@ export default function SitesPage() {
         latitude: form.latitude ? parseFloat(form.latitude) : undefined,
         longitude: form.longitude ? parseFloat(form.longitude) : undefined,
         geofenceRadiusMeters: form.geofenceRadiusMeters ? parseInt(form.geofenceRadiusMeters) : undefined,
-        clientId: form.clientId || undefined,
+        clientId: form.clientId,
       })
       setShowModal(false)
       setForm({ name: '', address: '', latitude: '', longitude: '', geofenceRadiusMeters: '', clientId: '' })
@@ -113,9 +114,9 @@ export default function SitesPage() {
             <Field label="Geofence Radius (meters)">
               <Input type="number" value={form.geofenceRadiusMeters} onChange={(e) => setForm({ ...form, geofenceRadiusMeters: e.target.value })} placeholder="100" />
             </Field>
-            <Field label="Client">
+            <Field label="Client *">
               <Select value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })}>
-                <option value="">— No client —</option>
+                <option value="">Select a client…</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
