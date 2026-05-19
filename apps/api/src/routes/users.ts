@@ -19,7 +19,7 @@ const createUserSchema = z.object({
 
 export const usersRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/', { preHandler: requireAuth }, async (request, reply) => {
-    const payload = request.user as { tenantId: string; role: string }
+    const payload = request.user as { tenantId: string }
     const all = await db
       .select({
         id: users.id,
@@ -33,9 +33,7 @@ export const usersRoutes: FastifyPluginAsync = async (fastify) => {
         createdAt: users.createdAt,
       })
       .from(users)
-      .where(
-        payload.role === 'platform_admin' ? undefined : eq(users.tenantId, payload.tenantId),
-      )
+      .where(eq(users.tenantId, payload.tenantId))
       .orderBy(users.name)
     return reply.send({ data: all })
   })

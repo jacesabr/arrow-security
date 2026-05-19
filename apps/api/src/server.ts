@@ -13,7 +13,6 @@ import { count } from 'drizzle-orm'
 
 import tenantPlugin from './plugins/tenant'
 import { authRoutes } from './routes/auth'
-import { tenantsRoutes } from './routes/tenants'
 import { sitesRoutes } from './routes/sites'
 import { usersRoutes } from './routes/users'
 import { attendanceRoutes } from './routes/attendance'
@@ -67,7 +66,6 @@ async function build() {
   await app.register(tenantPlugin)
 
   await app.register(authRoutes, { prefix: '/api/auth' })
-  await app.register(tenantsRoutes, { prefix: '/api/tenants' })
   await app.register(sitesRoutes, { prefix: '/api/sites' })
   await app.register(usersRoutes, { prefix: '/api/users' })
   await app.register(attendanceRoutes, { prefix: '/api/attendance' })

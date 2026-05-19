@@ -53,6 +53,15 @@ export const supervisorSitesRoutes: FastifyPluginAsync = async (fastify) => {
   // DELETE /supervisor-sites/:supervisorId/:siteId — remove assignment
   fastify.delete('/:supervisorId/:siteId', { preHandler: requireTenantAdmin }, async (request, reply) => {
     const { supervisorId, siteId } = request.params as { supervisorId: string; siteId: string }
+    const payload = request.user as { tenantId: string }
+
+    const [sup] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.id, supervisorId), eq(users.tenantId, payload.tenantId)))
+      .limit(1)
+    if (!sup) return reply.code(404).send({ error: 'Not found', message: 'Supervisor not found', statusCode: 404 })
+
     await db
       .delete(supervisorSites)
       .where(and(eq(supervisorSites.supervisorId, supervisorId), eq(supervisorSites.siteId, siteId)))

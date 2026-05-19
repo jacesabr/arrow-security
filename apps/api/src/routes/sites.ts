@@ -17,24 +17,20 @@ const createSiteSchema = z.object({
 
 export const sitesRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/', { preHandler: requireAuth }, async (request, reply) => {
-    const payload = request.user as { tenantId: string; role: string }
+    const payload = request.user as { tenantId: string }
     const all = await db
       .select()
       .from(sites)
-      .where(payload.role === 'platform_admin' ? undefined : eq(sites.tenantId, payload.tenantId))
+      .where(eq(sites.tenantId, payload.tenantId))
       .orderBy(sites.name)
     return reply.send({ data: all })
   })
 
   fastify.get('/:id', { preHandler: requireAuth }, async (request, reply) => {
     const { id } = request.params as { id: string }
-    const payload = request.user as { tenantId: string; role: string }
+    const payload = request.user as { tenantId: string }
 
-    const conditions = payload.role === 'platform_admin'
-      ? eq(sites.id, id)
-      : and(eq(sites.id, id), eq(sites.tenantId, payload.tenantId))
-
-    const [site] = await db.select().from(sites).where(conditions).limit(1)
+    const [site] = await db.select().from(sites).where(and(eq(sites.id, id), eq(sites.tenantId, payload.tenantId))).limit(1)
     if (!site) return reply.code(404).send({ error: 'Not found', message: 'Site not found', statusCode: 404 })
     return reply.send({ data: site })
   })
