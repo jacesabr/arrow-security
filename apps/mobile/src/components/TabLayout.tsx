@@ -671,8 +671,7 @@ export const TabLayout: React.FC = () => {
   // Guard view (default)
   return (
     <>
-      {import.meta.env.DEV && <DevAccountBar />}
-      <div style={topPad}>
+      <div>
         <IonTabs>
           <IonRouterOutlet>
             <R exact path="/tabs/dashboard" component={DashboardPage} />

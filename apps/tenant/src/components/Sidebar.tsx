@@ -172,6 +172,7 @@ export function Sidebar() {
   }, [])
 
   const isAdmin = userRole === 'tenant_admin' || userRole === 'platform_admin'
+  const isManager = isAdmin || userRole === 'supervisor'
 
   function visibleNav() {
     return NAV.filter(item => {
@@ -222,22 +223,24 @@ export function Sidebar() {
             <span style={{ fontSize: 11.5, fontWeight: 600, color: '#c96442' }}>{userLabel}</span>
           </div>
         )}
-        <button
-          onClick={() => window.open('/dev-ref', '_blank')}
-          title="Developer reference"
-          style={{
-            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            padding: '6px 10px', borderRadius: 7, cursor: 'pointer',
-            background: '#f9f8f6', border: '1px solid #ebe8e2',
-            color: '#9a9490', fontSize: 11.5,
-            fontFamily: '"JetBrains Mono","Cascadia Code",ui-monospace,monospace',
-            transition: 'border-color 0.15s, color 0.15s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#c96442'; e.currentTarget.style.color = '#c96442' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#ebe8e2'; e.currentTarget.style.color = '#9a9490' }}
-        >
-          <span>◈</span> dev reference
-        </button>
+        {isManager && (
+          <button
+            onClick={() => window.open('/dev-ref', '_blank')}
+            title="Developer reference"
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '6px 10px', borderRadius: 7, cursor: 'pointer',
+              background: '#f9f8f6', border: '1px solid #ebe8e2',
+              color: '#9a9490', fontSize: 11.5,
+              fontFamily: '"JetBrains Mono","Cascadia Code",ui-monospace,monospace',
+              transition: 'border-color 0.15s, color 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#c96442'; e.currentTarget.style.color = '#c96442' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#ebe8e2'; e.currentTarget.style.color = '#9a9490' }}
+          >
+            <span>◈</span> dev reference
+          </button>
+        )}
       </div>
 
       {/* Dev account switcher — dev only */}
