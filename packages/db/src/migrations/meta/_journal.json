@@ -12,6 +12,13 @@
     {
       "idx": 1,
       "version": "5",
+      "when": 1779076861295,
+      "tag": "0002_selfie_review",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
       "when": 1779076861300,
       "tag": "0003_app_releases",
       "breakpoints": true
