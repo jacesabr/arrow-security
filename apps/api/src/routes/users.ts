@@ -60,10 +60,15 @@ export const usersRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch('/:id', { preHandler: requireTenantAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const payload = request.user as { tenantId: string }
-    const body = createUserSchema.omit({ password: true }).partial().parse(request.body)
+    const body = createUserSchema.omit({ password: true }).partial().extend({
+      password: z.string().min(8).optional(),
+    }).parse(request.body)
+    const { password, ...rest } = body
+    const updates: Record<string, unknown> = { ...rest, updatedAt: new Date() }
+    if (password) updates.passwordHash = await hashPassword(password)
     const [user] = await db
       .update(users)
-      .set({ ...body, updatedAt: new Date() })
+      .set(updates)
       .where(and(eq(users.id, id), eq(users.tenantId, payload.tenantId)))
       .returning({
         id: users.id,

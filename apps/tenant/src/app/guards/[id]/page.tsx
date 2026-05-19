@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { PageShell, Main, PageHeader, Card, CardHeader, DataTable, TR, TD, Badge, Btn, Modal } from '../../../components/ui'
+import { PageShell, Main, PageHeader, Card, CardHeader, DataTable, TR, TD, Badge, Btn, Modal, Field, Input, ErrorMsg, ModalActions } from '../../../components/ui'
 import { tdApi } from '../../../lib/api'
 
 const ROLE_DISPLAY: Record<string, string> = {
@@ -52,6 +52,12 @@ export default function GuardProfilePage() {
   const [selfie, setSelfie] = useState<{ url: string; reviewStatus: string | null; method: string; geofence: boolean | null; time: string } | null>(null)
   const [selfieLoading, setSelfieLoading] = useState(false)
 
+  const [showResetPw, setShowResetPw] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [resetSaving, setResetSaving] = useState(false)
+  const [resetError, setResetError] = useState<string | null>(null)
+  const [resetDone, setResetDone] = useState(false)
+
   const load = useCallback(() => {
     setLoading(true)
     tdApi.attendance
@@ -93,6 +99,22 @@ export default function GuardProfilePage() {
     }
   }
 
+  async function handleResetPassword() {
+    if (!newPassword || newPassword.length < 8) return
+    setResetSaving(true)
+    setResetError(null)
+    try {
+      await tdApi.users.update(guardId, { password: newPassword })
+      setResetDone(true)
+      setNewPassword('')
+      setTimeout(() => { setShowResetPw(false); setResetDone(false) }, 1500)
+    } catch (e: any) {
+      setResetError(e.message ?? 'Failed to update password')
+    } finally {
+      setResetSaving(false)
+    }
+  }
+
   function exportCsv() {
     if (!data || !data.rows.length) return
     const headers = ['Date', 'Site', 'Check-In', 'Scheduled Start', 'On Time', 'Check-Out', 'Scheduled End', 'Hours', 'Method', 'Geofence']
@@ -131,7 +153,12 @@ export default function GuardProfilePage() {
           title={guard?.name ?? 'Loading…'}
           subtitle="Attendance logsheet"
           action={
-            <Btn variant="secondary" onClick={() => router.push('/guards')}>← Back</Btn>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <Btn variant="secondary" onClick={() => { setShowResetPw(true); setResetError(null); setNewPassword(''); setResetDone(false) }}>
+                Reset Password
+              </Btn>
+              <Btn variant="secondary" onClick={() => router.push('/guards')}>← Back</Btn>
+            </div>
           }
         />
 
@@ -291,6 +318,39 @@ export default function GuardProfilePage() {
             ))}
           </DataTable>
         </Card>
+
+        {/* Reset password modal */}
+        <Modal open={showResetPw} onClose={() => setShowResetPw(false)} title={`Reset Password — ${guard?.name ?? ''}`} width={400}>
+          {resetDone ? (
+            <div style={{ textAlign: 'center', padding: '16px 0', color: '#10b981', fontWeight: 600 }}>
+              Password updated successfully.
+            </div>
+          ) : (
+            <>
+              <Field label="New Password">
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Min 8 characters"
+                  autoFocus
+                />
+              </Field>
+              <ErrorMsg msg={resetError} />
+              <ModalActions>
+                <Btn variant="secondary" onClick={() => setShowResetPw(false)}>Cancel</Btn>
+                <Btn
+                  variant="primary"
+                  onClick={handleResetPassword}
+                  loading={resetSaving}
+                  disabled={newPassword.length < 8}
+                >
+                  Save Password
+                </Btn>
+              </ModalActions>
+            </>
+          )}
+        </Modal>
 
         {/* Selfie modal */}
         <Modal open={!!selfie} onClose={() => setSelfie(null)} title="Check-In Selfie" width={520}>

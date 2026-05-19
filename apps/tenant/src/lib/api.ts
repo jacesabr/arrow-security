@@ -60,6 +60,8 @@ export const tdApi = {
     list: () => request<{ data: any[] }>('/users'),
     create: (body: { email: string; name: string; role: string; phone?: string; password?: string }) =>
       request<{ data: any }>('/users', { method: 'POST', body: JSON.stringify(body) }),
+    update: (id: string, body: { name?: string; email?: string; phone?: string; role?: string; password?: string }) =>
+      request<{ data: any }>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   },
   shifts: {
     list: (params?: { guardId?: string; siteId?: string; from?: string; to?: string }) => {
