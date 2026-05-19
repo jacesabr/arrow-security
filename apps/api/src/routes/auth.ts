@@ -31,7 +31,63 @@ const loginSchema = z.object({
   tenantSlug: z.string().optional(),
 })
 
+const registerSchema = z.object({
+  name: z.string().min(2),
+  email: z.string().email(),
+  password: z.string().min(8),
+  role: z.enum(['guard', 'supervisor']),
+  tenantSlug: z.string(),
+})
+
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.post('/register', async (request, reply) => {
+    const body = registerSchema.parse(request.body)
+
+    const [tenant] = await db
+      .select({ id: tenants.id, status: tenants.status })
+      .from(tenants)
+      .where(eq(tenants.slug, body.tenantSlug))
+      .limit(1)
+    if (!tenant || tenant.status === 'suspended') {
+      return reply.code(400).send({ error: 'Bad Request', message: 'Registration unavailable', statusCode: 400 })
+    }
+
+    const [existing] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.email, body.email), eq(users.tenantId, tenant.id)))
+      .limit(1)
+    if (existing) {
+      return reply.code(409).send({ error: 'Conflict', message: 'Email already registered', statusCode: 409 })
+    }
+
+    const [user] = await db
+      .insert(users)
+      .values({
+        name: body.name,
+        email: body.email,
+        role: body.role,
+        tenantId: tenant.id,
+        passwordHash: await hashPassword(body.password),
+      })
+      .returning({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+        tenantId: users.tenantId,
+      })
+
+    const accessToken = fastify.jwt.sign(
+      { sub: user.id, tenantId: user.tenantId, role: user.role },
+      { expiresIn: '24h' }
+    )
+
+    appendAuditEntry({ tenantId: tenant.id, userId: user.id, action: 'user.register', resourceType: 'user', resourceId: user.id })
+
+    return reply.code(201).send({ data: { token: accessToken, user } })
+  })
+
   fastify.post('/login', async (request, reply) => {
     const body = loginSchema.parse(request.body)
 

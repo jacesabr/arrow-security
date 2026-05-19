@@ -3,6 +3,7 @@ import { IonReactRouter } from '@ionic/react-router'
 import { Redirect, Route, Switch } from 'react-router-dom'
 
 import { LoginPage } from './pages/LoginPage'
+import { RegisterPage } from './pages/RegisterPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { CheckInPage } from './pages/CheckInPage'
 import { PatrolPage } from './pages/PatrolPage'
@@ -35,6 +36,7 @@ const App: React.FC = () => {
       <IonReactRouter>
         <Switch>
           <Route path="/login" component={LoginPage} exact />
+          <Route path="/register" component={RegisterPage} exact />
           <PrivateRoute path="/tabs/incidents/new" component={IncidentNewPage} />
           <PrivateRoute path="/tabs/incidents/:id" component={IncidentDetailPage} />
           <PrivateRoute path="/tabs" component={TabLayout} />

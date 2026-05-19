@@ -3,29 +3,49 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { tdApi } from '../../lib/api'
 
-export default function LoginPage() {
+const ROLES = [
+  { value: 'guard', label: 'Guard' },
+  { value: 'supervisor', label: 'Supervisor' },
+]
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  background: '#fafaf9',
+  color: '#1a1916',
+  border: '1.5px solid #e8e5e0',
+  borderRadius: 8,
+  padding: '9px 13px',
+  fontSize: 14,
+  outline: 'none',
+  boxSizing: 'border-box',
+}
+
+export default function RegisterPage() {
   const router = useRouter()
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [role, setRole] = useState('guard')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError(null)
     try {
-      const res = await tdApi.auth.login(email, password, process.env.NEXT_PUBLIC_TENANT_SLUG ?? '')
-      const { role } = res.data.user
-      if (role !== 'tenant_admin' && role !== 'supervisor' && role !== 'guard') {
-        setError('Access denied. Tenant users only.')
-        return
-      }
+      const res = await tdApi.auth.register({
+        name,
+        email,
+        password,
+        role,
+        tenantSlug: process.env.NEXT_PUBLIC_TENANT_SLUG ?? '',
+      })
       localStorage.setItem('td_token', res.data.token)
       localStorage.setItem('td_user', JSON.stringify(res.data.user))
       router.replace('/dashboard')
     } catch (e: any) {
-      setError(e.message ?? 'Login failed')
+      setError(e.message ?? 'Registration failed')
     } finally {
       setLoading(false)
     }
@@ -58,12 +78,12 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 style={{ color: '#1a1916', fontSize: 22, fontWeight: 700, margin: 0 }}>Arrow Security</h1>
-          <p style={{ color: '#9a9490', marginTop: 4, fontSize: 13 }}>Operations Portal</p>
+          <p style={{ color: '#9a9490', marginTop: 4, fontSize: 13 }}>Create your account</p>
         </div>
 
         {/* Form card */}
         <form
-          onSubmit={handleLogin}
+          onSubmit={handleRegister}
           style={{
             background: '#ffffff',
             border: '1px solid #e8e5e0',
@@ -74,31 +94,38 @@ export default function LoginPage() {
         >
           <div style={{ marginBottom: 14 }}>
             <label style={{ display: 'block', color: '#5c5855', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
+              Full Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              style={inputStyle}
+              placeholder="John Smith"
+              required
+              minLength={2}
+              onFocus={e => (e.currentTarget.style.borderColor = '#c96442')}
+              onBlur={e => (e.currentTarget.style.borderColor = '#e8e5e0')}
+            />
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', color: '#5c5855', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
               Email
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              style={{
-                width: '100%',
-                background: '#fafaf9',
-                color: '#1a1916',
-                border: '1.5px solid #e8e5e0',
-                borderRadius: 8,
-                padding: '9px 13px',
-                fontSize: 14,
-                outline: 'none',
-                boxSizing: 'border-box',
-              }}
-              placeholder="admin@arrowsecurity.com"
+              style={inputStyle}
+              placeholder="you@arrowsecurity.com"
               required
               onFocus={e => (e.currentTarget.style.borderColor = '#c96442')}
               onBlur={e => (e.currentTarget.style.borderColor = '#e8e5e0')}
             />
           </div>
 
-          <div style={{ marginBottom: 22 }}>
+          <div style={{ marginBottom: 14 }}>
             <label style={{ display: 'block', color: '#5c5855', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
               Password
             </label>
@@ -106,22 +133,42 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              style={{
-                width: '100%',
-                background: '#fafaf9',
-                color: '#1a1916',
-                border: '1.5px solid #e8e5e0',
-                borderRadius: 8,
-                padding: '9px 13px',
-                fontSize: 14,
-                outline: 'none',
-                boxSizing: 'border-box',
-              }}
-              placeholder="••••••••"
+              style={inputStyle}
+              placeholder="Min. 8 characters"
               required
+              minLength={8}
               onFocus={e => (e.currentTarget.style.borderColor = '#c96442')}
               onBlur={e => (e.currentTarget.style.borderColor = '#e8e5e0')}
             />
+          </div>
+
+          <div style={{ marginBottom: 22 }}>
+            <label style={{ display: 'block', color: '#5c5855', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
+              Role
+            </label>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {ROLES.map(r => (
+                <button
+                  key={r.value}
+                  type="button"
+                  onClick={() => setRole(r.value)}
+                  style={{
+                    flex: 1,
+                    padding: '9px 0',
+                    borderRadius: 8,
+                    border: `1.5px solid ${role === r.value ? '#c96442' : '#e8e5e0'}`,
+                    background: role === r.value ? 'rgba(201,100,66,0.06)' : '#fafaf9',
+                    color: role === r.value ? '#c96442' : '#5c5855',
+                    fontSize: 13,
+                    fontWeight: role === r.value ? 600 : 400,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {error && (
@@ -155,50 +202,18 @@ export default function LoginPage() {
               transition: 'opacity 0.15s',
             }}
           >
-            {loading ? 'Signing in…' : 'Sign In'}
+            {loading ? 'Creating account…' : 'Create Account'}
           </button>
         </form>
 
         <div style={{ textAlign: 'center', marginTop: 20 }}>
-          <span style={{ color: '#9a9490', fontSize: 13 }}>New to Arrow Security? </span>
+          <span style={{ color: '#9a9490', fontSize: 13 }}>Already have an account? </span>
           <a
-            href="/register"
+            href="/login"
             style={{ color: '#c96442', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}
           >
-            Create an account
+            Sign In
           </a>
-        </div>
-
-        {/* Dev credentials */}
-        <div style={{
-          marginTop: 16,
-          background: 'rgba(201,100,66,0.05)',
-          border: '1px solid rgba(201,100,66,0.15)',
-          borderRadius: 10,
-          padding: '12px 16px',
-        }}>
-          <p style={{ color: '#c96442', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
-            Dev Credentials
-          </p>
-          {[
-            { label: 'Admin', email: 'admin@acme.secureops.in', password: 'acme123' },
-            { label: 'Supervisor', email: 'supervisor@acme.secureops.in', password: 'super123' },
-          ].map(({ label, email: e, password: p }) => (
-            <div key={label} style={{ marginBottom: 6 }}>
-              <span style={{ color: '#9a9490', fontSize: 11, display: 'block', marginBottom: 2 }}>{label}</span>
-              <button
-                type="button"
-                onClick={() => { setEmail(e); setPassword(p) }}
-                style={{
-                  background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                  fontFamily: '"JetBrains Mono","Cascadia Code",ui-monospace,monospace',
-                  fontSize: 11, color: '#5c5855', textAlign: 'left',
-                }}
-              >
-                {e} / {p}
-              </button>
-            </div>
-          ))}
         </div>
       </div>
     </div>

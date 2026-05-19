@@ -1,39 +1,37 @@
 import React, { useState } from 'react'
-import {
-  IonContent,
-  IonPage,
-} from '@ionic/react'
+import { IonContent, IonPage } from '@ionic/react'
 import { useHistory } from 'react-router-dom'
 import { api } from '../services/api'
 import { useAuthStore } from '../store/auth'
 
 const TENANT_SLUG = import.meta.env.VITE_TENANT_SLUG as string
-const IS_DEV = import.meta.env.DEV
 
-const DEV_ACCOUNTS = [
-  { label: 'Guard', email: 'guard1@acme.secureops.in', password: 'guard123' },
-  { label: 'Supervisor', email: 'supervisor@acme.secureops.in', password: 'super123' },
-  { label: 'Admin', email: 'admin@acme.secureops.in', password: 'acme123' },
+const ROLES = [
+  { value: 'guard', label: 'Guard' },
+  { value: 'supervisor', label: 'Supervisor' },
 ]
 
-export const LoginPage: React.FC = () => {
+export const RegisterPage: React.FC = () => {
   const history = useHistory()
   const setAuth = useAuthStore((s) => s.setAuth)
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [role, setRole] = useState('guard')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [focusedField, setFocusedField] = useState<string | null>(null)
 
-  async function handleLogin() {
+  async function handleRegister() {
+    if (!name.trim() || !email || !password) return
     setError(null)
     setLoading(true)
     try {
-      const res = await api.auth.login(email, password, TENANT_SLUG)
+      const res = await api.auth.register({ name: name.trim(), email, password, role, tenantSlug: TENANT_SLUG })
       setAuth(res.data.token, res.data.user, TENANT_SLUG)
       history.replace('/tabs/dashboard')
     } catch (e: any) {
-      setError(e.message ?? 'Login failed')
+      setError(e.message ?? 'Registration failed')
     } finally {
       setLoading(false)
     }
@@ -53,6 +51,8 @@ export const LoginPage: React.FC = () => {
     fontFamily: 'inherit',
   })
 
+  const canSubmit = name.trim().length >= 2 && email && password.length >= 8
+
   return (
     <IonPage>
       <IonContent style={{ '--background': '#f9f8f6' }}>
@@ -64,9 +64,8 @@ export const LoginPage: React.FC = () => {
           justifyContent: 'center',
           padding: '32px 24px',
         }}>
-
           {/* Brand */}
-          <div style={{ textAlign: 'center', marginBottom: 44 }}>
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
             <div style={{
               width: 64, height: 64, borderRadius: 18, background: '#c96442',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -77,13 +76,29 @@ export const LoginPage: React.FC = () => {
               </svg>
             </div>
             <h1 style={{ color: '#1a1916', margin: '0 0 6px', fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em' }}>
-              Arrow Security
+              Create Account
             </h1>
-            <p style={{ color: '#9a9490', margin: 0, fontSize: 14 }}>Guard Operations</p>
+            <p style={{ color: '#9a9490', margin: 0, fontSize: 14 }}>Arrow Security</p>
           </div>
 
           {/* Form */}
           <div style={{ width: '100%', maxWidth: 380 }}>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', color: '#5c5855', fontSize: 13.5, fontWeight: 500, marginBottom: 7 }}>
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                onFocus={() => setFocusedField('name')}
+                onBlur={() => setFocusedField(null)}
+                placeholder="John Smith"
+                style={inputStyle('name')}
+                autoComplete="name"
+              />
+            </div>
+
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', color: '#5c5855', fontSize: 13.5, fontWeight: 500, marginBottom: 7 }}>
                 Email
@@ -94,13 +109,13 @@ export const LoginPage: React.FC = () => {
                 onChange={e => setEmail(e.target.value)}
                 onFocus={() => setFocusedField('email')}
                 onBlur={() => setFocusedField(null)}
-                placeholder="guard@arrowsecurity.com"
+                placeholder="you@arrowsecurity.com"
                 style={inputStyle('email')}
                 autoComplete="email"
               />
             </div>
 
-            <div style={{ marginBottom: 24 }}>
+            <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', color: '#5c5855', fontSize: 13.5, fontWeight: 500, marginBottom: 7 }}>
                 Password
               </label>
@@ -110,11 +125,40 @@ export const LoginPage: React.FC = () => {
                 onChange={e => setPassword(e.target.value)}
                 onFocus={() => setFocusedField('password')}
                 onBlur={() => setFocusedField(null)}
-                onKeyDown={e => { if (e.key === 'Enter' && email && password) handleLogin() }}
-                placeholder="••••••••"
+                placeholder="Min. 8 characters"
                 style={inputStyle('password')}
-                autoComplete="current-password"
+                autoComplete="new-password"
               />
+            </div>
+
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', color: '#5c5855', fontSize: 13.5, fontWeight: 500, marginBottom: 10 }}>
+                Role
+              </label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {ROLES.map(r => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => setRole(r.value)}
+                    style={{
+                      flex: 1,
+                      padding: '12px 0',
+                      borderRadius: 12,
+                      border: `1.5px solid ${role === r.value ? '#c96442' : '#e8e5e0'}`,
+                      background: role === r.value ? 'rgba(201,100,66,0.07)' : '#ffffff',
+                      color: role === r.value ? '#c96442' : '#5c5855',
+                      fontSize: 14,
+                      fontWeight: role === r.value ? 600 : 400,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {error && (
@@ -133,8 +177,8 @@ export const LoginPage: React.FC = () => {
             )}
 
             <button
-              onClick={handleLogin}
-              disabled={loading || !email || !password}
+              onClick={handleRegister}
+              disabled={loading || !canSubmit}
               style={{
                 width: '100%',
                 background: '#c96442',
@@ -144,62 +188,31 @@ export const LoginPage: React.FC = () => {
                 padding: '15px 0',
                 fontSize: 15,
                 fontWeight: 600,
-                cursor: (loading || !email || !password) ? 'default' : 'pointer',
-                opacity: (loading || !email || !password) ? 0.6 : 1,
+                cursor: (loading || !canSubmit) ? 'default' : 'pointer',
+                opacity: (loading || !canSubmit) ? 0.6 : 1,
                 transition: 'opacity 0.15s',
                 fontFamily: 'inherit',
+                marginBottom: 16,
               }}
             >
-              {loading ? 'Signing in…' : 'Sign In'}
+              {loading ? 'Creating account…' : 'Create Account'}
             </button>
-          </div>
 
-          {/* Register link */}
-          <div style={{ textAlign: 'center', marginTop: 20 }}>
-            <span style={{ color: '#9a9490', fontSize: 13.5 }}>New here? </span>
-            <button
-              type="button"
-              onClick={() => history.push('/register')}
-              style={{
-                background: 'none', border: 'none', padding: 0,
-                color: '#c96442', fontSize: 13.5, fontWeight: 600,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}
-            >
-              Create an account
-            </button>
-          </div>
-
-          {/* Dev credentials — hidden in production */}
-          {IS_DEV && (
-            <div style={{
-              marginTop: 36, width: '100%', maxWidth: 380,
-              background: 'rgba(201,100,66,0.05)',
-              border: '1px solid rgba(201,100,66,0.15)',
-              borderRadius: 12, padding: '14px 16px',
-            }}>
-              <p style={{ color: '#c96442', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>
-                Dev Credentials
-              </p>
-              {DEV_ACCOUNTS.map(({ label, email: e, password: p }) => (
-                <button
-                  key={label}
-                  onClick={() => { setEmail(e); setPassword(p) }}
-                  style={{
-                    display: 'block', width: '100%', textAlign: 'left',
-                    background: 'none', border: 'none', padding: '5px 0',
-                    cursor: 'pointer', marginBottom: 4,
-                  }}
-                >
-                  <span style={{ color: '#9a9490', fontSize: 11.5, display: 'block' }}>{label}</span>
-                  <span style={{ fontFamily: '"JetBrains Mono",ui-monospace,monospace', fontSize: 11, color: '#5c5855' }}>
-                    {e}
-                  </span>
-                </button>
-              ))}
+            <div style={{ textAlign: 'center' }}>
+              <span style={{ color: '#9a9490', fontSize: 13.5 }}>Already have an account? </span>
+              <button
+                type="button"
+                onClick={() => history.replace('/login')}
+                style={{
+                  background: 'none', border: 'none', padding: 0,
+                  color: '#c96442', fontSize: 13.5, fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                Sign In
+              </button>
             </div>
-          )}
-
+          </div>
         </div>
       </IonContent>
     </IonPage>

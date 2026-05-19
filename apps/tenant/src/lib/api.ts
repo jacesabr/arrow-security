@@ -29,6 +29,11 @@ export const tdApi = {
         method: 'POST',
         body: JSON.stringify({ email, password, tenantSlug }),
       }),
+    register: (body: { name: string; email: string; password: string; role: string; tenantSlug: string }) =>
+      request<{ data: { token: string; user: any } }>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
   },
   stats: {
     get: () =>
