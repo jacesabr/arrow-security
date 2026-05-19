@@ -70,6 +70,7 @@ export const tdApi = {
     },
     create: (body: { siteId: string; guardId: string; startsAt: string; endsAt: string; notes?: string }) =>
       request<{ data: any }>('/shifts', { method: 'POST', body: JSON.stringify(body) }),
+    delete: (id: string) => request<{ data: any }>(`/shifts/${id}`, { method: 'DELETE' }),
   },
   incidents: {
     list: (params?: { status?: string; severity?: string; siteId?: string; limit?: number }) => {

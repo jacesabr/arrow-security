@@ -82,7 +82,7 @@ export default function GuardsPage() {
 
         <Card overflow="hidden">
           <DataTable
-            cols={['Name', 'Email', 'Phone', 'Role', 'Face Enrolled', 'Last Login']}
+            cols={['Name', 'Email', 'Phone', 'Role', 'Last Login']}
             loading={loading}
             empty="No users yet. Add a guard to get started."
           >
@@ -92,12 +92,6 @@ export default function GuardsPage() {
                 <TD muted>{u.email}</TD>
                 <TD muted>{u.phone ?? '—'}</TD>
                 <TD>{roleBadge(u.role)}</TD>
-                <TD>
-                  {u.faceEnrolled
-                    ? <span style={{ color: '#10b981', fontSize: 13 }}>Enrolled</span>
-                    : <span style={{ color: 'var(--text-3)', fontSize: 13 }}>Not enrolled</span>
-                  }
-                </TD>
                 <TD muted>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('en-IN') : '—'}</TD>
               </TR>
             ))}

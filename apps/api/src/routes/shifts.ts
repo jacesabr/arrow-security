@@ -71,6 +71,17 @@ export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({ data: shift })
   })
 
+  fastify.delete('/:id', { preHandler: requireTenantAdmin }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const payload = request.user as { tenantId: string }
+    const [deleted] = await db
+      .delete(shifts)
+      .where(and(eq(shifts.id, id), eq(shifts.tenantId, payload.tenantId)))
+      .returning()
+    if (!deleted) return reply.code(404).send({ error: 'Not found', message: 'Shift not found', statusCode: 404 })
+    return reply.send({ data: deleted })
+  })
+
   // POST /api/shifts/solve — run CP-SAT solver to re-assign guards for a week
   fastify.post('/solve', { preHandler: requireSupervisor }, async (request, reply) => {
     const payload = request.user as { tenantId: string }

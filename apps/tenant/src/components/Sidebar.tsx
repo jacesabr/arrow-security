@@ -87,20 +87,16 @@ const NAV: NavItem[] = [
   { href: '/dashboard',      label: 'Dashboard' },
   { href: '/guard-status',   label: 'Guard Status' },
   { href: '/guards',         label: 'Guards',          adminOnly: true },
-  { href: '/certifications', label: 'Certifications',  adminOnly: true },
   { href: '/sites',          label: 'Sites' },
   { href: '/shifts',         label: 'Shifts' },
   { href: '/roster',         label: 'Roster',          adminOnly: true },
   { href: '/incidents',      label: 'Incidents' },
-  { href: '/panic',          label: '🚨 Panic Alerts',  adminOnly: true },
-  { href: '/patrols',        label: 'Patrols' },
   { href: '/map',            label: 'Live Map' },
   { href: '/clients',        label: 'Clients',         adminOnly: true },
   { href: '/leave-requests', label: 'Leave Requests' },
   { href: '/post-orders',    label: 'Post Orders',     adminOnly: true },
   { href: '/payroll',        label: 'Payroll',         adminOnly: true },
   { href: '/supervisors',    label: 'Supervisors',     adminOnly: true },
-  { href: '/settings',       label: 'Settings' },
 ]
 
 const ROLE_LABELS: Record<ViewAsRole, string> = {

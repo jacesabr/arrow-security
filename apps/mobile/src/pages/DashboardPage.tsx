@@ -13,10 +13,6 @@ import {
   IonIcon,
   IonBadge,
   IonSkeletonText,
-  IonAlert,
-  IonToast,
-  IonFab,
-  IonFabButton,
 } from '@ionic/react'
 import {
   qrCodeOutline,
@@ -24,9 +20,7 @@ import {
   warningOutline,
   timeOutline,
   logOutOutline,
-  alertCircleOutline,
 } from 'ionicons/icons'
-import { Geolocation } from '@capacitor/geolocation'
 import { useHistory } from 'react-router-dom'
 import { useAuthStore } from '../store/auth'
 import { api } from '../services/api'
@@ -37,13 +31,6 @@ export const DashboardPage: React.FC = () => {
   const [incidents, setIncidents] = useState<any[]>([])
   const [shifts, setShifts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [showPanicConfirm, setShowPanicConfirm] = useState(false)
-  const [panicSending, setPanicSending] = useState(false)
-  const [toast, setToast] = useState<{ open: boolean; message: string; color: string }>({
-    open: false,
-    message: '',
-    color: 'danger',
-  })
 
   useEffect(() => {
     Promise.all([api.incidents.list({ status: 'open' }), api.shifts.list()])
@@ -60,31 +47,6 @@ export const DashboardPage: React.FC = () => {
     const today = new Date()
     return start.toDateString() === today.toDateString()
   })
-
-  const activeShift = todayShifts.find((s) => s.status === 'active')
-
-  const handlePanicConfirm = async () => {
-    setPanicSending(true)
-    try {
-      let latitude: number | undefined
-      let longitude: number | undefined
-      let accuracy: number | undefined
-      try {
-        const pos = await Geolocation.getCurrentPosition({ timeout: 5000 })
-        latitude = pos.coords.latitude
-        longitude = pos.coords.longitude
-        accuracy = pos.coords.accuracy
-      } catch {
-        // location unavailable — send panic without coordinates
-      }
-      await api.panic.trigger({ shiftId: activeShift?.id, latitude, longitude, accuracy })
-      setToast({ open: true, message: 'Emergency alert sent. Help is on the way.', color: 'danger' })
-    } catch (err: any) {
-      setToast({ open: true, message: err?.message ?? 'Failed to send emergency alert.', color: 'warning' })
-    } finally {
-      setPanicSending(false)
-    }
-  }
 
   return (
     <IonPage>
@@ -166,76 +128,7 @@ export const DashboardPage: React.FC = () => {
           </IonCardContent>
         </IonCard>
 
-        {/* Spacer so content is not hidden behind the fixed panic button */}
-        <div style={{ height: 96 }} />
       </IonContent>
-
-      {/* Panic button — fixed above tab bar */}
-      <style>{`
-        @keyframes panic-pulse {
-          0%   { transform: scale(1);   box-shadow: 0 0 0 0 rgba(239,68,68,0.7); }
-          50%  { transform: scale(1.1); box-shadow: 0 0 0 12px rgba(239,68,68,0); }
-          100% { transform: scale(1);   box-shadow: 0 0 0 0 rgba(239,68,68,0); }
-        }
-        .panic-fab-btn {
-          animation: panic-pulse 2s ease-in-out infinite;
-        }
-      `}</style>
-
-      <IonFab style={{ position: 'fixed', bottom: 76, right: 20 }}>
-        <IonFabButton
-          className="panic-fab-btn"
-          disabled={panicSending}
-          onClick={() => setShowPanicConfirm(true)}
-          style={{
-            '--background': '#ef4444',
-            '--background-activated': '#b91c1c',
-            '--background-hover': '#dc2626',
-            '--color': '#ffffff',
-            width: 64,
-            height: 64,
-            '--border-radius': '50%',
-          }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-            <IonIcon icon={alertCircleOutline} style={{ fontSize: 26, color: '#ffffff' }} />
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: '#ffffff' }}>PANIC</span>
-          </div>
-        </IonFabButton>
-      </IonFab>
-
-      {/* Panic confirmation alert */}
-      <IonAlert
-        isOpen={showPanicConfirm}
-        onDidDismiss={() => setShowPanicConfirm(false)}
-        header="Send Emergency Alert?"
-        message="Send emergency alert to your supervisor and control room?"
-        buttons={[
-          {
-            text: 'Cancel',
-            role: 'cancel',
-            cssClass: 'alert-button-cancel',
-          },
-          {
-            text: 'Confirm',
-            role: 'confirm',
-            cssClass: 'alert-button-confirm',
-            handler: () => {
-              handlePanicConfirm()
-            },
-          },
-        ]}
-      />
-
-      {/* Result toast */}
-      <IonToast
-        isOpen={toast.open}
-        onDidDismiss={() => setToast((t) => ({ ...t, open: false }))}
-        message={toast.message}
-        duration={4000}
-        color={toast.color}
-        position="top"
-      />
     </IonPage>
   )
 }

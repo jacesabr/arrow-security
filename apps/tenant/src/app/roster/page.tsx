@@ -50,6 +50,7 @@ export default function RosterPage() {
   const [showModal, setShowModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({ siteId: '', guardId: '', date: '', startTime: '', endTime: '', notes: '' })
 
@@ -260,16 +261,37 @@ export default function RosterPage() {
                                   onClick={(e) => e.stopPropagation()}
                                   title={`${fmtTime(s.startsAt)}–${fmtTime(s.endsAt)} · ${siteName(s.siteId)}${!s.published ? ' · Draft' : ''}`}
                                   style={{
-                                    fontSize: 11.5, padding: '3px 7px', borderRadius: 5,
-                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                    opacity: s.published ? 1 : 0.6,
+                                    fontSize: 11.5, padding: '3px 7px 3px 7px', borderRadius: 5,
+                                    opacity: deleting === s.id ? 0.4 : s.published ? 1 : 0.6,
+                                    position: 'relative',
                                     ...(STATUS_STYLE[s.status] ?? STATUS_STYLE.scheduled),
                                     ...(s.published ? {} : { borderStyle: 'dashed' }),
                                   }}
                                 >
-                                  {fmtTime(s.startsAt)}–{fmtTime(s.endsAt)}
-                                  <div style={{ fontSize: 10, opacity: 0.75, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {siteName(s.siteId)}
+                                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 4 }}>
+                                    <div style={{ overflow: 'hidden', minWidth: 0 }}>
+                                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {fmtTime(s.startsAt)}–{fmtTime(s.endsAt)}
+                                      </div>
+                                      <div style={{ fontSize: 10, opacity: 0.75, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {siteName(s.siteId)}
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation()
+                                        setDeleting(s.id)
+                                        try { await tdApi.shifts.delete(s.id); loadShifts() }
+                                        catch { /* ignore */ }
+                                        finally { setDeleting(null) }
+                                      }}
+                                      style={{
+                                        flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer',
+                                        color: 'inherit', opacity: 0.5, padding: '0 0 0 2px', lineHeight: 1,
+                                        fontSize: 12, fontWeight: 700,
+                                      }}
+                                      title="Delete shift"
+                                    >×</button>
                                   </div>
                                 </div>
                               ))}

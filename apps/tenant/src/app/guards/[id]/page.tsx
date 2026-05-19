@@ -93,6 +93,31 @@ export default function GuardProfilePage() {
     }
   }
 
+  function exportCsv() {
+    if (!data || !data.rows.length) return
+    const headers = ['Date', 'Site', 'Check-In', 'Scheduled Start', 'On Time', 'Check-Out', 'Scheduled End', 'Hours', 'Method', 'Geofence']
+    const csvRows = data.rows.map((r: any) => [
+      r.date,
+      `"${r.siteName}"`,
+      r.checkInTime ? new Date(r.checkInTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '',
+      r.scheduledStart ? new Date(r.scheduledStart).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '',
+      r.checkInOnTime === null ? '' : r.checkInOnTime ? 'Yes' : 'No',
+      r.checkOutTime ? new Date(r.checkOutTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '',
+      r.scheduledEnd ? new Date(r.scheduledEnd).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '',
+      r.hoursWorked ?? '',
+      r.checkInMethod,
+      r.checkInGeofence === null ? '' : r.checkInGeofence ? 'Within' : 'Outside',
+    ])
+    const csv = [headers, ...csvRows].map((r) => r.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${data.guard.name.replace(/\s+/g, '_')}_logsheet_${since}_to_${until}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const guard = data?.guard
   const rows = data?.rows ?? []
   const summary = data?.summary
@@ -129,10 +154,7 @@ export default function GuardProfilePage() {
               <div style={{ color: 'var(--text-3)', fontSize: 13 }}>{guard.email}</div>
               {guard.phone && <div style={{ color: 'var(--text-3)', fontSize: 13 }}>{guard.phone}</div>}
             </div>
-            <div style={{ display: 'flex', gap: 28 }}>
-              <ProfileStat label="Face enrolled" value={guard.faceEnrolled ? 'Yes' : 'No'} accent={guard.faceEnrolled} />
-              <ProfileStat label="Last login" value={guard.lastLoginAt ? fmtDate(guard.lastLoginAt) : 'Never'} />
-            </div>
+            <ProfileStat label="Last login" value={guard.lastLoginAt ? fmtDate(guard.lastLoginAt) : 'Never'} />
           </Card>
         )}
 
@@ -157,6 +179,9 @@ export default function GuardProfilePage() {
             />
           </div>
           <Btn variant="primary" onClick={load} loading={loading} disabled={loading}>Apply</Btn>
+          {rows.length > 0 && (
+            <Btn variant="secondary" onClick={exportCsv}>Export CSV</Btn>
+          )}
         </div>
 
         {/* Summary stats */}
@@ -164,9 +189,13 @@ export default function GuardProfilePage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14, marginBottom: 28 }}>
             <StatCard label="Total Hours" value={`${summary.totalHours}h`} color="#c96442" />
             <StatCard label="Shifts Worked" value={summary.completedShifts} color="#3b82f6" />
+            <StatCard
+              label="Attendance Rate"
+              value={summary.totalShifts > 0 ? `${Math.round((summary.completedShifts / summary.totalShifts) * 100)}%` : '—'}
+              color="#10b981"
+            />
             <StatCard label="On Time" value={`${summary.onTimeCheckIns}`} color="#10b981" />
             <StatCard label="Late Check-ins" value={`${summary.lateCheckIns}`} color={summary.lateCheckIns > 0 ? '#f59e0b' : '#9a9490'} />
-            <StatCard label="Total Entries" value={summary.totalShifts} color="#9a9490" />
           </div>
         )}
 
