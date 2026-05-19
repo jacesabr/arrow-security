@@ -8,6 +8,13 @@
       "when": 1779076861293,
       "tag": "0000_nostalgic_crusher_hogan",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1779076861300,
+      "tag": "0003_app_releases",
+      "breakpoints": true
     }
   ]
 }
