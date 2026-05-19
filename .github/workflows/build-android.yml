@@ -46,15 +46,18 @@ jobs:
         run: |
           VERSION=$(echo "$GITHUB_SHA" | cut -c1-8)
           cd dist && zip -r ../bundle.zip . && cd ..
-          curl -s -o /dev/null -w "%{http_code}" \
-            -X POST \
-            -H "X-Update-Token: ${{ secrets.APP_UPDATE_TOKEN }}" \
-            -F "bundle=@bundle.zip" \
-            "https://arrow-security-api.onrender.com/api/app-update/publish?version=${VERSION}" \
-            | tee /tmp/publish_status
-          STATUS=$(cat /tmp/publish_status)
-          echo "Publish status: $STATUS"
-          [ "$STATUS" = "201" ] || echo "Warning: bundle publish returned $STATUS (non-fatal)"
+          STATUS=""
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST \
+              -H "X-Update-Token: ${{ secrets.APP_UPDATE_TOKEN }}" \
+              -F "bundle=@bundle.zip" \
+              "https://arrow-security-api.onrender.com/api/app-update/publish?version=${VERSION}")
+            echo "Attempt $i: status $STATUS"
+            [ "$STATUS" = "201" ] && echo "Bundle published successfully" && break
+            [ "$i" -lt "5" ] && echo "Retrying in 30s..." && sleep 30
+          done
+          [ "$STATUS" = "201" ] || echo "Warning: bundle publish failed after 5 attempts (last status: $STATUS)"
 
       - name: Add Android platform
         working-directory: apps/mobile
