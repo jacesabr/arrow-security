@@ -6,6 +6,7 @@ import { tdApi } from '../../lib/api'
 const ROLES = [
   { value: 'guard', label: 'Guard' },
   { value: 'supervisor', label: 'Supervisor' },
+  { value: 'tenant_admin', label: 'Admin' },
 ]
 
 const inputStyle: React.CSSProperties = {
@@ -94,7 +95,7 @@ export default function RegisterPage() {
         >
           <div style={{ marginBottom: 14 }}>
             <label style={{ display: 'block', color: '#5c5855', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
-              Full Name
+              Name
             </label>
             <input
               type="text"
@@ -103,7 +104,6 @@ export default function RegisterPage() {
               style={inputStyle}
               placeholder="John Smith"
               required
-              minLength={2}
               onFocus={e => (e.currentTarget.style.borderColor = '#c96442')}
               onBlur={e => (e.currentTarget.style.borderColor = '#e8e5e0')}
             />
@@ -111,14 +111,14 @@ export default function RegisterPage() {
 
           <div style={{ marginBottom: 14 }}>
             <label style={{ display: 'block', color: '#5c5855', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
-              Email
+              Username
             </label>
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={inputStyle}
-              placeholder="you@arrowsecurity.com"
+              placeholder="e.g. john or john@arrowsecurity.com"
               required
               onFocus={e => (e.currentTarget.style.borderColor = '#c96442')}
               onBlur={e => (e.currentTarget.style.borderColor = '#e8e5e0')}
@@ -134,9 +134,8 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={inputStyle}
-              placeholder="Min. 8 characters"
+              placeholder="Choose a password"
               required
-              minLength={8}
               onFocus={e => (e.currentTarget.style.borderColor = '#c96442')}
               onBlur={e => (e.currentTarget.style.borderColor = '#e8e5e0')}
             />

@@ -26,16 +26,16 @@ function hashToken(token: string): string {
 }
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  email: z.string().min(1),
   password: z.string().min(1),
   tenantSlug: z.string().optional(),
 })
 
 const registerSchema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  password: z.string().min(8),
-  role: z.enum(['guard', 'supervisor']),
+  name: z.string().min(1),
+  email: z.string().min(1),
+  password: z.string().min(1),
+  role: z.enum(['guard', 'supervisor', 'tenant_admin']),
   tenantSlug: z.string(),
 })
 

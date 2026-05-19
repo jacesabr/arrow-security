@@ -86,17 +86,17 @@ export const LoginPage: React.FC = () => {
           <div style={{ width: '100%', maxWidth: 380 }}>
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', color: '#5c5855', fontSize: 13.5, fontWeight: 500, marginBottom: 7 }}>
-                Email
+                Username
               </label>
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 onFocus={() => setFocusedField('email')}
                 onBlur={() => setFocusedField(null)}
-                placeholder="guard@arrowsecurity.com"
+                placeholder="e.g. john or john@arrowsecurity.com"
                 style={inputStyle('email')}
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
 

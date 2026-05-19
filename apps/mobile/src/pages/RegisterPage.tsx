@@ -9,6 +9,7 @@ const TENANT_SLUG = import.meta.env.VITE_TENANT_SLUG as string
 const ROLES = [
   { value: 'guard', label: 'Guard' },
   { value: 'supervisor', label: 'Supervisor' },
+  { value: 'tenant_admin', label: 'Admin' },
 ]
 
 export const RegisterPage: React.FC = () => {
@@ -51,7 +52,7 @@ export const RegisterPage: React.FC = () => {
     fontFamily: 'inherit',
   })
 
-  const canSubmit = name.trim().length >= 2 && email && password.length >= 8
+  const canSubmit = name.trim().length >= 1 && email.length >= 1 && password.length >= 1
 
   return (
     <IonPage>
@@ -85,7 +86,7 @@ export const RegisterPage: React.FC = () => {
           <div style={{ width: '100%', maxWidth: 380 }}>
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', color: '#5c5855', fontSize: 13.5, fontWeight: 500, marginBottom: 7 }}>
-                Full Name
+                Name
               </label>
               <input
                 type="text"
@@ -101,17 +102,17 @@ export const RegisterPage: React.FC = () => {
 
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', color: '#5c5855', fontSize: 13.5, fontWeight: 500, marginBottom: 7 }}>
-                Email
+                Username
               </label>
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 onFocus={() => setFocusedField('email')}
                 onBlur={() => setFocusedField(null)}
-                placeholder="you@arrowsecurity.com"
+                placeholder="e.g. john or john@arrowsecurity.com"
                 style={inputStyle('email')}
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
 
@@ -125,7 +126,7 @@ export const RegisterPage: React.FC = () => {
                 onChange={e => setPassword(e.target.value)}
                 onFocus={() => setFocusedField('password')}
                 onBlur={() => setFocusedField(null)}
-                placeholder="Min. 8 characters"
+                placeholder="Choose a password"
                 style={inputStyle('password')}
                 autoComplete="new-password"
               />

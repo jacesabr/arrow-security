@@ -74,10 +74,10 @@ export default function LoginPage() {
         >
           <div style={{ marginBottom: 14 }}>
             <label style={{ display: 'block', color: '#5c5855', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
-              Email
+              Username
             </label>
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={{
@@ -91,7 +91,7 @@ export default function LoginPage() {
                 outline: 'none',
                 boxSizing: 'border-box',
               }}
-              placeholder="admin@arrowsecurity.com"
+              placeholder="e.g. john or john@arrowsecurity.com"
               required
               onFocus={e => (e.currentTarget.style.borderColor = '#c96442')}
               onBlur={e => (e.currentTarget.style.borderColor = '#e8e5e0')}
