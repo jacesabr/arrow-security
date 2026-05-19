@@ -135,6 +135,19 @@ export const api = {
       request<{ data: any }>(`/panic/${id}/resolve`, { method: 'PATCH', body: JSON.stringify({ notes }) }),
   },
 
+  selfies: {
+    create: (payload: {
+      siteId: string
+      checkType: 'check_in' | 'check_out'
+      imageData: string
+      latitude?: number
+      longitude?: number
+    }) => request<{ data: { selfie: any; attendance: any; distanceMeters: number | null; isWithinGeofence: boolean | null } }>(
+      '/selfies',
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
+  },
+
   upload: {
     presign: (filename: string, contentType: string, folder: 'selfies' | 'incidents' | 'documents') =>
       request<{ data: { uploadUrl: string; key: string; expiresIn: number } }>('/upload/presign', {

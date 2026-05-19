@@ -22,6 +22,13 @@
       "when": 1779076861300,
       "tag": "0003_app_releases",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1779076861310,
+      "tag": "0004_selfie_records",
+      "breakpoints": true
     }
   ]
 }

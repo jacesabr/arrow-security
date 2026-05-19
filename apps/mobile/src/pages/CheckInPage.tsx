@@ -68,7 +68,9 @@ export const CheckInPage: React.FC = () => {
   async function takeSelfie() {
     try {
       const photo = await Camera.getPhoto({
-        quality: 70,
+        quality: 60,
+        width: 480,
+        height: 640,
         allowEditing: false,
         resultType: CameraResultType.DataUrl,
         source: CameraSource.Camera,
@@ -94,10 +96,10 @@ export const CheckInPage: React.FC = () => {
     setLoading(true)
     setError(null)
     try {
-      await api.attendance.checkIn({
+      await api.selfies.create({
         siteId: selectedSite,
-        type,
-        method: 'face',
+        checkType: type,
+        imageData: selfieDataUrl,
         latitude: location?.lat,
         longitude: location?.lng,
       })

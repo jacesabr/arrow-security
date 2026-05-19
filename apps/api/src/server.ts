@@ -36,6 +36,7 @@ import { incidentFormsRoutes } from './routes/incident-forms'
 import { uploadRoutes } from './routes/upload'
 import { guardStatusRoutes } from './routes/guard-status'
 import { appUpdateRoutes } from './routes/app-update'
+import { selfiesRoutes } from './routes/selfies'
 import { ensureBucket } from './lib/storage'
 
 const app = Fastify({
@@ -89,6 +90,7 @@ async function build() {
   await app.register(uploadRoutes, { prefix: '/api/upload' })
   await app.register(guardStatusRoutes, { prefix: '/api/guard-status' })
   await app.register(appUpdateRoutes, { prefix: '/api/app-update' })
+  await app.register(selfiesRoutes, { prefix: '/api/selfies' })
 
   app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 
