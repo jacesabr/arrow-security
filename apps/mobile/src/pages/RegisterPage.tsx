@@ -168,12 +168,38 @@ export const RegisterPage: React.FC = () => {
                 border: '1px solid rgba(239,68,68,0.2)',
                 borderRadius: 10,
                 padding: '10px 14px',
-                color: '#ef4444',
-                fontSize: 13.5,
                 marginBottom: 16,
-                textAlign: 'center',
               }}>
-                {error}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <span style={{ color: '#ef4444', fontSize: 13.5, flex: 1 }}>
+                    {error.toLowerCase().includes('fetch') ? 'Server is waking up — wait a moment and try again.' : error}
+                  </span>
+                  <button
+                    onClick={() => setError(null)}
+                    style={{
+                      background: 'none', border: 'none', padding: '0 2px',
+                      color: '#ef4444', fontSize: 16, cursor: 'pointer',
+                      lineHeight: 1, flexShrink: 0,
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+                {error.toLowerCase().includes('fetch') && (
+                  <button
+                    onClick={() => window.location.reload()}
+                    style={{
+                      marginTop: 8, width: '100%',
+                      background: 'none',
+                      border: '1px solid rgba(239,68,68,0.3)',
+                      borderRadius: 8, padding: '7px 0',
+                      color: '#ef4444', fontSize: 13, cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    Reload App
+                  </button>
+                )}
               </div>
             )}
 
