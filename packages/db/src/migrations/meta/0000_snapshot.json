@@ -1,5 +1,5 @@
 {
-  "id": "a9c1af35-1c9a-4842-ad0d-3b15f99b6876",
+  "id": "edf92708-9816-496f-8a9f-e42fe919f53e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "5",
   "dialect": "pg",
@@ -370,6 +370,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "profile_photo_key": {
+          "name": "profile_photo_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "fcm_token": {
           "name": "fcm_token",
           "type": "text",
@@ -501,6 +507,36 @@
           "primaryKey": false,
           "notNull": false
         },
+        "out_of_zone_reason": {
+          "name": "out_of_zone_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "selfie_review_status": {
+          "name": "selfie_review_status",
+          "type": "selfie_review_status",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "selfie_review_note": {
+          "name": "selfie_review_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "selfie_reviewed_by": {
+          "name": "selfie_reviewed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "selfie_reviewed_at": {
+          "name": "selfie_reviewed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -543,6 +579,19 @@
           "tableTo": "users",
           "columnsFrom": [
             "guard_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "attendance_records_selfie_reviewed_by_users_id_fk": {
+          "name": "attendance_records_selfie_reviewed_by_users_id_fk",
+          "tableFrom": "attendance_records",
+          "tableTo": "users",
+          "columnsFrom": [
+            "selfie_reviewed_by"
           ],
           "columnsTo": [
             "id"
@@ -1069,6 +1118,54 @@
           "notNull": true,
           "default": false
         },
+        "walking_meters": {
+          "name": "walking_meters",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "driving_meters": {
+          "name": "driving_meters",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "walking_seconds": {
+          "name": "walking_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "driving_seconds": {
+          "name": "driving_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stationary_seconds": {
+          "name": "stationary_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mean_speed_ms": {
+          "name": "mean_speed_ms",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "idle_baseline_ms": {
+          "name": "idle_baseline_ms",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "movement_computed_at": {
+          "name": "movement_computed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -1123,112 +1220,6 @@
             "id"
           ],
           "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
-    "cameras": {
-      "name": "cameras",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "site_id": {
-          "name": "site_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "rtsp_url": {
-          "name": "rtsp_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "frigate_id": {
-          "name": "frigate_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "go2rtc_stream": {
-          "name": "go2rtc_stream",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "camera_status",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'offline'"
-        },
-        "last_seen_at": {
-          "name": "last_seen_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "cameras_tenant_id_tenants_id_fk": {
-          "name": "cameras_tenant_id_tenants_id_fk",
-          "tableFrom": "cameras",
-          "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "cameras_site_id_sites_id_fk": {
-          "name": "cameras_site_id_sites_id_fk",
-          "tableFrom": "cameras",
-          "tableTo": "sites",
-          "columnsFrom": [
-            "site_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -1568,6 +1559,18 @@
         },
         "battery": {
           "name": "battery",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "activity_type": {
+          "name": "activity_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "activity_confidence": {
+          "name": "activity_confidence",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
@@ -3033,6 +3036,224 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
+    },
+    "app_releases": {
+      "name": "app_releases",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bundle_data": {
+          "name": "bundle_data",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bundle_size": {
+          "name": "bundle_size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_current": {
+          "name": "is_current",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "app_releases_version_unique": {
+          "name": "app_releases_version_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "version"
+          ]
+        }
+      }
+    },
+    "selfie_records": {
+      "name": "selfie_records",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "guard_id": {
+          "name": "guard_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "site_id": {
+          "name": "site_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attendance_record_id": {
+          "name": "attendance_record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "check_type": {
+          "name": "check_type",
+          "type": "attendance_type",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "image_key": {
+          "name": "image_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "latitude": {
+          "name": "latitude",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "longitude": {
+          "name": "longitude",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "captured_at": {
+          "name": "captured_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "review_status": {
+          "name": "review_status",
+          "type": "selfie_review_status",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "review_note": {
+          "name": "review_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewed_by": {
+          "name": "reviewed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewed_at": {
+          "name": "reviewed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "selfie_records_tenant_id_tenants_id_fk": {
+          "name": "selfie_records_tenant_id_tenants_id_fk",
+          "tableFrom": "selfie_records",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "selfie_records_guard_id_users_id_fk": {
+          "name": "selfie_records_guard_id_users_id_fk",
+          "tableFrom": "selfie_records",
+          "tableTo": "users",
+          "columnsFrom": [
+            "guard_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "selfie_records_site_id_sites_id_fk": {
+          "name": "selfie_records_site_id_sites_id_fk",
+          "tableFrom": "selfie_records",
+          "tableTo": "sites",
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "selfie_records_attendance_record_id_attendance_records_id_fk": {
+          "name": "selfie_records_attendance_record_id_attendance_records_id_fk",
+          "tableFrom": "selfie_records",
+          "tableTo": "attendance_records",
+          "columnsFrom": [
+            "attendance_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "selfie_records_reviewed_by_users_id_fk": {
+          "name": "selfie_records_reviewed_by_users_id_fk",
+          "tableFrom": "selfie_records",
+          "tableTo": "users",
+          "columnsFrom": [
+            "reviewed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
     }
   },
   "enums": {
@@ -3091,6 +3312,14 @@
         "check_out": "check_out"
       }
     },
+    "selfie_review_status": {
+      "name": "selfie_review_status",
+      "values": {
+        "pending": "pending",
+        "approved": "approved",
+        "flagged": "flagged"
+      }
+    },
     "patrol_scan_method": {
       "name": "patrol_scan_method",
       "values": {
@@ -3125,14 +3354,6 @@
         "active": "active",
         "completed": "completed",
         "missed": "missed"
-      }
-    },
-    "camera_status": {
-      "name": "camera_status",
-      "values": {
-        "online": "online",
-        "offline": "offline",
-        "error": "error"
       }
     },
     "payroll_period_status": {

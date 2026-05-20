@@ -5,64 +5,8 @@
     {
       "idx": 0,
       "version": "5",
-      "when": 1779076861293,
-      "tag": "0000_nostalgic_crusher_hogan",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "5",
-      "when": 1779076861295,
-      "tag": "0002_selfie_review",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "5",
-      "when": 1779076861300,
-      "tag": "0003_app_releases",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "5",
-      "when": 1779076861310,
-      "tag": "0004_selfie_records",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "5",
-      "when": 1779076861320,
-      "tag": "0005_selfie_image_key",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "5",
-      "when": 1779076861330,
-      "tag": "0006_shift_movement",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "5",
-      "when": 1779076861340,
-      "tag": "0007_activity_recognition",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "5",
-      "when": 1779076861350,
-      "tag": "0008_out_of_zone_reason",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "5",
-      "when": 1779076861360,
-      "tag": "0009_user_profile_photo",
+      "when": 1779267870564,
+      "tag": "0000_chunky_stardust",
       "breakpoints": true
     }
   ]

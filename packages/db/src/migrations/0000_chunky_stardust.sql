@@ -41,6 +41,12 @@ EXCEPTION
 END $$;
 --> statement-breakpoint
 DO $$ BEGIN
+ CREATE TYPE "selfie_review_status" AS ENUM('pending', 'approved', 'flagged');
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
  CREATE TYPE "patrol_scan_method" AS ENUM('qr', 'nfc', 'manual');
 EXCEPTION
  WHEN duplicate_object THEN null;
@@ -60,12 +66,6 @@ END $$;
 --> statement-breakpoint
 DO $$ BEGIN
  CREATE TYPE "shift_status" AS ENUM('scheduled', 'active', 'completed', 'missed');
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;
---> statement-breakpoint
-DO $$ BEGIN
- CREATE TYPE "camera_status" AS ENUM('online', 'offline', 'error');
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -174,6 +174,7 @@ CREATE TABLE IF NOT EXISTS "users" (
 	"password_hash" text,
 	"face_enrolled" boolean DEFAULT false NOT NULL,
 	"face_embedding_id" text,
+	"profile_photo_key" text,
 	"fcm_token" text,
 	"last_login_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
@@ -194,6 +195,11 @@ CREATE TABLE IF NOT EXISTS "attendance_records" (
 	"selfie_url" text,
 	"liveness_score" real,
 	"is_within_geofence" boolean,
+	"out_of_zone_reason" text,
+	"selfie_review_status" "selfie_review_status",
+	"selfie_review_note" text,
+	"selfie_reviewed_by" text,
+	"selfie_reviewed_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -262,20 +268,14 @@ CREATE TABLE IF NOT EXISTS "shifts" (
 	"status" "shift_status" DEFAULT 'scheduled' NOT NULL,
 	"notes" text,
 	"published" boolean DEFAULT false NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "cameras" (
-	"id" text PRIMARY KEY NOT NULL,
-	"tenant_id" text NOT NULL,
-	"site_id" text NOT NULL,
-	"name" text NOT NULL,
-	"rtsp_url" text NOT NULL,
-	"frigate_id" text,
-	"go2rtc_stream" text,
-	"status" "camera_status" DEFAULT 'offline' NOT NULL,
-	"last_seen_at" timestamp,
+	"walking_meters" integer,
+	"driving_meters" integer,
+	"walking_seconds" integer,
+	"driving_seconds" integer,
+	"stationary_seconds" integer,
+	"mean_speed_ms" real,
+	"idle_baseline_ms" real,
+	"movement_computed_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -327,6 +327,8 @@ CREATE TABLE IF NOT EXISTS "guard_locations" (
 	"altitude" double precision,
 	"h3_res8" text,
 	"battery" integer,
+	"activity_type" text,
+	"activity_confidence" integer,
 	"recorded_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -496,6 +498,33 @@ CREATE TABLE IF NOT EXISTS "incident_form_responses" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "app_releases" (
+	"id" text PRIMARY KEY NOT NULL,
+	"version" text NOT NULL,
+	"bundle_data" text NOT NULL,
+	"bundle_size" integer NOT NULL,
+	"is_current" boolean DEFAULT false NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "app_releases_version_unique" UNIQUE("version")
+);
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "selfie_records" (
+	"id" text PRIMARY KEY NOT NULL,
+	"tenant_id" text NOT NULL,
+	"guard_id" text NOT NULL,
+	"site_id" text NOT NULL,
+	"attendance_record_id" text,
+	"check_type" "attendance_type" NOT NULL,
+	"image_key" text NOT NULL,
+	"latitude" double precision,
+	"longitude" double precision,
+	"captured_at" timestamp DEFAULT now() NOT NULL,
+	"review_status" "selfie_review_status" DEFAULT 'pending' NOT NULL,
+	"review_note" text,
+	"reviewed_by" text,
+	"reviewed_at" timestamp
+);
+--> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "clients" ADD CONSTRAINT "clients_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
@@ -534,6 +563,12 @@ END $$;
 --> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "attendance_records" ADD CONSTRAINT "attendance_records_guard_id_users_id_fk" FOREIGN KEY ("guard_id") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "attendance_records" ADD CONSTRAINT "attendance_records_selfie_reviewed_by_users_id_fk" FOREIGN KEY ("selfie_reviewed_by") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -618,18 +653,6 @@ END $$;
 --> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "shifts" ADD CONSTRAINT "shifts_guard_id_users_id_fk" FOREIGN KEY ("guard_id") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;
---> statement-breakpoint
-DO $$ BEGIN
- ALTER TABLE "cameras" ADD CONSTRAINT "cameras_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;
---> statement-breakpoint
-DO $$ BEGIN
- ALTER TABLE "cameras" ADD CONSTRAINT "cameras_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "sites"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -888,6 +911,36 @@ END $$;
 --> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "incident_form_responses" ADD CONSTRAINT "incident_form_responses_submitted_by_users_id_fk" FOREIGN KEY ("submitted_by") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "selfie_records" ADD CONSTRAINT "selfie_records_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "selfie_records" ADD CONSTRAINT "selfie_records_guard_id_users_id_fk" FOREIGN KEY ("guard_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "selfie_records" ADD CONSTRAINT "selfie_records_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "sites"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "selfie_records" ADD CONSTRAINT "selfie_records_attendance_record_id_attendance_records_id_fk" FOREIGN KEY ("attendance_record_id") REFERENCES "attendance_records"("id") ON DELETE set null ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "selfie_records" ADD CONSTRAINT "selfie_records_reviewed_by_users_id_fk" FOREIGN KEY ("reviewed_by") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;

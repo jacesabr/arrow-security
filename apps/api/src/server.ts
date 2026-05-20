@@ -118,10 +118,12 @@ async function runMigrations() {
     await migrate(migrateDb, { migrationsFolder })
     console.log('Migrations complete.')
 
-    // Seed if database is empty (first deploy)
-    const [{ value: tenantCount }] = await db.select({ value: count() }).from(tenants)
-    if (tenantCount === 0) {
-      await seed()
+    // Seed if database is empty (first deploy) — opt out by setting SKIP_AUTO_SEED=true
+    if (process.env.SKIP_AUTO_SEED !== 'true') {
+      const [{ value: tenantCount }] = await db.select({ value: count() }).from(tenants)
+      if (tenantCount === 0) {
+        await seed()
+      }
     }
   } finally {
     await sql.end()
