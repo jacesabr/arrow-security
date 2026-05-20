@@ -27,7 +27,6 @@ import { leaveRequestsRoutes } from './routes/leave-requests'
 import { payrollRoutes } from './routes/payroll'
 import { certificationsRoutes } from './routes/certifications'
 import { postOrdersRoutes } from './routes/post-orders'
-import { panicRoutes } from './routes/panic'
 import { passdownsRoutes } from './routes/passdowns'
 import { exceptionsRoutes } from './routes/exceptions'
 import { auditLogRoutes } from './routes/audit-log'
@@ -93,7 +92,6 @@ async function build() {
   await app.register(payrollRoutes, { prefix: '/api/payroll' })
   await app.register(certificationsRoutes, { prefix: '/api/certifications' })
   await app.register(postOrdersRoutes, { prefix: '/api/post-orders' })
-  await app.register(panicRoutes, { prefix: '/api/panic' })
   await app.register(passdownsRoutes, { prefix: '/api/passdowns' })
   await app.register(exceptionsRoutes, { prefix: '/api/exceptions' })
   await app.register(auditLogRoutes, { prefix: '/api/audit-log' })

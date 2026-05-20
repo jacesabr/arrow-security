@@ -222,11 +222,6 @@ export const tdApi = {
   },
   guardStatus: {
     list: () => request<{ data: any[] }>('/guard-status'),
-    reviewSelfie: (attendanceId: string, body: { status: 'approved' | 'flagged'; note?: string }) =>
-      request<{ data: any }>(`/attendance/${attendanceId}/review`, {
-        method: 'PATCH',
-        body: JSON.stringify(body),
-      }),
     dwell: (params: { guardId: string; hours?: number; since?: string }) => {
       const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
       const qs = entries.length ? '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString() : ''

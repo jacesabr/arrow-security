@@ -48,7 +48,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
 └─────────────────────────────────────────────┘
 `.trim(),
     pages: [
-      { name: 'Home',     what: "Today's shifts, open incidents you reported, and the red PANIC button for emergencies." },
+      { name: 'Home',     what: "Today's shifts and open incidents you reported." },
       { name: 'Check In', what: 'Start and end your shift. Uses GPS + a selfie (or QR code) to confirm you are at the right site.' },
       { name: 'Patrol',   what: 'Start a patrol round and scan each checkpoint (QR or manual). Finish to log the route.' },
       { name: 'Incidents',what: 'Report something that happened on site — title, description, severity, photos. View incidents you reported.' },
@@ -59,7 +59,6 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     tips: [
       'Background GPS only runs while a shift is active. It stops automatically when you check out.',
       'If GPS is weak at check-in, the app will still accept the check-in but flag it for supervisor review.',
-      'PANIC button sends an alert immediately — only use it for real emergencies.',
     ],
   },
   {
@@ -83,12 +82,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       { name: 'Shifts',              what: 'Filter and view scheduled shifts. See which guards have started, which are missed.' },
       { name: 'Incidents',           what: 'All open incidents from your team. Update status, reassign, mark resolved.' },
       { name: 'Leave (approvals)',   what: 'Approve or reject leave requests submitted by your guards.' },
-      { name: 'Guard Status (web)',  what: 'Live table — every guard, their geofence state, GPS online/offline, pending selfie reviews.' },
+      { name: 'Guard Status (web)',  what: 'Live table — every guard, their geofence state and GPS online/offline status.' },
       { name: 'Profile',             what: 'Your account info and sign out.' },
     ],
     tips: [
-      'Selfie reviews queue up under "To Review". Approve or reject within a few minutes — guards cannot start their shift fully until the selfie clears.',
-      'A guard pin turning grey on the map means their GPS has not pinged in 2+ minutes. Call them to check in.',
       'SLA-breached incidents are highlighted red on the incidents page. Those are your priority.',
     ],
   },

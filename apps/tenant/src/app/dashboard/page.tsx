@@ -200,7 +200,6 @@ function SupervisorDashboard() {
 
   const onShift = guardStatus.length
   const online = guardStatus.filter((g: any) => g.isOnline).length
-  const pendingReview = guardStatus.filter((g: any) => g.selfieReviewStatus === 'pending' && g.selfieUrl).length
 
   return (
     <>
@@ -215,7 +214,6 @@ function SupervisorDashboard() {
           <StatCard label="My Sites" value={stats?.sites ?? mySites.length} valueColor="#c96442" href="/sites" />
           <StatCard label="On Shift" value={onShift} href="/guard-status" />
           <StatCard label="Online Now" value={online} valueColor="#10b981" href="/guard-status" />
-          <StatCard label="Pending Review" value={pendingReview} valueColor={pendingReview > 0 ? '#f59e0b' : 'var(--text)'} href="/guard-status" />
           <StatCard label="Open Incidents" value={stats?.openIncidents ?? '—'} valueColor="#f87171" href="/incidents" />
         </div>
       )}
@@ -253,15 +251,6 @@ function SupervisorDashboard() {
                     <p style={{ color: 'var(--text-3)', fontSize: 12, margin: '2px 0 0' }}>{g.siteName}</p>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    {g.selfieReviewStatus === 'pending' && g.selfieUrl && (
-                      <span style={{
-                        fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
-                        background: 'rgba(245,158,11,0.1)', color: '#f59e0b',
-                        border: '1px solid rgba(245,158,11,0.3)',
-                      }}>
-                        Review
-                      </span>
-                    )}
                     <span style={{
                       fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
                       background: g.isOnline ? 'rgba(16,185,129,0.1)' : 'var(--surface-2)',

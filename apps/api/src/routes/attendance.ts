@@ -4,11 +4,6 @@ import { db, attendanceRecords, sites, users, shifts } from '@secureops/db'
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm'
 import { requireAuth, requireSupervisor } from '../lib/auth'
 
-const reviewSchema = z.object({
-  status: z.enum(['approved', 'flagged']),
-  note: z.string().optional(),
-})
-
 function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000
   const toRad = (d: number) => (d * Math.PI) / 180
@@ -311,26 +306,5 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
       .returning()
 
     return reply.code(201).send({ data: record })
-  })
-
-  // PATCH /:id/review — supervisor approves or flags a selfie check-in
-  fastify.patch('/:id/review', { preHandler: requireSupervisor }, async (request, reply) => {
-    const { id } = request.params as { id: string }
-    const payload = request.user as { tenantId: string; sub: string }
-    const body = reviewSchema.parse(request.body)
-
-    const [updated] = await db
-      .update(attendanceRecords)
-      .set({
-        selfieReviewStatus: body.status,
-        selfieReviewNote: body.note ?? null,
-        selfieReviewedBy: payload.sub,
-        selfieReviewedAt: new Date(),
-      })
-      .where(and(eq(attendanceRecords.id, id), eq(attendanceRecords.tenantId, payload.tenantId)))
-      .returning()
-
-    if (!updated) return reply.code(404).send({ error: 'Not found', message: 'Attendance record not found', statusCode: 404 })
-    return reply.send({ data: updated })
   })
 }

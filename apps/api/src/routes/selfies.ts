@@ -29,11 +29,6 @@ const submitSchema = z.object({
   outOfZoneReason: z.string().trim().max(500).optional(),
 })
 
-const reviewSchema = z.object({
-  status: z.enum(['approved', 'flagged']),
-  note: z.string().optional(),
-})
-
 export const selfiesRoutes: FastifyPluginAsync = async (fastify) => {
   // POST / — guard submits selfie; uploads image to R2, creates selfie_record + attendance_record atomically
   fastify.post('/', { preHandler: requireAuth }, async (request, reply) => {
@@ -118,14 +113,12 @@ export const selfiesRoutes: FastifyPluginAsync = async (fastify) => {
     const query = z.object({
       guardId: z.string().optional(),
       siteId: z.string().optional(),
-      reviewStatus: z.enum(['pending', 'approved', 'flagged']).optional(),
       limit: z.coerce.number().default(50),
     }).parse(request.query)
 
     const conditions = [eq(selfieRecords.tenantId, payload.tenantId)]
     if (query.guardId) conditions.push(eq(selfieRecords.guardId, query.guardId))
     if (query.siteId) conditions.push(eq(selfieRecords.siteId, query.siteId))
-    if (query.reviewStatus) conditions.push(eq(selfieRecords.reviewStatus, query.reviewStatus))
 
     const rows = await db
       .select({
@@ -196,38 +189,4 @@ export const selfiesRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({ data: { ...row, imageUrl } })
   })
 
-  // PATCH /:id/review — supervisor approves or flags
-  fastify.patch('/:id/review', { preHandler: requireSupervisor }, async (request, reply) => {
-    const { id } = request.params as { id: string }
-    const payload = request.user as { tenantId: string; sub: string }
-    const body = reviewSchema.parse(request.body)
-
-    const [updated] = await db
-      .update(selfieRecords)
-      .set({
-        reviewStatus: body.status,
-        reviewNote: body.note ?? null,
-        reviewedBy: payload.sub,
-        reviewedAt: new Date(),
-      })
-      .where(and(eq(selfieRecords.id, id), eq(selfieRecords.tenantId, payload.tenantId)))
-      .returning()
-
-    if (!updated) return reply.code(404).send({ error: 'Not found', message: 'Selfie not found', statusCode: 404 })
-
-    // Mirror review status onto the linked attendance record
-    if (updated.attendanceRecordId) {
-      await db
-        .update(attendanceRecords)
-        .set({
-          selfieReviewStatus: body.status,
-          selfieReviewNote: body.note ?? null,
-          selfieReviewedBy: payload.sub,
-          selfieReviewedAt: new Date(),
-        })
-        .where(eq(attendanceRecords.id, updated.attendanceRecordId))
-    }
-
-    return reply.send({ data: updated })
-  })
 }

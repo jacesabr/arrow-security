@@ -135,14 +135,6 @@ export const api = {
     cancel: (id: string) => request<{ data: any }>(`/leave-requests/${id}/cancel`, { method: 'PATCH' }),
   },
 
-  panic: {
-    trigger: (data: { shiftId?: string; latitude?: number; longitude?: number; accuracy?: number }) =>
-      request<{ data: any }>('/panic', { method: 'POST', body: JSON.stringify(data) }),
-    list: () => request<{ data: any[] }>('/panic'),
-    resolve: (id: string, notes?: string) =>
-      request<{ data: any }>(`/panic/${id}/resolve`, { method: 'PATCH', body: JSON.stringify({ notes }) }),
-  },
-
   selfies: {
     create: (payload: {
       siteId: string
