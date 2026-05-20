@@ -1,0 +1,111 @@
+format_version: '13'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: other
+
+meta:
+  bitrise.io:
+    machine_type_id: g2.linux.medium
+    stack: linux-docker-android-22.04
+
+app:
+  envs:
+    - VITE_API_URL: https://arrow-security-api.onrender.com/api
+    - VITE_TENANT_SLUG: acme
+    - OTA_PUBLISH_URL: https://arrow-security-api.onrender.com/api/app-update/publish
+
+trigger_map:
+  - push_branch: master
+    workflow: android-debug
+
+workflows:
+  android-debug:
+    title: Android debug APK + OTA bundle publish
+    description: |
+      Mirror of the GH Actions build-android.yml we're replacing.
+      Builds the Vite bundle, publishes it to the OTA server, syncs Capacitor,
+      builds debug APK via Gradle, uploads APK as Bitrise artifact.
+    steps:
+      - activate-ssh-key@4: {}
+      - git-clone@8: {}
+      - script@1:
+          title: Install pnpm and dependencies
+          inputs:
+            - content: |-
+                #!/bin/bash
+                set -ex
+                npm install -g pnpm@9
+                pnpm install
+      - script@1:
+          title: Build mobile web bundle (Vite)
+          inputs:
+            - content: |-
+                #!/bin/bash
+                set -ex
+                cd apps/mobile
+                pnpm build
+      - script@1:
+          title: Publish JS bundle to OTA server
+          inputs:
+            - content: |-
+                #!/bin/bash
+                set -e
+                if [ -z "$APP_UPDATE_TOKEN" ]; then
+                  echo "ERROR: APP_UPDATE_TOKEN secret not set — cannot publish OTA bundle"
+                  exit 1
+                fi
+                cd apps/mobile
+                VERSION=$(echo "$BITRISE_GIT_COMMIT" | cut -c1-8)
+                cd dist && zip -r ../bundle.zip . && cd ..
+                STATUS=""
+                for i in 1 2 3 4 5; do
+                  STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                    -X POST \
+                    -H "X-Update-Token: $APP_UPDATE_TOKEN" \
+                    -F "bundle=@bundle.zip" \
+                    "${OTA_PUBLISH_URL}?version=${VERSION}")
+                  echo "Attempt $i: status $STATUS"
+                  [ "$STATUS" = "201" ] && echo "Bundle published" && break
+                  [ "$i" -lt "5" ] && sleep 30
+                done
+                if [ "$STATUS" != "201" ]; then
+                  echo "Warning: OTA publish failed (last status $STATUS) — APK build continues"
+                fi
+      - script@1:
+          title: Sync Capacitor + patch Android SDK versions
+          inputs:
+            - content: |-
+                #!/bin/bash
+                set -ex
+                cd apps/mobile
+                pnpm exec cap add android || true   # idempotent
+                pnpm exec cap sync android
+                cd android
+                sed -i 's/minSdkVersion = 22/minSdkVersion = 23/' variables.gradle
+                sed -i 's/compileSdkVersion = 34/compileSdkVersion = 35/' variables.gradle
+                sed -i 's/targetSdkVersion = 34/targetSdkVersion = 35/' variables.gradle
+                echo "sdk.dir=$ANDROID_HOME" > local.properties
+                chmod +x gradlew
+      - script@1:
+          title: Build debug APK
+          inputs:
+            - content: |-
+                #!/bin/bash
+                set -ex
+                cd apps/mobile/android
+                ./gradlew assembleDebug --no-daemon
+      - script@1:
+          title: Stage APK as Bitrise artifact
+          inputs:
+            - content: |-
+                #!/bin/bash
+                set -e
+                SHA=$(echo "$BITRISE_GIT_COMMIT" | cut -c1-8)
+                SRC=apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+                OUT=$BITRISE_DEPLOY_DIR/arrow-security-guard-${SHA}.apk
+                cp "$SRC" "$OUT"
+                echo "APK ready: $OUT"
+                ls -lh "$OUT"
+      - deploy-to-bitrise-io@2:
+          inputs:
+            - notify_user_groups: none
+            - is_compress: 'false'
