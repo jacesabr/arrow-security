@@ -34,8 +34,16 @@ workflows:
             - content: |-
                 #!/bin/bash
                 set -ex
-                # Bitrise's ubuntu-22-android stack ships pnpm via asdf; install only if absent.
-                command -v pnpm || npm install -g pnpm@9
+                # The Bitrise ubuntu-22-android stack ships pnpm as a corepack shim
+                # whose bundled signing keys are stale ("Cannot find matching keyid").
+                # Bypass corepack entirely with the standalone installer.
+                export SHELL=/bin/bash
+                curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=9.15.0 sh -
+                export PNPM_HOME="$HOME/.local/share/pnpm"
+                export PATH="$PNPM_HOME:$PATH"
+                echo "export PNPM_HOME=$PNPM_HOME" >> "$BITRISE_SOURCE_DIR/.bitrise.envman.sh"
+                envman add --key PNPM_HOME --value "$PNPM_HOME"
+                envman add --key PATH --value "$PNPM_HOME:$PATH"
                 pnpm --version
                 pnpm install
       - script@1:
