@@ -1,7 +1,6 @@
-import React, { useRef, useState } from 'react'
+import React, { useState } from 'react'
 import { IonContent, IonPage } from '@ionic/react'
 import { useHistory } from 'react-router-dom'
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { api } from '../services/api'
 import { useAuthStore } from '../store/auth'
 
@@ -16,53 +15,21 @@ const ROLES = [
 export const RegisterPage: React.FC = () => {
   const history = useHistory()
   const setAuth = useAuthStore((s) => s.setAuth)
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [phone, setPhone] = useState('')
   const [role, setRole] = useState('guard')
-  const [selfieDataUrl, setSelfieDataUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [focusedField, setFocusedField] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-
-  async function takeSelfie() {
-    try {
-      const photo = await Camera.getPhoto({
-        quality: 60,
-        width: 480,
-        height: 640,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Camera,
-        saveToGallery: false,
-      })
-      if (photo.dataUrl) setSelfieDataUrl(photo.dataUrl)
-    } catch {
-      fileInputRef.current?.click()
-    }
-  }
-
-  function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setSelfieDataUrl(reader.result as string)
-    reader.readAsDataURL(file)
-  }
 
   async function handleRegister() {
-    if (!name.trim() || !email || !password || !phone.trim() || !selfieDataUrl) return
+    if (!username.trim() || !password) return
     setError(null)
     setLoading(true)
     try {
       const res = await api.auth.register({
-        name: name.trim(),
-        email,
+        username: username.trim(),
         password,
-        phone: phone.trim(),
-        profilePhoto: selfieDataUrl,
         role,
         tenantSlug: TENANT_SLUG,
       })
@@ -89,12 +56,7 @@ export const RegisterPage: React.FC = () => {
     fontFamily: 'inherit',
   })
 
-  const canSubmit =
-    name.trim().length >= 1 &&
-    email.length >= 1 &&
-    password.length >= 1 &&
-    phone.trim().length >= 7 &&
-    !!selfieDataUrl
+  const canSubmit = username.trim().length >= 1 && password.length >= 1
 
   return (
     <IonPage>
@@ -128,38 +90,23 @@ export const RegisterPage: React.FC = () => {
           <div style={{ width: '100%', maxWidth: 380 }}>
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', color: '#5c5855', fontSize: 13.5, fontWeight: 500, marginBottom: 7 }}>
-                Name
+                Username
               </label>
               <input
                 type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                onFocus={() => setFocusedField('name')}
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                onFocus={() => setFocusedField('username')}
                 onBlur={() => setFocusedField(null)}
-                placeholder="John Smith"
-                style={inputStyle('name')}
-                autoComplete="name"
+                placeholder="Pick a username"
+                style={inputStyle('username')}
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
               />
             </div>
 
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ display: 'block', color: '#5c5855', fontSize: 13.5, fontWeight: 500, marginBottom: 7 }}>
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                onFocus={() => setFocusedField('email')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="you@example.com"
-                style={inputStyle('email')}
-                autoComplete="email"
-                inputMode="email"
-              />
-            </div>
-
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginBottom: 18 }}>
               <label style={{ display: 'block', color: '#5c5855', fontSize: 13.5, fontWeight: 500, marginBottom: 7 }}>
                 Password
               </label>
@@ -172,81 +119,6 @@ export const RegisterPage: React.FC = () => {
                 placeholder="Choose a password"
                 style={inputStyle('password')}
                 autoComplete="new-password"
-              />
-            </div>
-
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ display: 'block', color: '#5c5855', fontSize: 13.5, fontWeight: 500, marginBottom: 7 }}>
-                Phone
-              </label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                onFocus={() => setFocusedField('phone')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="+1 555 123 4567"
-                style={inputStyle('phone')}
-                autoComplete="tel"
-                inputMode="tel"
-              />
-            </div>
-
-            <div style={{ marginBottom: 18 }}>
-              <label style={{ display: 'block', color: '#5c5855', fontSize: 13.5, fontWeight: 500, marginBottom: 10 }}>
-                Profile photo
-              </label>
-              {selfieDataUrl ? (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  background: '#ffffff', border: '1.5px solid #e8e5e0',
-                  borderRadius: 12, padding: 10,
-                }}>
-                  <img
-                    src={selfieDataUrl}
-                    alt="Selfie"
-                    style={{ width: 56, height: 72, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
-                  />
-                  <div style={{ flex: 1, color: '#1a1916', fontSize: 13.5 }}>Photo captured</div>
-                  <button
-                    type="button"
-                    onClick={takeSelfie}
-                    style={{
-                      background: 'none', border: '1px solid #e8e5e0',
-                      color: '#5c5855', borderRadius: 8, padding: '6px 10px',
-                      fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-                    }}
-                  >
-                    Retake
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={takeSelfie}
-                  style={{
-                    width: '100%',
-                    background: '#ffffff',
-                    border: '1.5px dashed #c96442',
-                    color: '#c96442',
-                    borderRadius: 12,
-                    padding: '14px 16px',
-                    fontSize: 14,
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  Take selfie
-                </button>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="user"
-                onChange={handleFileInput}
-                style={{ display: 'none' }}
               />
             </div>
 
@@ -288,36 +160,9 @@ export const RegisterPage: React.FC = () => {
                 padding: '10px 14px',
                 marginBottom: 16,
               }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                  <span style={{ color: '#ef4444', fontSize: 13.5, flex: 1 }}>
-                    {error.toLowerCase().includes('fetch') ? 'Server is waking up — wait a moment and try again.' : error}
-                  </span>
-                  <button
-                    onClick={() => setError(null)}
-                    style={{
-                      background: 'none', border: 'none', padding: '0 2px',
-                      color: '#ef4444', fontSize: 16, cursor: 'pointer',
-                      lineHeight: 1, flexShrink: 0,
-                    }}
-                  >
-                    ✕
-                  </button>
-                </div>
-                {error.toLowerCase().includes('fetch') && (
-                  <button
-                    onClick={() => window.location.reload()}
-                    style={{
-                      marginTop: 8, width: '100%',
-                      background: 'none',
-                      border: '1px solid rgba(239,68,68,0.3)',
-                      borderRadius: 8, padding: '7px 0',
-                      color: '#ef4444', fontSize: 13, cursor: 'pointer',
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    Reload App
-                  </button>
-                )}
+                <span style={{ color: '#ef4444', fontSize: 13.5 }}>
+                  {error.toLowerCase().includes('fetch') ? 'Server is waking up — wait a moment and try again.' : error}
+                </span>
               </div>
             )}
 

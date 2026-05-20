@@ -5,7 +5,7 @@ import { tdApi } from '../../lib/api'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -15,7 +15,7 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await tdApi.auth.login(email, password, process.env.NEXT_PUBLIC_TENANT_SLUG ?? '')
+      const res = await tdApi.auth.login(username.trim(), password, process.env.NEXT_PUBLIC_TENANT_SLUG ?? '')
       const { role } = res.data.user
       if (role !== 'tenant_admin' && role !== 'supervisor' && role !== 'guard') {
         setError('Access denied. Tenant users only.')
@@ -91,8 +91,11 @@ export default function LoginPage() {
                 outline: 'none',
                 boxSizing: 'border-box',
               }}
-              placeholder="e.g. john or john@arrowsecurity.com"
+              placeholder="Your username"
               required
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
               onFocus={e => (e.currentTarget.style.borderColor = '#c96442')}
               onBlur={e => (e.currentTarget.style.borderColor = '#e8e5e0')}
             />

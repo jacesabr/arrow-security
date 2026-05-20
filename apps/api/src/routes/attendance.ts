@@ -3,7 +3,6 @@ import { z } from 'zod'
 import { db, attendanceRecords, sites, users, shifts } from '@secureops/db'
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm'
 import { requireAuth, requireSupervisor } from '../lib/auth'
-import { getDownloadUrl } from '../lib/storage'
 
 const reviewSchema = z.object({
   status: z.enum(['approved', 'flagged']),
@@ -45,29 +44,20 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
     const since = query.since ? new Date(query.since) : thirtyDaysAgo
     const until = query.until ? new Date(query.until) : now
 
-    const [guardRow] = await db
+    const [guard] = await db
       .select({
         id: users.id,
         name: users.name,
-        email: users.email,
-        phone: users.phone,
+        username: users.username,
         role: users.role,
         faceEnrolled: users.faceEnrolled,
         lastLoginAt: users.lastLoginAt,
-        profilePhotoKey: users.profilePhotoKey,
       })
       .from(users)
       .where(and(eq(users.id, query.guardId), eq(users.tenantId, payload.tenantId)))
       .limit(1)
 
-    if (!guardRow) return reply.code(404).send({ error: 'Not found', message: 'Guard not found', statusCode: 404 })
-
-    const guard = {
-      ...guardRow,
-      profilePhotoUrl: guardRow.profilePhotoKey
-        ? await getDownloadUrl(guardRow.profilePhotoKey).catch(() => null)
-        : null,
-    }
+    if (!guard) return reply.code(404).send({ error: 'Not found', message: 'Guard not found', statusCode: 404 })
 
     const records = await db
       .select({

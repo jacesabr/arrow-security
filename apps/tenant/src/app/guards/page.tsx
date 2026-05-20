@@ -29,9 +29,8 @@ export default function GuardsPage() {
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: '',
-    email: '',
+    username: '',
     password: '',
-    phone: '',
     role: 'guard',
   })
 
@@ -55,9 +54,14 @@ export default function GuardsPage() {
     setSaving(true)
     setError(null)
     try {
-      await tdApi.users.create(form)
+      await tdApi.users.create({
+        username: form.username.trim(),
+        name: form.name.trim() || undefined,
+        password: form.password,
+        role: form.role,
+      })
       setShowModal(false)
-      setForm({ name: '', email: '', password: '', phone: '', role: 'guard' })
+      setForm({ name: '', username: '', password: '', role: 'guard' })
       load()
     } catch (e: any) {
       setError(e.message)
@@ -82,15 +86,14 @@ export default function GuardsPage() {
 
         <Card overflow="hidden">
           <DataTable
-            cols={['Name', 'Email', 'Phone', 'Role', 'Last Login']}
+            cols={['Name', 'Username', 'Role', 'Last Login']}
             loading={loading}
             empty="No users yet. Add a guard to get started."
           >
             {users.map((u) => (
               <TR key={u.id} onClick={() => router.push(`/guards/${u.id}`)}>
                 <TD>{u.name}</TD>
-                <TD muted>{u.email}</TD>
-                <TD muted>{u.phone ?? '—'}</TD>
+                <TD muted>{u.username}</TD>
                 <TD>{roleBadge(u.role)}</TD>
                 <TD muted>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('en-IN') : '—'}</TD>
               </TR>
@@ -100,17 +103,14 @@ export default function GuardsPage() {
 
         <Modal open={showModal} onClose={() => { setShowModal(false); setError(null) }} title="Add Guard">
           <form onSubmit={handleCreate}>
-            <Field label="Full Name">
-              <Input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <Field label="Username">
+              <Input type="text" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required autoComplete="username" />
             </Field>
-            <Field label="Email">
-              <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+            <Field label="Display Name (optional)">
+              <Input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Defaults to username" />
             </Field>
             <Field label="Password">
               <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
-            </Field>
-            <Field label="Phone">
-              <Input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             </Field>
             <Field label="Role">
               <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>

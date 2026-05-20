@@ -167,19 +167,17 @@ CREATE TABLE IF NOT EXISTS "sites" (
 CREATE TABLE IF NOT EXISTS "users" (
 	"id" text PRIMARY KEY NOT NULL,
 	"tenant_id" text,
-	"email" text NOT NULL,
-	"phone" text,
+	"username" text NOT NULL,
 	"name" text NOT NULL,
 	"role" "user_role" NOT NULL,
 	"password_hash" text,
 	"face_enrolled" boolean DEFAULT false NOT NULL,
 	"face_embedding_id" text,
-	"profile_photo_key" text,
 	"fcm_token" text,
 	"last_login_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "users_email_unique" UNIQUE("email")
+	CONSTRAINT "users_username_unique" UNIQUE("username")
 );
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "attendance_records" (

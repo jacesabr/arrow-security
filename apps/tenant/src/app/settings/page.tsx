@@ -95,9 +95,8 @@ export default function SettingsPage() {
           {user ? (
             <>
               <InfoRow label="Name" value={user.name ?? '—'} />
-              <InfoRow label="Email" value={user.email ?? '—'} />
+              <InfoRow label="Username" value={user.username ?? '—'} />
               <InfoRow label="Role" value={ROLE_DISPLAY[user.role] ?? user.role ?? '—'} />
-              <InfoRow label="Phone" value={user.phone ?? '—'} />
             </>
           ) : (
             <p style={{ color: 'var(--text-3)', fontSize: 13 }}>Loading user info...</p>

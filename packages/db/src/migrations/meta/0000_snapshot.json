@@ -1,5 +1,5 @@
 {
-  "id": "edf92708-9816-496f-8a9f-e42fe919f53e",
+  "id": "d013a980-3cf9-4936-80a7-1bd604fa66ee",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "5",
   "dialect": "pg",
@@ -327,17 +327,11 @@
           "primaryKey": false,
           "notNull": false
         },
-        "email": {
-          "name": "email",
+        "username": {
+          "name": "username",
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "phone": {
-          "name": "phone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "name": {
           "name": "name",
@@ -366,12 +360,6 @@
         },
         "face_embedding_id": {
           "name": "face_embedding_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "profile_photo_key": {
-          "name": "profile_photo_key",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -421,11 +409,11 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "users_email_unique": {
-          "name": "users_email_unique",
+        "users_username_unique": {
+          "name": "users_username_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "email"
+            "username"
           ]
         }
       }

@@ -24,12 +24,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export const tdApi = {
   auth: {
-    login: (email: string, password: string, tenantSlug: string) =>
+    login: (username: string, password: string, tenantSlug: string) =>
       request<{ data: { token: string; user: any } }>('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password, tenantSlug }),
+        body: JSON.stringify({ username, password, tenantSlug }),
       }),
-    register: (body: { name: string; email: string; password: string; role: string; tenantSlug: string }) =>
+    register: (body: { username: string; password: string; role: string; tenantSlug: string }) =>
       request<{ data: { token: string; user: any } }>('/auth/register', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -63,9 +63,9 @@ export const tdApi = {
   },
   users: {
     list: () => request<{ data: any[] }>('/users'),
-    create: (body: { email: string; name: string; role: string; phone?: string; password?: string }) =>
+    create: (body: { username: string; name?: string; role: string; password: string }) =>
       request<{ data: any }>('/users', { method: 'POST', body: JSON.stringify(body) }),
-    update: (id: string, body: { name?: string; email?: string; phone?: string; role?: string; password?: string }) =>
+    update: (id: string, body: { name?: string; username?: string; role?: string; password?: string }) =>
       request<{ data: any }>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   },
   shifts: {

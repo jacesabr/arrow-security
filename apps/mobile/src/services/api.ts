@@ -24,17 +24,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   auth: {
-    login: (email: string, password: string, tenantSlug?: string) =>
+    login: (username: string, password: string, tenantSlug?: string) =>
       request<{ data: { token: string; user: any } }>('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password, tenantSlug }),
+        body: JSON.stringify({ username, password, tenantSlug }),
       }),
     register: (body: {
-      name: string
-      email: string
+      username: string
       password: string
-      phone: string
-      profilePhoto: string
       role: string
       tenantSlug: string
     }) =>

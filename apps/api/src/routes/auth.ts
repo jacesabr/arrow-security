@@ -5,7 +5,6 @@ import { eq, and } from 'drizzle-orm'
 import { createHash, randomBytes } from 'crypto'
 import { hash, verify, Algorithm } from '@node-rs/argon2'
 import { appendAuditEntry } from '../lib/audit'
-import { putObject } from '../lib/storage'
 
 const ARGON2_OPTIONS = { algorithm: Algorithm.Argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 }
 
@@ -27,27 +26,17 @@ function hashToken(token: string): string {
 }
 
 const loginSchema = z.object({
-  email: z.string().min(1),
+  username: z.string().trim().min(1),
   password: z.string().min(1),
   tenantSlug: z.string().optional(),
 })
 
 const registerSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().min(1),
+  username: z.string().trim().min(1).max(40),
   password: z.string().min(1),
-  phone: z.string().trim().min(7).max(20).optional(),
   role: z.enum(['guard', 'supervisor', 'tenant_admin']),
   tenantSlug: z.string(),
-  // base64 data URL: "data:image/jpeg;base64,...."; admins self-registering on the web portal don't capture a selfie
-  profilePhoto: z.string().regex(/^data:image\/(jpeg|jpg|png);base64,/, 'Invalid image data').optional(),
 })
-
-function dataUrlToBuffer(dataUrl: string): { buffer: Buffer; contentType: string } {
-  const [header, b64] = dataUrl.split(',')
-  const contentType = header.match(/:(.*?);/)?.[1] ?? 'image/jpeg'
-  return { buffer: Buffer.from(b64, 'base64'), contentType }
-}
 
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/register', async (request, reply) => {
@@ -65,39 +54,28 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     const [existing] = await db
       .select({ id: users.id })
       .from(users)
-      .where(and(eq(users.email, body.email), eq(users.tenantId, tenant.id)))
+      .where(and(eq(users.username, body.username), eq(users.tenantId, tenant.id)))
       .limit(1)
     if (existing) {
-      return reply.code(409).send({ error: 'Conflict', message: 'Email already registered', statusCode: 409 })
-    }
-
-    let profilePhotoKey: string | null = null
-    if (body.profilePhoto) {
-      const { buffer, contentType } = dataUrlToBuffer(body.profilePhoto)
-      const ext = contentType === 'image/png' ? 'png' : 'jpg'
-      profilePhotoKey = `${tenant.id}/profile-photos/${randomBytes(12).toString('hex')}-${Date.now()}.${ext}`
-      await putObject(profilePhotoKey, buffer, contentType)
+      return reply.code(409).send({ error: 'Conflict', message: 'Username already taken', statusCode: 409 })
     }
 
     const [user] = await db
       .insert(users)
       .values({
-        name: body.name,
-        email: body.email,
-        phone: body.phone ?? null,
+        // Display name defaults to the username; editable later from Profile.
+        name: body.username,
+        username: body.username,
         role: body.role,
         tenantId: tenant.id,
         passwordHash: await hashPassword(body.password),
-        profilePhotoKey,
       })
       .returning({
         id: users.id,
         name: users.name,
-        email: users.email,
-        phone: users.phone,
+        username: users.username,
         role: users.role,
         tenantId: users.tenantId,
-        profilePhotoKey: users.profilePhotoKey,
       })
 
     const accessToken = fastify.jwt.sign(
@@ -127,8 +105,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const conditions = tenantId
-      ? and(eq(users.email, body.email), eq(users.tenantId, tenantId))
-      : eq(users.email, body.email)
+      ? and(eq(users.username, body.username), eq(users.tenantId, tenantId))
+      : eq(users.username, body.username)
 
     const [user] = await db.select().from(users).where(conditions).limit(1)
     if (!user) {
@@ -140,7 +118,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(401).send({ error: 'Unauthorized', message: 'Invalid credentials', statusCode: 401 })
     }
 
-    // Zero-downtime migration: rehash SHA-256 passwords to Argon2id on successful login
     if (user.passwordHash && !user.passwordHash.startsWith('$argon2')) {
       const newHash = await hashPassword(body.password)
       await db.update(users).set({ passwordHash: newHash }).where(eq(users.id, user.id))
@@ -151,9 +128,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       { expiresIn: '24h' }
     )
 
-    // Issue refresh token
     const rawRefresh = randomBytes(48).toString('hex')
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     await db.insert(refreshTokens).values({
       userId: user.id,
       tenantId: user.tenantId!,
@@ -170,7 +146,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         user: {
           id: user.id,
           name: user.name,
-          email: user.email,
+          username: user.username,
           role: user.role,
           tenantId: user.tenantId,
           faceEnrolled: user.faceEnrolled,
@@ -196,7 +172,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     const [user] = await db.select().from(users).where(eq(users.id, stored.userId)).limit(1)
     if (!user) return reply.code(401).send({ error: 'Unauthorized', message: 'User not found', statusCode: 401 })
 
-    // Rotate: revoke old, issue new
     await db.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.tokenHash, tokenHash))
 
     const newRaw = randomBytes(48).toString('hex')

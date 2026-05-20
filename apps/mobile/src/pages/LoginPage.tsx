@@ -1,25 +1,15 @@
 import React, { useState } from 'react'
-import {
-  IonContent,
-  IonPage,
-} from '@ionic/react'
+import { IonContent, IonPage } from '@ionic/react'
 import { useHistory } from 'react-router-dom'
 import { api } from '../services/api'
 import { useAuthStore } from '../store/auth'
 
 const TENANT_SLUG = import.meta.env.VITE_TENANT_SLUG as string
-const IS_DEV = import.meta.env.DEV
-
-const DEV_ACCOUNTS = [
-  { label: 'Guard', email: 'guard1@acme.secureops.in', password: 'guard123' },
-  { label: 'Supervisor', email: 'supervisor@acme.secureops.in', password: 'super123' },
-  { label: 'Admin', email: 'admin@acme.secureops.in', password: 'acme123' },
-]
 
 export const LoginPage: React.FC = () => {
   const history = useHistory()
   const setAuth = useAuthStore((s) => s.setAuth)
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -29,7 +19,7 @@ export const LoginPage: React.FC = () => {
     setError(null)
     setLoading(true)
     try {
-      const res = await api.auth.login(email, password, TENANT_SLUG)
+      const res = await api.auth.login(username.trim(), password, TENANT_SLUG)
       setAuth(res.data.token, res.data.user, TENANT_SLUG)
       history.replace('/tabs/dashboard')
     } catch (e: any) {
@@ -64,8 +54,6 @@ export const LoginPage: React.FC = () => {
           justifyContent: 'center',
           padding: '32px 24px',
         }}>
-
-          {/* Brand */}
           <div style={{ textAlign: 'center', marginBottom: 44 }}>
             <div style={{
               width: 64, height: 64, borderRadius: 18, background: '#c96442',
@@ -82,22 +70,22 @@ export const LoginPage: React.FC = () => {
             <p style={{ color: '#9a9490', margin: 0, fontSize: 14 }}>Guard Operations</p>
           </div>
 
-          {/* Form */}
           <div style={{ width: '100%', maxWidth: 380 }}>
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', color: '#5c5855', fontSize: 13.5, fontWeight: 500, marginBottom: 7 }}>
-                Email
+                Username
               </label>
               <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                onFocus={() => setFocusedField('email')}
+                type="text"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                onFocus={() => setFocusedField('username')}
                 onBlur={() => setFocusedField(null)}
-                placeholder="you@example.com"
-                style={inputStyle('email')}
-                autoComplete="email"
-                inputMode="email"
+                placeholder="Your username"
+                style={inputStyle('username')}
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
               />
             </div>
 
@@ -111,7 +99,7 @@ export const LoginPage: React.FC = () => {
                 onChange={e => setPassword(e.target.value)}
                 onFocus={() => setFocusedField('password')}
                 onBlur={() => setFocusedField(null)}
-                onKeyDown={e => { if (e.key === 'Enter' && email && password) handleLogin() }}
+                onKeyDown={e => { if (e.key === 'Enter' && username && password) handleLogin() }}
                 placeholder="••••••••"
                 style={inputStyle('password')}
                 autoComplete="current-password"
@@ -126,42 +114,15 @@ export const LoginPage: React.FC = () => {
                 padding: '10px 14px',
                 marginBottom: 16,
               }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                  <span style={{ color: '#ef4444', fontSize: 13.5, flex: 1 }}>
-                    {error.toLowerCase().includes('fetch') ? 'Server is waking up — wait a moment and try again.' : error}
-                  </span>
-                  <button
-                    onClick={() => setError(null)}
-                    style={{
-                      background: 'none', border: 'none', padding: '0 2px',
-                      color: '#ef4444', fontSize: 16, cursor: 'pointer',
-                      lineHeight: 1, flexShrink: 0,
-                    }}
-                  >
-                    ✕
-                  </button>
-                </div>
-                {error.toLowerCase().includes('fetch') && (
-                  <button
-                    onClick={() => window.location.reload()}
-                    style={{
-                      marginTop: 8, width: '100%',
-                      background: 'none',
-                      border: '1px solid rgba(239,68,68,0.3)',
-                      borderRadius: 8, padding: '7px 0',
-                      color: '#ef4444', fontSize: 13, cursor: 'pointer',
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    Reload App
-                  </button>
-                )}
+                <span style={{ color: '#ef4444', fontSize: 13.5 }}>
+                  {error.toLowerCase().includes('fetch') ? 'Server is waking up — wait a moment and try again.' : error}
+                </span>
               </div>
             )}
 
             <button
               onClick={handleLogin}
-              disabled={loading || !email || !password}
+              disabled={loading || !username || !password}
               style={{
                 width: '100%',
                 background: '#c96442',
@@ -171,8 +132,8 @@ export const LoginPage: React.FC = () => {
                 padding: '15px 0',
                 fontSize: 15,
                 fontWeight: 600,
-                cursor: (loading || !email || !password) ? 'default' : 'pointer',
-                opacity: (loading || !email || !password) ? 0.6 : 1,
+                cursor: (loading || !username || !password) ? 'default' : 'pointer',
+                opacity: (loading || !username || !password) ? 0.6 : 1,
                 transition: 'opacity 0.15s',
                 fontFamily: 'inherit',
               }}
@@ -181,7 +142,6 @@ export const LoginPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Register link */}
           <div style={{ textAlign: 'center', marginTop: 20 }}>
             <span style={{ color: '#9a9490', fontSize: 13.5 }}>New here? </span>
             <button
@@ -196,37 +156,6 @@ export const LoginPage: React.FC = () => {
               Create an account
             </button>
           </div>
-
-          {/* Dev credentials — hidden in production */}
-          {IS_DEV && (
-            <div style={{
-              marginTop: 36, width: '100%', maxWidth: 380,
-              background: 'rgba(201,100,66,0.05)',
-              border: '1px solid rgba(201,100,66,0.15)',
-              borderRadius: 12, padding: '14px 16px',
-            }}>
-              <p style={{ color: '#c96442', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>
-                Dev Credentials
-              </p>
-              {DEV_ACCOUNTS.map(({ label, email: e, password: p }) => (
-                <button
-                  key={label}
-                  onClick={() => { setEmail(e); setPassword(p) }}
-                  style={{
-                    display: 'block', width: '100%', textAlign: 'left',
-                    background: 'none', border: 'none', padding: '5px 0',
-                    cursor: 'pointer', marginBottom: 4,
-                  }}
-                >
-                  <span style={{ color: '#9a9490', fontSize: 11.5, display: 'block' }}>{label}</span>
-                  <span style={{ fontFamily: '"JetBrains Mono",ui-monospace,monospace', fontSize: 11, color: '#5c5855' }}>
-                    {e}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-
         </div>
       </IonContent>
     </IonPage>

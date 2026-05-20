@@ -46,14 +46,8 @@ export const ProfilePage: React.FC = () => {
         <IonList style={{ background: 'transparent', padding: '0 16px' }}>
           <IonItem style={{ '--background': '#ffffff', '--color': '#1a1916', borderRadius: 8, marginBottom: 8 }}>
             <IonIcon icon={mailOutline} slot="start" style={{ color: '#c96442' }} />
-            <IonLabel>{user?.email}</IonLabel>
+            <IonLabel>@{user?.username}</IonLabel>
           </IonItem>
-          {user?.phone && (
-            <IonItem style={{ '--background': '#ffffff', '--color': '#1a1916', borderRadius: 8, marginBottom: 8 }}>
-              <IonIcon icon={callOutline} slot="start" style={{ color: '#c96442' }} />
-              <IonLabel>{user.phone}</IonLabel>
-            </IonItem>
-          )}
           <IonItem style={{ '--background': '#ffffff', '--color': '#1a1916', borderRadius: 8, marginBottom: 8 }}>
             <IonIcon icon={shieldCheckmarkOutline} slot="start" style={{ color: user?.faceEnrolled ? '#10b981' : '#ef4444' }} />
             <IonLabel>Face Recognition: {user?.faceEnrolled ? 'Enrolled' : 'Not enrolled'}</IonLabel>

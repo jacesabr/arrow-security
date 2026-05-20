@@ -23,8 +23,7 @@ const inputStyle: React.CSSProperties = {
 
 export default function RegisterPage() {
   const router = useRouter()
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState('guard')
   const [loading, setLoading] = useState(false)
@@ -36,8 +35,7 @@ export default function RegisterPage() {
     setError(null)
     try {
       const res = await tdApi.auth.register({
-        name,
-        email,
+        username: username.trim(),
         password,
         role,
         tenantSlug: process.env.NEXT_PUBLIC_TENANT_SLUG ?? '',
@@ -62,7 +60,6 @@ export default function RegisterPage() {
       padding: 16,
     }}>
       <div style={{ width: '100%', maxWidth: 400 }}>
-        {/* Brand */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{
             display: 'inline-flex',
@@ -82,7 +79,6 @@ export default function RegisterPage() {
           <p style={{ color: '#9a9490', marginTop: 4, fontSize: 13 }}>Create your account</p>
         </div>
 
-        {/* Form card */}
         <form
           onSubmit={handleRegister}
           style={{
@@ -95,37 +91,24 @@ export default function RegisterPage() {
         >
           <div style={{ marginBottom: 14 }}>
             <label style={{ display: 'block', color: '#5c5855', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
-              Name
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              style={inputStyle}
-              placeholder="John Smith"
-              required
-              onFocus={e => (e.currentTarget.style.borderColor = '#c96442')}
-              onBlur={e => (e.currentTarget.style.borderColor = '#e8e5e0')}
-            />
-          </div>
-
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ display: 'block', color: '#5c5855', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
               Username
             </label>
             <input
               type="text"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               style={inputStyle}
-              placeholder="e.g. john or john@arrowsecurity.com"
+              placeholder="Pick a username"
               required
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
               onFocus={e => (e.currentTarget.style.borderColor = '#c96442')}
               onBlur={e => (e.currentTarget.style.borderColor = '#e8e5e0')}
             />
           </div>
 
-          <div style={{ marginBottom: 14 }}>
+          <div style={{ marginBottom: 22 }}>
             <label style={{ display: 'block', color: '#5c5855', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
               Password
             </label>
@@ -136,6 +119,7 @@ export default function RegisterPage() {
               style={inputStyle}
               placeholder="Choose a password"
               required
+              autoComplete="new-password"
               onFocus={e => (e.currentTarget.style.borderColor = '#c96442')}
               onBlur={e => (e.currentTarget.style.borderColor = '#e8e5e0')}
             />

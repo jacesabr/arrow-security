@@ -168,33 +168,20 @@ export default function GuardProfilePage() {
         {/* Profile strip */}
         {guard && (
           <Card style={{ marginBottom: 28, padding: '20px 28px', display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
-            {guard.profilePhotoUrl ? (
-              <img
-                src={guard.profilePhotoUrl}
-                alt={guard.name}
-                style={{
-                  width: 52, height: 52, borderRadius: 14, flexShrink: 0,
-                  objectFit: 'cover',
-                  background: 'var(--surface-2)',
-                }}
-              />
-            ) : (
-              <div style={{
-                width: 52, height: 52, borderRadius: 14, flexShrink: 0,
-                background: roleColors?.bg ?? 'var(--surface-2)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20, fontWeight: 700, color: roleColors?.color ?? 'var(--text-2)',
-              }}>
-                {guard.name?.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
-              </div>
-            )}
+            <div style={{
+              width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+              background: roleColors?.bg ?? 'var(--surface-2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 20, fontWeight: 700, color: roleColors?.color ?? 'var(--text-2)',
+            }}>
+              {guard.name?.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
+            </div>
             <div style={{ flex: 1, minWidth: 180 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                 <span style={{ color: 'var(--text)', fontWeight: 700, fontSize: 16 }}>{guard.name}</span>
                 <Badge label={ROLE_DISPLAY[guard.role] ?? guard.role} color={roleColors!.color} bg={roleColors!.bg} />
               </div>
-              <div style={{ color: 'var(--text-3)', fontSize: 13 }}>{guard.email}</div>
-              {guard.phone && <div style={{ color: 'var(--text-3)', fontSize: 13 }}>{guard.phone}</div>}
+              <div style={{ color: 'var(--text-3)', fontSize: 13 }}>@{guard.username}</div>
             </div>
             <ProfileStat label="Last login" value={guard.lastLoginAt ? fmtDate(guard.lastLoginAt) : 'Never'} />
           </Card>

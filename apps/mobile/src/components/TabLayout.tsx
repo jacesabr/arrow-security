@@ -515,106 +515,61 @@ const AdminDashboard: React.FC = () => {
   )
 }
 
-/* ─── Dev Account Bar ───────────────────────────────────────────────────── */
+/* ─── Guide Banner (top of every screen except /tabs/guide itself) ─────── */
+//
+// Full-width banner inviting users to the user guide. Sits below the Android
+// status bar (safe-area-inset-top) and above the page content. Hides on the
+// guide page itself. Includes the dev account-switch bar offset when running
+// in dev.
 
-const DEV_USERS = [
-  { label: 'Arun',   email: 'guard1@acme.secureops.in',      password: 'guard123', color: '#3b82f6' },
-  { label: 'Vikram', email: 'guard2@acme.secureops.in',      password: 'guard123', color: '#10b981' },
-  { label: 'Priya',  email: 'guard3@acme.secureops.in',      password: 'guard123', color: '#f59e0b' },
-  { label: 'Rajesh', email: 'supervisor@acme.secureops.in',  password: 'super123', color: '#c96442' },
-]
-const TENANT_SLUG_DEV = (import.meta as any).env?.VITE_TENANT_SLUG ?? 'acme'
+const GUIDE_BANNER_HEIGHT = 56
 
-function DevAccountBar() {
-  const { user, setAuth } = useAuthStore()
-  const [switching, setSwitching] = useState<string | null>(null)
-
-  async function switchTo(acc: typeof DEV_USERS[0]) {
-    if (switching || user?.email === acc.email) return
-    setSwitching(acc.email)
-    try {
-      const res = await fetch(`${BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: acc.email, password: acc.password, tenantSlug: TENANT_SLUG_DEV }),
-      })
-      const data = await res.json()
-      if (data.data?.token) {
-        setAuth(data.data.token, data.data.user, TENANT_SLUG_DEV)
-        window.location.replace('/tabs/dashboard')
-      }
-    } catch (e) { console.error(e) }
-    finally { setSwitching(null) }
-  }
-
-  return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9000,
-      background: '#2b2a27', borderBottom: '1px solid #3a3835',
-      padding: '5px 10px',
-      display: 'flex', alignItems: 'center', gap: 6,
-    }}>
-      <span style={{ color: '#c96442', fontSize: 9, fontFamily: 'ui-monospace,monospace', flexShrink: 0 }}>◈ dev</span>
-      <div style={{ display: 'flex', gap: 4, flex: 1, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-        {DEV_USERS.map(a => {
-          const active = user?.email === a.email
-          return (
-            <button key={a.email} onClick={() => switchTo(a)} disabled={!!switching} style={{
-              padding: '3px 9px', borderRadius: 12,
-              fontSize: 10, fontWeight: active ? 700 : 400,
-              border: `1px solid ${active ? a.color : '#4a4845'}`,
-              background: active ? `${a.color}22` : 'transparent',
-              color: active ? a.color : '#7a7773',
-              cursor: active ? 'default' : 'pointer',
-              whiteSpace: 'nowrap', flexShrink: 0,
-              opacity: switching && switching !== a.email ? 0.35 : 1,
-              transition: 'all 0.1s',
-            }}>
-              {switching === a.email ? '…' : a.label}
-              {active && <span style={{ marginLeft: 2, fontSize: 8 }}>✓</span>}
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-/* ─── Guide Top Bar ─────────────────────────────────────────────────────── */
-
-const GUIDE_BAR_HEIGHT = 32
-const DEV_BAR_HEIGHT = 28
-
-function GuideTopBar({ topOffset }: { topOffset: number }) {
+function GuideBanner({ devOffset = 0 }: { devOffset?: number }) {
   const location = useLocation()
   const onGuide = location.pathname === '/tabs/guide'
   if (onGuide) return null
   return (
     <div style={{
-      position: 'fixed', top: topOffset, left: 0, right: 0, zIndex: 8000,
-      height: GUIDE_BAR_HEIGHT,
-      background: '#ffffff',
-      borderBottom: '1px solid #e8e5e0',
-      display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-      padding: '0 14px',
+      position: 'fixed', top: devOffset, left: 0, right: 0, zIndex: 8000,
+      paddingTop: 'env(safe-area-inset-top)',
+      background: 'linear-gradient(135deg, rgba(201,100,66,0.10) 0%, rgba(201,100,66,0.04) 100%)',
+      borderBottom: '1px solid rgba(201,100,66,0.18)',
     }}>
       <Link
         to="/tabs/guide"
         style={{
-          display: 'flex', alignItems: 'center', gap: 5,
-          padding: '4px 10px', borderRadius: 6,
-          fontSize: 12, fontWeight: 600,
-          color: '#c96442', textDecoration: 'none',
-          border: '1px solid rgba(201,100,66,0.25)',
-          background: 'rgba(201,100,66,0.06)',
+          display: 'flex', alignItems: 'center', gap: 12,
+          height: GUIDE_BANNER_HEIGHT,
+          padding: '0 16px',
+          textDecoration: 'none',
         }}
       >
-        <IonIcon icon={bookOutline} style={{ fontSize: 13 }} />
-        User Guide
+        <div style={{
+          width: 36, height: 36, borderRadius: 10,
+          background: 'rgba(201,100,66,0.15)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <IonIcon icon={bookOutline} style={{ fontSize: 20, color: '#c96442' }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1916', lineHeight: 1.15 }}>
+            How Arrow Security works
+          </div>
+          <div style={{ fontSize: 11.5, color: '#5c5855', lineHeight: 1.2, marginTop: 2 }}>
+            What every role can do — read this first
+          </div>
+        </div>
+        <span style={{ color: '#c96442', fontSize: 18, fontWeight: 600 }}>›</span>
       </Link>
     </div>
   )
 }
+
+// Height used for top padding so page content starts below the banner + safe area.
+// `env(safe-area-inset-top)` is added at runtime via CSS, so we approximate it
+// with a comfortable static padding here.
+const GUIDE_BANNER_TOTAL = GUIDE_BANNER_HEIGHT + 24
 
 /* ─── Main Layout ───────────────────────────────────────────────────────── */
 
@@ -625,15 +580,12 @@ export const TabLayout: React.FC = () => {
   const isSupervisor = role === 'supervisor'
   const isAdmin = role === 'tenant_admin' || role === 'platform_admin'
   const tabBarStyle = { '--background': '#ffffff', '--border': '1px solid #e8e5e0' } as any
-  const isDev = import.meta.env.DEV
-  const guideBarTop = isDev ? DEV_BAR_HEIGHT : 0
-  const topPad = { paddingTop: guideBarTop + GUIDE_BAR_HEIGHT }
+  const topPad = { paddingTop: GUIDE_BANNER_TOTAL }
 
   if (isAdmin) {
     return (
       <>
-        {import.meta.env.DEV && <DevAccountBar />}
-        <GuideTopBar topOffset={guideBarTop} />
+        <GuideBanner devOffset={0} />
         <div style={topPad}>
           <IonTabs>
             <IonRouterOutlet>
@@ -672,8 +624,7 @@ export const TabLayout: React.FC = () => {
   if (isSupervisor) {
     return (
       <>
-        {import.meta.env.DEV && <DevAccountBar />}
-        <GuideTopBar topOffset={guideBarTop} />
+        <GuideBanner devOffset={0} />
         <div style={topPad}>
           <IonTabs>
             <IonRouterOutlet>
@@ -715,8 +666,8 @@ export const TabLayout: React.FC = () => {
   // Guard view (default) — no DevAccountBar
   return (
     <>
-      <GuideTopBar topOffset={0} />
-      <div style={{ paddingTop: GUIDE_BAR_HEIGHT }}>
+      <GuideBanner devOffset={0} />
+      <div style={{ paddingTop: GUIDE_BANNER_TOTAL }}>
         <IonTabs>
           <IonRouterOutlet>
             <R exact path="/tabs/dashboard" component={DashboardPage} />

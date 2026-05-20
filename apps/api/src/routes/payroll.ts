@@ -66,7 +66,7 @@ export const payrollRoutes: FastifyPluginAsync = async (fastify) => {
       .select({
         record: payrollRecords,
         guardName: users.name,
-        guardEmail: users.email,
+        guardUsername: users.username,
       })
       .from(payrollRecords)
       .innerJoin(users, eq(payrollRecords.guardId, users.id))

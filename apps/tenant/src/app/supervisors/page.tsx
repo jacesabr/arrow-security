@@ -251,7 +251,7 @@ export default function SupervisorsPage() {
                         </div>
                         <span style={{ fontWeight: 600, color: '#1a1916' }}>{sup.name}</span>
                       </td>
-                      <td style={{ padding: '14px 18px', color: '#5c5855' }}>{sup.email}</td>
+                      <td style={{ padding: '14px 18px', color: '#5c5855' }}>@{sup.username}</td>
                       <td style={{ padding: '14px 18px' }}>
                         {assignedSiteIds.length === 0 ? (
                           <span style={{ color: '#ef4444', fontSize: 12 }}>No sites assigned</span>

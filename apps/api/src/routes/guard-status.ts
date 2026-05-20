@@ -28,7 +28,7 @@ export const guardStatusRoutes: FastifyPluginAsync = async (fastify) => {
         siteName: sites.name,
         guardId: shifts.guardId,
         guardName: users.name,
-        guardEmail: users.email,
+        guardUsername: users.username,
         shiftStatus: shifts.status,
         shiftStartsAt: shifts.startsAt,
         shiftEndsAt: shifts.endsAt,
