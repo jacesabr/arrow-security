@@ -3,14 +3,12 @@
   "version": "0.1.0",
   "description": "Capacitor 6 plugin wrapping Google Activity Recognition Transition API (Android) and CMMotionActivityManager (iOS). Emits walking / vehicle / still / running / bicycle transitions.",
   "private": true,
-  "main": "dist/plugin.cjs.js",
-  "module": "dist/esm/index.js",
-  "types": "dist/esm/index.d.ts",
-  "unpkg": "dist/plugin.js",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "files": [
     "android/src/main/",
     "android/build.gradle",
-    "dist/",
+    "src/",
     "ios/Plugin/",
     "SecureopsCapacitorActivityRecognition.podspec"
   ],
