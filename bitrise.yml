@@ -65,7 +65,10 @@ workflows:
                   exit 1
                 fi
                 cd apps/mobile
-                VERSION=$(echo "$BITRISE_GIT_COMMIT" | cut -c1-8)
+                # BITRISE_GIT_COMMIT is sometimes empty on API-triggered builds; fall back to git rev-parse.
+                VERSION=$(echo "${BITRISE_GIT_COMMIT:-$(git -C "$BITRISE_SOURCE_DIR" rev-parse HEAD)}" | cut -c1-8)
+                if [ -z "$VERSION" ]; then VERSION="b${BITRISE_BUILD_NUMBER}"; fi
+                echo "Publishing version: $VERSION"
                 cd dist && zip -r ../bundle.zip . && cd ..
                 STATUS=""
                 for i in 1 2 3 4 5; do
@@ -110,7 +113,8 @@ workflows:
             - content: |-
                 #!/bin/bash
                 set -e
-                SHA=$(echo "$BITRISE_GIT_COMMIT" | cut -c1-8)
+                SHA=$(echo "${BITRISE_GIT_COMMIT:-$(git -C "$BITRISE_SOURCE_DIR" rev-parse HEAD)}" | cut -c1-8)
+                [ -z "$SHA" ] && SHA="b${BITRISE_BUILD_NUMBER}"
                 SRC=apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
                 OUT=$BITRISE_DEPLOY_DIR/arrow-security-guard-${SHA}.apk
                 cp "$SRC" "$OUT"
