@@ -207,8 +207,8 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* View As Switcher */}
-      <ViewAsSwitcher />
+      {/* View As Switcher — managers only. Guards have no other role to simulate. */}
+      {isManager && <ViewAsSwitcher />}
 
       {/* Sign out */}
       <div style={{ padding: '12px 10px', borderTop: '1px solid #ebe8e2' }}>

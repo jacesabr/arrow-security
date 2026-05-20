@@ -689,6 +689,20 @@ Incident: "Suspicious individual near Gate A" (medium, open)`}</Code>
 /* ─── Trigger Button ───────────────────────────────────────────────────────── */
 
 export function TourTrigger() {
+  // Managers only — guards & client viewers don't get the dev-reference pill.
+  // Reads the role from localStorage (same source the sidebar uses).
+  const [isManager, setIsManager] = useState(false)
+  useEffect(() => {
+    try {
+      const u = localStorage.getItem('td_user')
+      if (!u) return
+      const role = JSON.parse(u).role
+      setIsManager(role === 'tenant_admin' || role === 'platform_admin' || role === 'supervisor')
+    } catch { /* ignore */ }
+  }, [])
+
+  if (!isManager) return null
+
   return (
     <button
       onClick={() => window.open('/dev-ref', '_blank')}
