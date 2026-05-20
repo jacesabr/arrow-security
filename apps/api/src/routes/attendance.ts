@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { db, attendanceRecords, sites, users, shifts } from '@secureops/db'
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm'
 import { requireAuth, requireSupervisor } from '../lib/auth'
+import { getDownloadUrl } from '../lib/storage'
 
 const reviewSchema = z.object({
   status: z.enum(['approved', 'flagged']),
@@ -44,13 +45,29 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
     const since = query.since ? new Date(query.since) : thirtyDaysAgo
     const until = query.until ? new Date(query.until) : now
 
-    const [guard] = await db
-      .select({ id: users.id, name: users.name, email: users.email, phone: users.phone, role: users.role, faceEnrolled: users.faceEnrolled, lastLoginAt: users.lastLoginAt })
+    const [guardRow] = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        phone: users.phone,
+        role: users.role,
+        faceEnrolled: users.faceEnrolled,
+        lastLoginAt: users.lastLoginAt,
+        profilePhotoKey: users.profilePhotoKey,
+      })
       .from(users)
       .where(and(eq(users.id, query.guardId), eq(users.tenantId, payload.tenantId)))
       .limit(1)
 
-    if (!guard) return reply.code(404).send({ error: 'Not found', message: 'Guard not found', statusCode: 404 })
+    if (!guardRow) return reply.code(404).send({ error: 'Not found', message: 'Guard not found', statusCode: 404 })
+
+    const guard = {
+      ...guardRow,
+      profilePhotoUrl: guardRow.profilePhotoKey
+        ? await getDownloadUrl(guardRow.profilePhotoKey).catch(() => null)
+        : null,
+    }
 
     const records = await db
       .select({
@@ -62,6 +79,7 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
         siteName: sites.name,
         selfieUrl: attendanceRecords.selfieUrl,
         isWithinGeofence: attendanceRecords.isWithinGeofence,
+        outOfZoneReason: attendanceRecords.outOfZoneReason,
         selfieReviewStatus: attendanceRecords.selfieReviewStatus,
       })
       .from(attendanceRecords)
@@ -95,11 +113,13 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
       checkInTime: Date
       checkInMethod: string
       checkInGeofence: boolean | null
+      checkInOutOfZoneReason: string | null
       checkInSelfieUrl: string | null
       checkInSelfieReview: string | null
       checkOutId: string | null
       checkOutTime: Date | null
       checkOutMethod: string | null
+      checkOutOutOfZoneReason: string | null
       hoursWorked: number | null
       scheduledStart: Date | null
       scheduledEnd: Date | null
@@ -135,11 +155,13 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
             checkInTime: checkIn.verifiedAt!,
             checkInMethod: checkIn.method,
             checkInGeofence: checkIn.isWithinGeofence,
+            checkInOutOfZoneReason: checkIn.outOfZoneReason ?? null,
             checkInSelfieUrl: checkIn.selfieUrl ?? null,
             checkInSelfieReview: checkIn.selfieReviewStatus ?? null,
             checkOutId: r.id,
             checkOutTime: r.verifiedAt,
             checkOutMethod: r.method,
+            checkOutOutOfZoneReason: r.outOfZoneReason ?? null,
             hoursWorked: Math.round(hoursWorked * 10) / 10,
             scheduledStart: matched?.startsAt ?? null,
             scheduledEnd: matched?.endsAt ?? null,
@@ -163,11 +185,13 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
           checkInTime: checkIn.verifiedAt,
           checkInMethod: checkIn.method,
           checkInGeofence: checkIn.isWithinGeofence,
+          checkInOutOfZoneReason: checkIn.outOfZoneReason ?? null,
           checkInSelfieUrl: checkIn.selfieUrl ?? null,
           checkInSelfieReview: checkIn.selfieReviewStatus ?? null,
           checkOutId: null,
           checkOutTime: null,
           checkOutMethod: null,
+          checkOutOutOfZoneReason: null,
           hoursWorked: null,
           scheduledStart: matched?.startsAt ?? null,
           scheduledEnd: matched?.endsAt ?? null,

@@ -1,0 +1,41 @@
+{
+  "name": "@secureops/capacitor-activity-recognition",
+  "version": "0.1.0",
+  "description": "Capacitor 6 plugin wrapping Google Activity Recognition Transition API (Android) and CMMotionActivityManager (iOS). Emits walking / vehicle / still / running / bicycle transitions.",
+  "private": true,
+  "main": "dist/plugin.cjs.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/esm/index.d.ts",
+  "unpkg": "dist/plugin.js",
+  "files": [
+    "android/src/main/",
+    "android/build.gradle",
+    "dist/",
+    "ios/Plugin/",
+    "SecureopsCapacitorActivityRecognition.podspec"
+  ],
+  "author": "Arrow Security",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/ios": "^6.0.0",
+    "typescript": "^5.4.0"
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^6.0.0"
+  },
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    },
+    "android": {
+      "src": "android"
+    }
+  }
+}

@@ -40,6 +40,8 @@ import { selfiesRoutes } from './routes/selfies'
 import { ensureBucket } from './lib/storage'
 
 const app = Fastify({
+  // 6 MB — selfie data URLs (base64) for check-in / registration
+  bodyLimit: 6 * 1024 * 1024,
   logger: {
     level: process.env.LOG_LEVEL ?? 'info',
     transport:
@@ -50,6 +52,16 @@ const app = Fastify({
 })
 
 async function build() {
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    const str = (body as string).trim()
+    if (str.length === 0) return done(null, {})
+    try {
+      done(null, JSON.parse(str))
+    } catch (err) {
+      done(err as Error, undefined)
+    }
+  })
+
   await app.register(helmet)
   await app.register(cors, {
     origin: process.env.CORS_ORIGIN?.split(',') ?? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],

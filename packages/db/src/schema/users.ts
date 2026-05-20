@@ -20,6 +20,7 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash'),
   faceEnrolled: boolean('face_enrolled').notNull().default(false),
   faceEmbeddingId: text('face_embedding_id'),
+  profilePhotoKey: text('profile_photo_key'),
   fcmToken: text('fcm_token'),
   lastLoginAt: timestamp('last_login_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),

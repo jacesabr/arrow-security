@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { db, guardLocations } from '@secureops/db'
-import { eq, and, desc, gte } from 'drizzle-orm'
-import { requireAuth, requireSupervisor } from '../lib/auth'
+import { eq, and, gte, inArray } from 'drizzle-orm'
+import { requireAuth, requireSupervisor, getSupervisorGuardIds } from '../lib/auth'
 import { redisPublisher, createSubscriber } from '../lib/redis'
 import { latLngToCell } from 'h3-js'
 
@@ -83,6 +83,8 @@ const pingSchema = z.object({
   altitude: z.number().optional(),
   shiftId: z.string().optional(),
   battery: z.number().int().min(0).max(100).optional(),
+  activityType: z.enum(['still', 'walking', 'running', 'vehicle', 'bicycle', 'unknown']).optional(),
+  activityConfidence: z.number().int().min(0).max(100).optional(),
   recordedAt: z.string().optional(),
 })
 
@@ -107,6 +109,8 @@ export const locationsRoutes: FastifyPluginAsync = async (fastify) => {
         speed: body.speed ?? null,
         altitude: body.altitude ?? null,
         battery: body.battery ?? null,
+        activityType: body.activityType ?? null,
+        activityConfidence: body.activityConfidence ?? null,
         h3Res8,
         recordedAt: body.recordedAt ? new Date(body.recordedAt) : new Date(),
       })
@@ -141,6 +145,13 @@ export const locationsRoutes: FastifyPluginAsync = async (fastify) => {
       since: z.string().optional(),
       hours: z.coerce.number().default(8),
     }).parse(request.query)
+
+    if (payload.role === 'supervisor') {
+      const allowed = await getSupervisorGuardIds(payload.sub, payload.role)
+      if (!allowed || !allowed.includes(query.guardId)) {
+        return reply.code(403).send({ error: 'Forbidden', message: 'Guard not at your site', statusCode: 403 })
+      }
+    }
 
     const since = query.since
       ? new Date(query.since)
@@ -184,6 +195,12 @@ export const locationsRoutes: FastifyPluginAsync = async (fastify) => {
     const conditions = [eq(guardLocations.tenantId, payload.tenantId)]
     if (query.guardId) conditions.push(eq(guardLocations.guardId, query.guardId))
     if (payload.role === 'guard') conditions.push(eq(guardLocations.guardId, payload.sub))
+    if (payload.role === 'supervisor') {
+      const allowed = await getSupervisorGuardIds(payload.sub, payload.role)
+      if (!allowed || allowed.length === 0) return reply.send({ data: [] })
+      if (query.guardId && !allowed.includes(query.guardId)) return reply.send({ data: [] })
+      if (!query.guardId) conditions.push(inArray(guardLocations.guardId, allowed))
+    }
     if (query.shiftId) conditions.push(eq(guardLocations.shiftId, query.shiftId))
     if (query.since) conditions.push(gte(guardLocations.recordedAt, new Date(query.since)))
 
@@ -199,8 +216,20 @@ export const locationsRoutes: FastifyPluginAsync = async (fastify) => {
 
   // SSE stream of live guard positions for the supervisor dashboard
   fastify.get('/live', { preHandler: requireAuth }, async (request, reply) => {
-    const payload = request.user as { tenantId: string }
+    const payload = request.user as { tenantId: string; sub: string; role: string }
     const tenantId = payload.tenantId
+
+    // Determine which guards this user can see live
+    // - guard: only themselves
+    // - supervisor: only guards at their sites
+    // - admin: all (allowedGuardIds = null = no filter)
+    let allowedGuardIds: Set<string> | null = null
+    if (payload.role === 'guard') {
+      allowedGuardIds = new Set([payload.sub])
+    } else if (payload.role === 'supervisor') {
+      const ids = await getSupervisorGuardIds(payload.sub, payload.role)
+      allowedGuardIds = new Set(ids ?? [])
+    }
 
     reply.hijack()
 
@@ -229,6 +258,15 @@ export const locationsRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     sub.on('message', (_channel: string, msg: string) => {
+      if (allowedGuardIds !== null) {
+        // Filter: skip events from guards outside this user's scope
+        try {
+          const evt = JSON.parse(msg)
+          if (evt.guardId && !allowedGuardIds.has(evt.guardId)) return
+        } catch {
+          return
+        }
+      }
       send(msg)
     })
 

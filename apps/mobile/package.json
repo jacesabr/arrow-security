@@ -30,6 +30,7 @@
     "@capgo/capacitor-updater": "^6.0.0",
     "@ionic/react": "^8.0.0",
     "@ionic/react-router": "^8.0.0",
+    "@secureops/capacitor-activity-recognition": "workspace:*",
     "@secureops/shared": "workspace:*",
     "ionicons": "^7.0.0",
     "maplibre-gl": "^5.24.0",

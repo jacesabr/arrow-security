@@ -78,6 +78,29 @@ export const tdApi = {
     create: (body: { siteId: string; guardId: string; startsAt: string; endsAt: string; notes?: string }) =>
       request<{ data: any }>('/shifts', { method: 'POST', body: JSON.stringify(body) }),
     delete: (id: string) => request<{ data: any }>(`/shifts/${id}`, { method: 'DELETE' }),
+    movement: (id: string) =>
+      request<{
+        data: {
+          shift: any
+          movement: {
+            walkingMeters: number
+            drivingMeters: number
+            walkingSeconds: number
+            drivingSeconds: number
+            stationarySeconds: number
+            unaccountedSeconds: number
+            meanSpeedMs: number
+            idleBaselineMs: number
+            pingsConsidered: number
+            pingsAccepted: number
+            cappedWalking: boolean
+            cappedDriving: boolean
+            series: Array<{ ts: string; speedMs: number; label: 'stationary' | 'walking' | 'driving' }>
+          }
+        }
+      }>(`/shifts/${id}/movement`),
+    recomputeMovement: (id: string) =>
+      request<{ data: any }>(`/shifts/${id}/movement/recompute`, { method: 'POST' }),
   },
   incidents: {
     list: (params?: { status?: string; severity?: string; siteId?: string; limit?: number }) => {

@@ -49,7 +49,7 @@ export default function GuardProfilePage() {
   const [since, setSince] = useState(() => isoDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)))
   const [until, setUntil] = useState(() => isoDate(new Date()))
 
-  const [selfie, setSelfie] = useState<{ url: string; reviewStatus: string | null; method: string; geofence: boolean | null; time: string } | null>(null)
+  const [selfie, setSelfie] = useState<{ url: string; reviewStatus: string | null; method: string; geofence: boolean | null; outOfZoneReason: string | null; time: string } | null>(null)
   const [selfieLoading, setSelfieLoading] = useState(false)
 
   const [showResetPw, setShowResetPw] = useState(false)
@@ -83,6 +83,7 @@ export default function GuardProfilePage() {
         reviewStatus: row.checkInSelfieReview,
         method: row.checkInMethod,
         geofence: row.checkInGeofence,
+        outOfZoneReason: row.checkInOutOfZoneReason ?? null,
         time: new Date(row.checkInTime).toLocaleString('en-IN'),
       })
     } catch {
@@ -92,6 +93,7 @@ export default function GuardProfilePage() {
         reviewStatus: row.checkInSelfieReview,
         method: row.checkInMethod,
         geofence: row.checkInGeofence,
+        outOfZoneReason: row.checkInOutOfZoneReason ?? null,
         time: new Date(row.checkInTime).toLocaleString('en-IN'),
       })
     } finally {
@@ -117,7 +119,7 @@ export default function GuardProfilePage() {
 
   function exportCsv() {
     if (!data || !data.rows.length) return
-    const headers = ['Date', 'Site', 'Check-In', 'Scheduled Start', 'On Time', 'Check-Out', 'Scheduled End', 'Hours', 'Method', 'Geofence']
+    const headers = ['Date', 'Site', 'Check-In', 'Scheduled Start', 'On Time', 'Check-Out', 'Scheduled End', 'Hours', 'Method', 'Geofence', 'Out-of-Zone Reason']
     const csvRows = data.rows.map((r: any) => [
       r.date,
       `"${r.siteName}"`,
@@ -129,6 +131,7 @@ export default function GuardProfilePage() {
       r.hoursWorked ?? '',
       r.checkInMethod,
       r.checkInGeofence === null ? '' : r.checkInGeofence ? 'Within' : 'Outside',
+      r.checkInOutOfZoneReason ? `"${String(r.checkInOutOfZoneReason).replace(/"/g, '""')}"` : '',
     ])
     const csv = [headers, ...csvRows].map((r) => r.join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -165,14 +168,26 @@ export default function GuardProfilePage() {
         {/* Profile strip */}
         {guard && (
           <Card style={{ marginBottom: 28, padding: '20px 28px', display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
-            <div style={{
-              width: 52, height: 52, borderRadius: 14, flexShrink: 0,
-              background: roleColors?.bg ?? 'var(--surface-2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, fontWeight: 700, color: roleColors?.color ?? 'var(--text-2)',
-            }}>
-              {guard.name?.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
-            </div>
+            {guard.profilePhotoUrl ? (
+              <img
+                src={guard.profilePhotoUrl}
+                alt={guard.name}
+                style={{
+                  width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+                  objectFit: 'cover',
+                  background: 'var(--surface-2)',
+                }}
+              />
+            ) : (
+              <div style={{
+                width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+                background: roleColors?.bg ?? 'var(--surface-2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20, fontWeight: 700, color: roleColors?.color ?? 'var(--text-2)',
+              }}>
+                {guard.name?.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
+              </div>
+            )}
             <div style={{ flex: 1, minWidth: 180 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                 <span style={{ color: 'var(--text)', fontWeight: 700, fontSize: 16 }}>{guard.name}</span>
@@ -292,7 +307,17 @@ export default function GuardProfilePage() {
                   ) : row.checkInGeofence ? (
                     <span style={{ color: '#10b981', fontSize: 13, fontWeight: 500 }}>Within</span>
                   ) : (
-                    <span style={{ color: '#ef4444', fontSize: 13, fontWeight: 500 }}>Outside</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 220 }}>
+                      <span style={{ color: '#ef4444', fontSize: 13, fontWeight: 500 }}>Outside</span>
+                      {row.checkInOutOfZoneReason && (
+                        <span
+                          title={row.checkInOutOfZoneReason}
+                          style={{ color: 'var(--text-2)', fontSize: 12, lineHeight: 1.35, whiteSpace: 'normal' }}
+                        >
+                          “{row.checkInOutOfZoneReason}”
+                        </span>
+                      )}
+                    </div>
                   )}
                 </TD>
                 <TD>
@@ -380,6 +405,22 @@ export default function GuardProfilePage() {
                   </div>
                 )}
               </div>
+              {selfie.outOfZoneReason && (
+                <div style={{
+                  marginTop: 16,
+                  padding: '10px 14px',
+                  background: 'rgba(245,158,11,0.08)',
+                  borderLeft: '3px solid #f59e0b',
+                  borderRadius: 6,
+                }}>
+                  <div style={{ color: '#b45309', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                    Out-of-zone reason
+                  </div>
+                  <div style={{ color: 'var(--text)', fontSize: 13.5, lineHeight: 1.5 }}>
+                    {selfie.outOfZoneReason}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </Modal>

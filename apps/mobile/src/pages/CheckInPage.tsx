@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   IonContent,
   IonHeader,
@@ -12,6 +12,7 @@ import {
   IonItem,
   IonLabel,
   IonText,
+  IonTextarea,
   IonSpinner,
   IonSegment,
   IonSegmentButton,
@@ -44,6 +45,8 @@ export const CheckInPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [selfieDataUrl, setSelfieDataUrl] = useState<string | null>(null)
+  const [outOfZoneReason, setOutOfZoneReason] = useState('')
+  const [userPickedSite, setUserPickedSite] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -52,6 +55,29 @@ export const CheckInPage: React.FC = () => {
       .then((pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }))
       .catch(() => null)
   }, [])
+
+  // Sites sorted by distance from the guard's current GPS (closest first).
+  const sitesByDistance = useMemo(() => {
+    if (!location) return sites
+    return [...sites].sort((a, b) => {
+      const da = a.latitude != null && a.longitude != null
+        ? haversineMeters(location.lat, location.lng, a.latitude, a.longitude)
+        : Infinity
+      const db = b.latitude != null && b.longitude != null
+        ? haversineMeters(location.lat, location.lng, b.latitude, b.longitude)
+        : Infinity
+      return da - db
+    })
+  }, [sites, location])
+
+  // Auto-pick the nearest site once both sites and location are available.
+  // The guard can still override; once they pick manually we stop auto-picking.
+  useEffect(() => {
+    if (userPickedSite) return
+    if (!selectedSite && sitesByDistance.length > 0) {
+      setSelectedSite(sitesByDistance[0].id)
+    }
+  }, [sitesByDistance, selectedSite, userPickedSite])
 
   const site = sites.find((s) => s.id === selectedSite)
 
@@ -64,6 +90,9 @@ export const CheckInPage: React.FC = () => {
     distanceMeters !== null && site?.geofenceRadiusMeters != null
       ? distanceMeters <= site.geofenceRadiusMeters
       : null
+
+  const needsReason = withinGeofence === false
+  const reasonTrimmed = outOfZoneReason.trim()
 
   async function takeSelfie() {
     try {
@@ -93,6 +122,10 @@ export const CheckInPage: React.FC = () => {
 
   async function handleCheckIn() {
     if (!selectedSite || !selfieDataUrl) return
+    if (needsReason && !reasonTrimmed) {
+      setError('Please explain why you are outside the site zone.')
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -102,9 +135,11 @@ export const CheckInPage: React.FC = () => {
         imageData: selfieDataUrl,
         latitude: location?.lat,
         longitude: location?.lng,
+        outOfZoneReason: needsReason ? reasonTrimmed : undefined,
       })
       setSuccess(true)
       setSelfieDataUrl(null)
+      setOutOfZoneReason('')
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -114,7 +149,8 @@ export const CheckInPage: React.FC = () => {
 
   const isCheckIn = type === 'check_in'
   const accentColor = isCheckIn ? '#10b981' : '#ef4444'
-  const canSubmit = !!selectedSite && !!selfieDataUrl && !loading
+  const canSubmit =
+    !!selectedSite && !!selfieDataUrl && !loading && (!needsReason || reasonTrimmed.length > 0)
 
   return (
     <IonPage>
@@ -166,17 +202,71 @@ export const CheckInPage: React.FC = () => {
             <IonLabel style={{ color: '#5c5855' }}>Site</IonLabel>
             <IonSelect
               value={selectedSite}
-              onIonChange={(e) => setSelectedSite(e.detail.value)}
-              placeholder="Select site"
+              onIonChange={(e) => {
+                setSelectedSite(e.detail.value)
+                setUserPickedSite(true)
+              }}
+              placeholder={sites.length === 0 ? 'No sites available' : 'Select site'}
+              disabled={sites.length === 0}
               style={{ '--color': '#1a1916' }}
               interface="action-sheet"
             >
-              {sites.map((s) => (
-                <IonSelectOption key={s.id} value={s.id}>{s.name}</IonSelectOption>
-              ))}
+              {sitesByDistance.map((s) => {
+                const dist =
+                  location && s.latitude != null && s.longitude != null
+                    ? Math.round(haversineMeters(location.lat, location.lng, s.latitude, s.longitude))
+                    : null
+                const distLabel =
+                  dist == null
+                    ? ''
+                    : dist < 1000
+                      ? ` · ${dist} m`
+                      : ` · ${(dist / 1000).toFixed(1)} km`
+                return (
+                  <IonSelectOption key={s.id} value={s.id}>
+                    {s.name}{distLabel}
+                  </IonSelectOption>
+                )
+              })}
             </IonSelect>
           </IonItem>
         </div>
+
+        {/* Out-of-zone reason — required when the picked site's geofence is breached */}
+        {needsReason && (
+          <div style={{
+            background: '#ffffff',
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 12,
+            border: '1px solid rgba(245,158,11,0.35)',
+          }}>
+            <p style={{ color: '#b45309', margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>
+              You're outside the site zone
+            </p>
+            <p style={{ color: '#5c5855', margin: '0 0 10px', fontSize: 12.5 }}>
+              Please explain why — this will appear on your attendance log for your supervisor.
+            </p>
+            <IonTextarea
+              value={outOfZoneReason}
+              onIonInput={(e) => setOutOfZoneReason(e.detail.value ?? '')}
+              placeholder="e.g. picking up keys from the office, escorting a visitor, road closed…"
+              autoGrow
+              rows={3}
+              maxlength={500}
+              style={{
+                '--background': '#fafaf9',
+                '--color': '#1a1916',
+                '--padding-start': '12px',
+                '--padding-end': '12px',
+                '--padding-top': '10px',
+                '--padding-bottom': '10px',
+                border: '1px solid #e8e5e0',
+                borderRadius: 8,
+              }}
+            />
+          </div>
+        )}
 
         {/* Selfie capture */}
         <div style={{ background: '#ffffff', borderRadius: 12, padding: 16, marginBottom: 16 }}>

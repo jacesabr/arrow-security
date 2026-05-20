@@ -17,6 +17,8 @@ export const guardLocations = pgTable('guard_locations', {
   altitude: doublePrecision('altitude'),
   h3Res8: text('h3_res8'),
   battery: integer('battery'),
+  activityType: text('activity_type'),
+  activityConfidence: integer('activity_confidence'),
   recordedAt: timestamp('recorded_at').notNull().defaultNow(),
 })
 

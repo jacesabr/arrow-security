@@ -21,6 +21,7 @@ export const attendanceRecords = pgTable('attendance_records', {
   selfieUrl: text('selfie_url'),
   livenessScore: real('liveness_score'),
   isWithinGeofence: boolean('is_within_geofence'),
+  outOfZoneReason: text('out_of_zone_reason'),
   selfieReviewStatus: selfieReviewStatusEnum('selfie_review_status'),
   selfieReviewNote: text('selfie_review_note'),
   selfieReviewedBy: text('selfie_reviewed_by').references(() => users.id),

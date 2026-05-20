@@ -7,7 +7,7 @@ import {
   IonLabel,
   IonRouterOutlet,
 } from '@ionic/react'
-import { Route, Redirect } from 'react-router-dom'
+import { Route, Redirect, Link, useLocation } from 'react-router-dom'
 import {
   homeOutline,
   cameraOutline,
@@ -17,6 +17,7 @@ import {
   personOutline,
   mapOutline,
   checkmarkCircleOutline,
+  bookOutline,
 } from 'ionicons/icons'
 import { DashboardPage } from '../pages/DashboardPage'
 import { CheckInPage } from '../pages/CheckInPage'
@@ -24,6 +25,7 @@ import { PatrolPage } from '../pages/PatrolPage'
 import { IncidentPage } from '../pages/IncidentPage'
 import { ShiftsPage } from '../pages/ShiftsPage'
 import { ProfilePage } from '../pages/ProfilePage'
+import { GuidePage } from '../pages/GuidePage'
 import { useAuthStore } from '../store/auth'
 import { LeaveRequestPage } from '../pages/LeaveRequestPage'
 
@@ -578,6 +580,42 @@ function DevAccountBar() {
   )
 }
 
+/* ─── Guide Top Bar ─────────────────────────────────────────────────────── */
+
+const GUIDE_BAR_HEIGHT = 32
+const DEV_BAR_HEIGHT = 28
+
+function GuideTopBar({ topOffset }: { topOffset: number }) {
+  const location = useLocation()
+  const onGuide = location.pathname === '/tabs/guide'
+  if (onGuide) return null
+  return (
+    <div style={{
+      position: 'fixed', top: topOffset, left: 0, right: 0, zIndex: 8000,
+      height: GUIDE_BAR_HEIGHT,
+      background: '#ffffff',
+      borderBottom: '1px solid #e8e5e0',
+      display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+      padding: '0 14px',
+    }}>
+      <Link
+        to="/tabs/guide"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          padding: '4px 10px', borderRadius: 6,
+          fontSize: 12, fontWeight: 600,
+          color: '#c96442', textDecoration: 'none',
+          border: '1px solid rgba(201,100,66,0.25)',
+          background: 'rgba(201,100,66,0.06)',
+        }}
+      >
+        <IonIcon icon={bookOutline} style={{ fontSize: 13 }} />
+        User Guide
+      </Link>
+    </div>
+  )
+}
+
 /* ─── Main Layout ───────────────────────────────────────────────────────── */
 
 export const TabLayout: React.FC = () => {
@@ -587,12 +625,15 @@ export const TabLayout: React.FC = () => {
   const isSupervisor = role === 'supervisor'
   const isAdmin = role === 'tenant_admin' || role === 'platform_admin'
   const tabBarStyle = { '--background': '#ffffff', '--border': '1px solid #e8e5e0' } as any
-  const topPad = { paddingTop: 28 }
+  const isDev = import.meta.env.DEV
+  const guideBarTop = isDev ? DEV_BAR_HEIGHT : 0
+  const topPad = { paddingTop: guideBarTop + GUIDE_BAR_HEIGHT }
 
   if (isAdmin) {
     return (
       <>
         {import.meta.env.DEV && <DevAccountBar />}
+        <GuideTopBar topOffset={guideBarTop} />
         <div style={topPad}>
           <IonTabs>
             <IonRouterOutlet>
@@ -601,6 +642,7 @@ export const TabLayout: React.FC = () => {
               <R exact path="/tabs/shifts" component={ShiftsPage} />
               <R exact path="/tabs/incidents" component={IncidentPage} />
               <R exact path="/tabs/leave" component={LeaveApprovalsPage} />
+              <R exact path="/tabs/guide" component={GuidePage} />
               <R exact path="/tabs/profile" component={ProfilePage} />
               <R exact path="/tabs"><Redir to="/tabs/dashboard" /></R>
             </IonRouterOutlet>
@@ -631,6 +673,7 @@ export const TabLayout: React.FC = () => {
     return (
       <>
         {import.meta.env.DEV && <DevAccountBar />}
+        <GuideTopBar topOffset={guideBarTop} />
         <div style={topPad}>
           <IonTabs>
             <IonRouterOutlet>
@@ -639,6 +682,7 @@ export const TabLayout: React.FC = () => {
               <R exact path="/tabs/shifts" component={ShiftsPage} />
               <R exact path="/tabs/incidents" component={IncidentPage} />
               <R exact path="/tabs/leave" component={LeaveApprovalsPage} />
+              <R exact path="/tabs/guide" component={GuidePage} />
               <R exact path="/tabs/profile" component={ProfilePage} />
               <R exact path="/tabs"><Redir to="/tabs/dashboard" /></R>
             </IonRouterOutlet>
@@ -668,10 +712,11 @@ export const TabLayout: React.FC = () => {
     )
   }
 
-  // Guard view (default)
+  // Guard view (default) — no DevAccountBar
   return (
     <>
-      <div>
+      <GuideTopBar topOffset={0} />
+      <div style={{ paddingTop: GUIDE_BAR_HEIGHT }}>
         <IonTabs>
           <IonRouterOutlet>
             <R exact path="/tabs/dashboard" component={DashboardPage} />
@@ -680,6 +725,7 @@ export const TabLayout: React.FC = () => {
             <R exact path="/tabs/incidents" component={IncidentPage} />
             <R exact path="/tabs/leave" component={LeaveRequestPage} />
             <R exact path="/tabs/shifts" component={ShiftsPage} />
+            <R exact path="/tabs/guide" component={GuidePage} />
             <R exact path="/tabs/profile" component={ProfilePage} />
             <R exact path="/tabs"><Redir to="/tabs/dashboard" /></R>
           </IonRouterOutlet>

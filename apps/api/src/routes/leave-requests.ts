@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { db, leaveRequests } from '@secureops/db'
-import { eq, and, desc, gte } from 'drizzle-orm'
-import { requireAuth, requireSupervisor } from '../lib/auth'
+import { eq, and, desc, gte, inArray } from 'drizzle-orm'
+import { requireAuth, requireSupervisor, getSupervisorGuardIds } from '../lib/auth'
 
 export const leaveRequestsRoutes: FastifyPluginAsync = async (fastify) => {
   // GET / — list leave requests
@@ -19,6 +19,16 @@ export const leaveRequestsRoutes: FastifyPluginAsync = async (fastify) => {
     // Guards can only see their own requests
     if (payload.role === 'guard') {
       conditions.push(eq(leaveRequests.guardId, payload.sub))
+    } else if (payload.role === 'supervisor') {
+      // Supervisors only see requests from guards at their sites
+      const guardIds = await getSupervisorGuardIds(payload.sub, payload.role)
+      if (!guardIds || guardIds.length === 0) return reply.send({ data: [] })
+      if (query.guardId) {
+        if (!guardIds.includes(query.guardId)) return reply.send({ data: [] })
+        conditions.push(eq(leaveRequests.guardId, query.guardId))
+      } else {
+        conditions.push(inArray(leaveRequests.guardId, guardIds))
+      }
     } else if (query.guardId) {
       conditions.push(eq(leaveRequests.guardId, query.guardId))
     }
@@ -62,11 +72,27 @@ export const leaveRequestsRoutes: FastifyPluginAsync = async (fastify) => {
   // PATCH /:id/review — supervisor reviews a leave request
   fastify.patch('/:id/review', { preHandler: requireSupervisor }, async (request, reply) => {
     const { id } = request.params as { id: string }
-    const payload = request.user as { tenantId: string; sub: string }
+    const payload = request.user as { tenantId: string; sub: string; role: string }
     const body = z.object({
       status: z.enum(['approved', 'rejected']),
       reviewNote: z.string().optional(),
     }).parse(request.body)
+
+    // Supervisors can only review leave from guards at their sites
+    if (payload.role === 'supervisor') {
+      const [existing] = await db
+        .select({ guardId: leaveRequests.guardId })
+        .from(leaveRequests)
+        .where(and(eq(leaveRequests.id, id), eq(leaveRequests.tenantId, payload.tenantId)))
+        .limit(1)
+      if (!existing) {
+        return reply.code(404).send({ error: 'Not found', message: 'Leave request not found', statusCode: 404 })
+      }
+      const allowed = await getSupervisorGuardIds(payload.sub, payload.role)
+      if (!allowed || !allowed.includes(existing.guardId)) {
+        return reply.code(403).send({ error: 'Forbidden', message: 'Guard not at your site', statusCode: 403 })
+      }
+    }
 
     const [leaveRequest] = await db
       .update(leaveRequests)

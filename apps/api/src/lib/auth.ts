@@ -1,7 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import type { UserRole } from '@secureops/shared'
-import { db, supervisorSites } from '@secureops/db'
-import { eq } from 'drizzle-orm'
+import { db, supervisorSites, shifts } from '@secureops/db'
+import { eq, inArray } from 'drizzle-orm'
 
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
   try {
@@ -48,4 +48,24 @@ export async function getSupervisorSiteIds(
     .from(supervisorSites)
     .where(eq(supervisorSites.supervisorId, userId))
   return rows.map((r) => r.siteId)
+}
+
+/**
+ * Returns null for admins (no scoping needed).
+ * Returns string[] of guard IDs that have ever been scheduled at the
+ * supervisor's assigned sites (may be empty).
+ */
+export async function getSupervisorGuardIds(
+  userId: string,
+  role: string
+): Promise<string[] | null> {
+  if (role === 'platform_admin' || role === 'tenant_admin') return null
+  if (role !== 'supervisor') return null
+  const siteIds = await getSupervisorSiteIds(userId, role)
+  if (!siteIds || siteIds.length === 0) return []
+  const rows = await db
+    .selectDistinct({ guardId: shifts.guardId })
+    .from(shifts)
+    .where(inArray(shifts.siteId, siteIds))
+  return rows.map((r) => r.guardId)
 }

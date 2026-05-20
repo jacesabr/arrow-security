@@ -4,6 +4,7 @@ import { db, shifts, users } from '@secureops/db'
 import { eq, and, gte, lte, inArray } from 'drizzle-orm'
 import { requireAuth, requireTenantAdmin, requireSupervisor, getSupervisorSiteIds } from '../lib/auth'
 import { solveSchedule } from '../lib/scheduler'
+import { computeShiftMovement, computeAndStoreShiftMovement } from '../lib/shift-movement'
 
 export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/', { preHandler: requireAuth }, async (request, reply) => {
@@ -68,7 +69,67 @@ export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
       .returning()
 
     if (!shift) return reply.code(404).send({ error: 'Not found', message: 'Shift not found', statusCode: 404 })
+
+    // When a shift completes, asynchronously compute movement breakdown.
+    // Don't block the response on this — it walks every ping for the shift.
+    if (status === 'completed') {
+      computeAndStoreShiftMovement(shift.id, shift.tenantId, shift.startsAt, shift.endsAt)
+        .catch((err) => fastify.log.error({ err, shiftId: shift.id }, 'shift movement compute failed'))
+    }
+
     return reply.send({ data: shift })
+  })
+
+  // GET /:id/movement — per-shift movement summary + audit graph series.
+  // Always re-derives the series from guard_locations; uses persisted totals if
+  // available, otherwise computes them fresh.
+  fastify.get('/:id/movement', { preHandler: requireAuth }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const payload = request.user as { tenantId: string; sub: string; role: string }
+
+    const [shift] = await db
+      .select()
+      .from(shifts)
+      .where(and(eq(shifts.id, id), eq(shifts.tenantId, payload.tenantId)))
+      .limit(1)
+    if (!shift) return reply.code(404).send({ error: 'Not found', message: 'Shift not found', statusCode: 404 })
+
+    // Authorise
+    if (payload.role === 'guard' && shift.guardId !== payload.sub) {
+      return reply.code(403).send({ error: 'Forbidden', message: 'Not your shift', statusCode: 403 })
+    }
+    if (payload.role === 'supervisor') {
+      const allowed = await getSupervisorSiteIds(payload.sub, payload.role)
+      if (!allowed || !allowed.includes(shift.siteId)) {
+        return reply.code(403).send({ error: 'Forbidden', message: 'Shift not at your site', statusCode: 403 })
+      }
+    }
+
+    const result = await computeShiftMovement(shift.id, shift.tenantId, shift.startsAt, shift.endsAt)
+    return reply.send({ data: { shift, movement: result } })
+  })
+
+  // POST /:id/movement/recompute — force a recompute and persist (admin / supervisor).
+  fastify.post('/:id/movement/recompute', { preHandler: requireSupervisor }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const payload = request.user as { tenantId: string; sub: string; role: string }
+
+    const [shift] = await db
+      .select()
+      .from(shifts)
+      .where(and(eq(shifts.id, id), eq(shifts.tenantId, payload.tenantId)))
+      .limit(1)
+    if (!shift) return reply.code(404).send({ error: 'Not found', message: 'Shift not found', statusCode: 404 })
+
+    if (payload.role === 'supervisor') {
+      const allowed = await getSupervisorSiteIds(payload.sub, payload.role)
+      if (!allowed || !allowed.includes(shift.siteId)) {
+        return reply.code(403).send({ error: 'Forbidden', message: 'Shift not at your site', statusCode: 403 })
+      }
+    }
+
+    const result = await computeAndStoreShiftMovement(shift.id, shift.tenantId, shift.startsAt, shift.endsAt)
+    return reply.send({ data: result })
   })
 
   fastify.delete('/:id', { preHandler: requireTenantAdmin }, async (request, reply) => {

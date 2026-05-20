@@ -14,6 +14,12 @@ coverage/
 *.tsbuildinfo
 android/
 ios/
+# But DO commit the native source of our own Capacitor plugin —
+# its android/ and ios/ folders contain plugin code, not generated app shells.
+!packages/capacitor-activity-recognition/android/
+!packages/capacitor-activity-recognition/android/**
+!packages/capacitor-activity-recognition/ios/
+!packages/capacitor-activity-recognition/ios/**
 research/staffjoy-autoscheduler/
 research/staffjoy-chomp/
 research/staffjoy-mobius/

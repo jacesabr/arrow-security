@@ -36,6 +36,34 @@
       "when": 1779076861320,
       "tag": "0005_selfie_image_key",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1779076861330,
+      "tag": "0006_shift_movement",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1779076861340,
+      "tag": "0007_activity_recognition",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1779076861350,
+      "tag": "0008_out_of_zone_reason",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1779076861360,
+      "tag": "0009_user_profile_photo",
+      "breakpoints": true
     }
   ]
 }

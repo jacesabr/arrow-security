@@ -4,10 +4,11 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = useAuthStore.getState().token
+  const hasBody = options.body !== undefined && options.body !== null
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
@@ -28,7 +29,15 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ email, password, tenantSlug }),
       }),
-    register: (body: { name: string; email: string; password: string; role: string; tenantSlug: string }) =>
+    register: (body: {
+      name: string
+      email: string
+      password: string
+      phone: string
+      profilePhoto: string
+      role: string
+      tenantSlug: string
+    }) =>
       request<{ data: { token: string; user: any } }>('/auth/register', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -101,6 +110,8 @@ export const api = {
       speed?: number
       altitude?: number
       shiftId?: string
+      activityType?: string
+      activityConfidence?: number
       recordedAt?: string
     }) => request<{ data: any }>('/locations', { method: 'POST', body: JSON.stringify(payload) }),
   },
@@ -142,6 +153,7 @@ export const api = {
       imageData: string
       latitude?: number
       longitude?: number
+      outOfZoneReason?: string
     }) => request<{ data: { selfie: any; attendance: any; distanceMeters: number | null; isWithinGeofence: boolean | null } }>(
       '/selfies',
       { method: 'POST', body: JSON.stringify(payload) },

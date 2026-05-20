@@ -136,7 +136,7 @@ export default function ShiftsPage() {
             {filtered.map((sh) => {
               const sta = STATUS_BADGE[sh.status] ?? STATUS_BADGE.scheduled
               return (
-                <TR key={sh.id}>
+                <TR key={sh.id} onClick={() => router.push(`/shifts/${sh.id}`)}>
                   <TD>{guardName(sh.guardId)}</TD>
                   <TD muted>{siteName(sh.siteId)}</TD>
                   <TD muted>{new Date(sh.startsAt).toLocaleString('en-IN')}</TD>

@@ -1,9 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { db, users } from '@secureops/db'
-import { eq, and } from 'drizzle-orm'
-import { requireAuth, requireTenantAdmin } from '../lib/auth'
+import { eq, and, inArray, or } from 'drizzle-orm'
+import { requireAuth, requireTenantAdmin, getSupervisorGuardIds } from '../lib/auth'
 import { hash, Algorithm } from '@node-rs/argon2'
+import { getDownloadUrl } from '../lib/storage'
 
 async function hashPassword(pw: string): Promise<string> {
   return hash(pw, { algorithm: Algorithm.Argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 })
@@ -19,7 +20,24 @@ const createUserSchema = z.object({
 
 export const usersRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/', { preHandler: requireAuth }, async (request, reply) => {
-    const payload = request.user as { tenantId: string }
+    const payload = request.user as { tenantId: string; sub: string; role: string }
+
+    const conditions = [eq(users.tenantId, payload.tenantId)]
+
+    if (payload.role === 'guard') {
+      // Guards only see themselves
+      conditions.push(eq(users.id, payload.sub))
+    } else if (payload.role === 'supervisor') {
+      // Supervisors see their guards + themselves
+      const guardIds = await getSupervisorGuardIds(payload.sub, payload.role)
+      if (!guardIds || guardIds.length === 0) {
+        conditions.push(eq(users.id, payload.sub))
+      } else {
+        conditions.push(or(inArray(users.id, guardIds), eq(users.id, payload.sub))!)
+      }
+    }
+    // admins see all tenant users (no extra condition)
+
     const all = await db
       .select({
         id: users.id,
@@ -29,13 +47,23 @@ export const usersRoutes: FastifyPluginAsync = async (fastify) => {
         role: users.role,
         tenantId: users.tenantId,
         faceEnrolled: users.faceEnrolled,
+        profilePhotoKey: users.profilePhotoKey,
         lastLoginAt: users.lastLoginAt,
         createdAt: users.createdAt,
       })
       .from(users)
-      .where(eq(users.tenantId, payload.tenantId))
+      .where(and(...conditions))
       .orderBy(users.name)
-    return reply.send({ data: all })
+
+    const withPhotos = await Promise.all(
+      all.map(async (u) => ({
+        ...u,
+        profilePhotoUrl: u.profilePhotoKey
+          ? await getDownloadUrl(u.profilePhotoKey).catch(() => null)
+          : null,
+      })),
+    )
+    return reply.send({ data: withPhotos })
   })
 
   fastify.post('/', { preHandler: requireTenantAdmin }, async (request, reply) => {

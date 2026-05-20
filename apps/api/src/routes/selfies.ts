@@ -26,6 +26,7 @@ const submitSchema = z.object({
   imageData: z.string().min(100),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
+  outOfZoneReason: z.string().trim().max(500).optional(),
 })
 
 const reviewSchema = z.object({
@@ -54,6 +55,14 @@ export const selfiesRoutes: FastifyPluginAsync = async (fastify) => {
       isWithinGeofence = distanceMeters <= (site.geofenceRadiusMeters ?? 200)
     }
 
+    if (isWithinGeofence === false && !body.outOfZoneReason) {
+      return reply.code(400).send({
+        error: 'Bad request',
+        message: 'A reason is required when checking in outside the site geofence.',
+        statusCode: 400,
+      })
+    }
+
     // Upload image to R2 before writing DB records
     const { buffer, contentType } = dataUrlToBuffer(body.imageData)
     const now = new Date()
@@ -76,6 +85,7 @@ export const selfiesRoutes: FastifyPluginAsync = async (fastify) => {
           latitude: body.latitude,
           longitude: body.longitude,
           isWithinGeofence,
+          outOfZoneReason: isWithinGeofence === false ? body.outOfZoneReason ?? null : null,
           verifiedAt: now,
           selfieReviewStatus: 'pending',
         })

@@ -25,7 +25,7 @@ export const patrolRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.post('/start', { preHandler: requireAuth }, async (request, reply) => {
     const payload = request.user as { tenantId: string; sub: string }
-    const body = z.object({ siteId: z.string(), shiftId: z.string().optional() }).parse(request.body)
+    const body = z.object({ siteId: z.string().min(1), shiftId: z.string().optional() }).parse(request.body)
     const [patrol] = await db
       .insert(patrols)
       .values({ ...body, tenantId: payload.tenantId, guardId: payload.sub })

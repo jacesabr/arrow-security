@@ -1,12 +1,72 @@
 'use client'
 import React from 'react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
-import { X, Loader2 } from 'lucide-react'
+import { X, Loader2, BookOpen } from 'lucide-react'
 
 /* ─── Layout ─────────────────────────────────────────────────────────── */
 
+function TopBar() {
+  const pathname = usePathname()
+  const onGuide = pathname === '/guide'
+  return (
+    <div style={{
+      height: 38,
+      flexShrink: 0,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      padding: '0 24px',
+      background: '#ffffff',
+      borderBottom: '1px solid #ebe8e2',
+    }}>
+      <Link
+        href="/guide"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '5px 11px',
+          borderRadius: 7,
+          fontSize: 12.5,
+          fontWeight: 500,
+          textDecoration: 'none',
+          background: onGuide ? 'rgba(201,100,66,0.1)' : 'transparent',
+          color: onGuide ? '#c96442' : '#5c5855',
+          border: `1px solid ${onGuide ? 'rgba(201,100,66,0.2)' : 'transparent'}`,
+          transition: 'color 0.12s, background 0.12s, border-color 0.12s',
+        }}
+        onMouseEnter={e => {
+          if (!onGuide) {
+            (e.currentTarget as HTMLElement).style.background = '#f4f2ef'
+            ;(e.currentTarget as HTMLElement).style.color = '#1a1916'
+          }
+        }}
+        onMouseLeave={e => {
+          if (!onGuide) {
+            (e.currentTarget as HTMLElement).style.background = 'transparent'
+            ;(e.currentTarget as HTMLElement).style.color = '#5c5855'
+          }
+        }}
+      >
+        <BookOpen size={14} />
+        User Guide
+      </Link>
+    </div>
+  )
+}
+
 export function PageShell({ children }: { children: React.ReactNode }) {
-  return <div style={{ display: 'flex', minHeight: '100vh' }}><Sidebar />{children}</div>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <TopBar />
+      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <Sidebar />
+        {children}
+      </div>
+    </div>
+  )
 }
 
 export function Main({ children, maxWidth }: { children: React.ReactNode; maxWidth?: number }) {

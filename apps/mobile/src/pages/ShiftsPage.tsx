@@ -14,8 +14,11 @@ import {
 } from '@ionic/react'
 import { calendarOutline, locationOutline } from 'ionicons/icons'
 import { registerPlugin } from '@capacitor/core'
+import type { PluginListenerHandle } from '@capacitor/core'
 import type { BackgroundGeolocationPlugin, Location } from '@capacitor-community/background-geolocation'
+import { ActivityRecognition, type ActivityTransitionEvent } from '@secureops/capacitor-activity-recognition'
 import { api } from '../services/api'
+import { useActivityStore } from '../store/activity'
 
 const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>('BackgroundGeolocation')
 
@@ -43,6 +46,8 @@ export const ShiftsPage: React.FC = () => {
   const [tracking, setTracking] = useState(false)
   // Holds the watcher ID returned by addWatcher so we can remove it later
   const watcherIdRef = useRef<string | null>(null)
+  // Listener subscription for Activity Recognition transitions
+  const activityListenerRef = useRef<PluginListenerHandle | null>(null)
 
   useEffect(() => {
     api.shifts.list()
@@ -67,6 +72,21 @@ export const ShiftsPage: React.FC = () => {
   async function startTracking(shiftId: string) {
     // Already watching — don't register a second watcher
     if (watcherIdRef.current !== null) return
+
+    // Start activity recognition first — it's independent of GPS and survives
+    // a GPS failure. Errors are non-fatal: classifier falls back to speed-only.
+    if (activityListenerRef.current === null) {
+      try {
+        activityListenerRef.current = await ActivityRecognition.addListener(
+          'activityTransition',
+          (event: ActivityTransitionEvent) => useActivityStore.getState().setFromEvent(event),
+        )
+        await ActivityRecognition.start()
+      } catch (e) {
+        console.warn('Activity Recognition unavailable:', e)
+      }
+    }
+
     try {
       const id = await BackgroundGeolocation.addWatcher(
         {
@@ -78,6 +98,10 @@ export const ShiftsPage: React.FC = () => {
         },
         async (position?: Location, error?: Error) => {
           if (error || !position) return
+          // Read the latest device activity snapshot. Stale samples (older than
+          // ~3 min) are ignored — better to omit than to mislead the classifier.
+          const a = useActivityStore.getState()
+          const fresh = a.timestamp > 0 && Date.now() - a.timestamp < 180_000
           try {
             await api.locations.track({
               latitude: position.latitude,
@@ -89,6 +113,8 @@ export const ShiftsPage: React.FC = () => {
               speed: position.speed ?? undefined,
               altitude: position.altitude ?? undefined,
               shiftId,
+              activityType: fresh ? a.activity : undefined,
+              activityConfidence: fresh ? a.confidence : undefined,
               recordedAt: new Date(position.time ?? Date.now()).toISOString(),
             })
           } catch {
@@ -112,6 +138,12 @@ export const ShiftsPage: React.FC = () => {
       }
       watcherIdRef.current = null
     }
+    if (activityListenerRef.current !== null) {
+      try { await activityListenerRef.current.remove() } catch { /* ignore */ }
+      activityListenerRef.current = null
+    }
+    try { await ActivityRecognition.stop() } catch { /* ignore */ }
+    useActivityStore.getState().clear()
     setTracking(false)
   }
 

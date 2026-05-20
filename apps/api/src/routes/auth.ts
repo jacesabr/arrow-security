@@ -5,6 +5,7 @@ import { eq, and } from 'drizzle-orm'
 import { createHash, randomBytes } from 'crypto'
 import { hash, verify, Algorithm } from '@node-rs/argon2'
 import { appendAuditEntry } from '../lib/audit'
+import { putObject } from '../lib/storage'
 
 const ARGON2_OPTIONS = { algorithm: Algorithm.Argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 }
 
@@ -35,9 +36,18 @@ const registerSchema = z.object({
   name: z.string().min(1),
   email: z.string().min(1),
   password: z.string().min(1),
+  phone: z.string().trim().min(7).max(20),
   role: z.enum(['guard', 'supervisor', 'tenant_admin']),
   tenantSlug: z.string(),
+  // base64 data URL: "data:image/jpeg;base64,...."
+  profilePhoto: z.string().regex(/^data:image\/(jpeg|jpg|png);base64,/, 'Invalid image data'),
 })
+
+function dataUrlToBuffer(dataUrl: string): { buffer: Buffer; contentType: string } {
+  const [header, b64] = dataUrl.split(',')
+  const contentType = header.match(/:(.*?);/)?.[1] ?? 'image/jpeg'
+  return { buffer: Buffer.from(b64, 'base64'), contentType }
+}
 
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/register', async (request, reply) => {
@@ -61,21 +71,31 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(409).send({ error: 'Conflict', message: 'Email already registered', statusCode: 409 })
     }
 
+    // Upload registration selfie to object storage before we create the user row
+    const { buffer, contentType } = dataUrlToBuffer(body.profilePhoto)
+    const ext = contentType === 'image/png' ? 'png' : 'jpg'
+    const profilePhotoKey = `${tenant.id}/profile-photos/${randomBytes(12).toString('hex')}-${Date.now()}.${ext}`
+    await putObject(profilePhotoKey, buffer, contentType)
+
     const [user] = await db
       .insert(users)
       .values({
         name: body.name,
         email: body.email,
+        phone: body.phone,
         role: body.role,
         tenantId: tenant.id,
         passwordHash: await hashPassword(body.password),
+        profilePhotoKey,
       })
       .returning({
         id: users.id,
         name: users.name,
         email: users.email,
+        phone: users.phone,
         role: users.role,
         tenantId: users.tenantId,
+        profilePhotoKey: users.profilePhotoKey,
       })
 
     const accessToken = fastify.jwt.sign(
