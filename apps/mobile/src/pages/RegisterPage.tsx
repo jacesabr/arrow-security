@@ -144,17 +144,18 @@ export const RegisterPage: React.FC = () => {
 
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', color: '#5c5855', fontSize: 13.5, fontWeight: 500, marginBottom: 7 }}>
-                Username
+                Email
               </label>
               <input
-                type="text"
+                type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 onFocus={() => setFocusedField('email')}
                 onBlur={() => setFocusedField(null)}
-                placeholder="e.g. john or john@arrowsecurity.com"
+                placeholder="you@example.com"
                 style={inputStyle('email')}
-                autoComplete="username"
+                autoComplete="email"
+                inputMode="email"
               />
             </div>
 
