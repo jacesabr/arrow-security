@@ -24,7 +24,7 @@ export default function UsersPage() {
   }, [])
 
   const filtered = users.filter((u) =>
-    !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
+    !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.username.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
@@ -39,7 +39,7 @@ export default function UsersPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name or email…"
+            placeholder="Search by name or username…"
             className="bg-slate-800 text-white rounded-lg px-4 py-2 border border-slate-700 focus:outline-none focus:border-indigo-500 w-72"
           />
         </div>
@@ -63,7 +63,7 @@ export default function UsersPage() {
                 <tr key={u.id} className="hover:bg-slate-800/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="text-white font-medium">{u.name}</div>
-                    <div className="text-slate-500 text-sm">{u.email}</div>
+                    <div className="text-slate-500 text-sm">@{u.username}</div>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${ROLE_COLORS[u.role] ?? 'bg-slate-700 text-slate-300'}`}>

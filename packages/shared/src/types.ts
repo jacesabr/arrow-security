@@ -43,8 +43,7 @@ export type UserRole = 'platform_admin' | 'tenant_admin' | 'supervisor' | 'guard
 export interface User {
   id: string
   tenantId: string | null
-  email: string
-  phone: string | null
+  username: string
   name: string
   role: UserRole
   faceEnrolled: boolean
@@ -168,7 +167,7 @@ export interface JwtPayload {
 }
 
 export interface LoginRequest {
-  email: string
+  username: string
   password: string
   tenantSlug?: string
 }

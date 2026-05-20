@@ -10,7 +10,7 @@ type GuardRow = {
   siteName: string
   guardId: string
   guardName: string
-  guardEmail: string
+  guardUsername: string
   shiftStatus: string
   shiftStartsAt: string
   shiftEndsAt: string
@@ -351,7 +351,7 @@ export default function GuardStatusPage() {
                   >
                     <td style={{ padding: '12px 16px' }}>
                       <p style={{ margin: 0, fontWeight: 600, color: '#1a1916' }}>{row.guardName}</p>
-                      <p style={{ margin: '2px 0 0', color: '#9a9490', fontSize: 11 }}>{row.guardEmail}</p>
+                      <p style={{ margin: '2px 0 0', color: '#9a9490', fontSize: 11 }}>@{row.guardUsername}</p>
                     </td>
                     <td style={{ padding: '12px 16px', color: '#5c5855' }}>{row.siteName}</td>
                     <td style={{ padding: '12px 16px' }}>

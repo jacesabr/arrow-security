@@ -78,8 +78,8 @@ export default function LoginPage() {
             </label>
             <input
               type="text"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               style={{
                 width: '100%',
                 background: '#fafaf9',

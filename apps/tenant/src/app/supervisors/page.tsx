@@ -7,8 +7,7 @@ import { tdApi } from '../../lib/api'
 type Supervisor = {
   id: string
   name: string
-  email: string
-  phone?: string
+  username: string
   lastLoginAt?: string
   createdAt: string
 }

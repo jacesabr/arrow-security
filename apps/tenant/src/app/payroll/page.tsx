@@ -248,7 +248,7 @@ export default function PayrollPage() {
                             <tr key={rec.id}>
                               <td style={tdStyle}>
                                 <div style={{ fontWeight: 500 }}>{r.guardName}</div>
-                                <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{r.guardEmail}</div>
+                                <div style={{ fontSize: 11, color: 'var(--text-3)' }}>@{r.guardUsername}</div>
                               </td>
                               <td style={{ ...tdMuted, textAlign: 'right' }}>{rec.completedShifts}/{rec.scheduledShifts}</td>
                               <td style={{ ...tdMuted, textAlign: 'right' }}>{paise(rec.grossPayPaise)}</td>
