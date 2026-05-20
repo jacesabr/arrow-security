@@ -6,7 +6,7 @@
 
     <application>
         <receiver
-            android:name="in.secureops.capacitor.activityrecognition.ActivityTransitionReceiver"
+            android:name="com.secureops.capacitor.activityrecognition.ActivityTransitionReceiver"
             android:exported="false" />
     </application>
 </manifest>

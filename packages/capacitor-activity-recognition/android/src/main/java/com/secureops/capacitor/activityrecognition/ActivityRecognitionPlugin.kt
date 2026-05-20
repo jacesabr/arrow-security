@@ -1,4 +1,4 @@
-package `in`.secureops.capacitor.activityrecognition
+package com.secureops.capacitor.activityrecognition
 
 import android.Manifest
 import android.app.PendingIntent
@@ -216,6 +216,6 @@ class ActivityRecognitionPlugin : Plugin() {
 
     companion object {
         private const val TRANSITIONS_ACTION =
-            "in.secureops.capacitor.activityrecognition.TRANSITIONS"
+            "com.secureops.capacitor.activityrecognition.TRANSITIONS"
     }
 }
