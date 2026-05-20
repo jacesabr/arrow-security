@@ -5,10 +5,6 @@ import {
   IonPage,
   IonTitle,
   IonToolbar,
-  IonList,
-  IonItem,
-  IonLabel,
-  IonBadge,
   IonSkeletonText,
   IonIcon,
 } from '@ionic/react'
@@ -22,11 +18,36 @@ import { useActivityStore } from '../store/activity'
 
 const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>('BackgroundGeolocation')
 
-const STATUS_COLOR: Record<string, string> = {
-  scheduled: 'primary',
-  active: 'success',
-  completed: 'medium',
-  missed: 'danger',
+const STATUS_BADGE: Record<string, { bg: string; color: string; label: string }> = {
+  scheduled: { bg: 'rgba(245,158,11,0.10)', color: '#92400e', label: 'Scheduled' },
+  active:    { bg: 'rgba(16,185,129,0.12)', color: '#065f46', label: 'Active' },
+  completed: { bg: 'rgba(92,88,85,0.10)',   color: '#5c5855', label: 'Completed' },
+  missed:    { bg: 'rgba(239,68,68,0.10)',  color: '#b91c1c', label: 'Missed' },
+}
+
+function fmtTime(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+}
+
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+}
+
+function hoursWorked(checkIn: string | null, checkOut: string | null): number {
+  if (!checkIn || !checkOut) return 0
+  const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime()
+  return ms > 0 ? ms / 3_600_000 : 0
+}
+
+function monthKey(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function monthLabel(key: string): string {
+  const [y, m] = key.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
 }
 
 function getActiveShift(shifts: any[]): any | null {
@@ -147,12 +168,22 @@ export const ShiftsPage: React.FC = () => {
     setTracking(false)
   }
 
-  const grouped = shifts.reduce<Record<string, any[]>>((acc, s) => {
-    const date = new Date(s.startsAt).toDateString()
-    if (!acc[date]) acc[date] = []
-    acc[date].push(s)
+  // Newest first; the API already orders that way but defend against changes.
+  const ordered = [...shifts].sort(
+    (a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime(),
+  )
+
+  // Roll up hours by calendar month (1st → last day of that month). Only shifts
+  // with both a clock-in and clock-out contribute — incomplete shifts don't count.
+  const monthlyTotals = ordered.reduce<Record<string, number>>((acc, s) => {
+    const hrs = hoursWorked(s.checkInAt, s.checkOutAt)
+    if (hrs <= 0) return acc
+    const key = monthKey(s.startsAt)
+    acc[key] = (acc[key] ?? 0) + hrs
     return acc
   }, {})
+  const monthKeysOrdered = Object.keys(monthlyTotals).sort().reverse()
+  const currentMonthKey = monthKey(new Date().toISOString())
 
   return (
     <IonPage>
@@ -183,39 +214,116 @@ export const ShiftsPage: React.FC = () => {
               <IonSkeletonText key={i} animated style={{ height: 60, marginBottom: 8, borderRadius: 8 }} />
             ))}
           </div>
-        ) : shifts.length === 0 ? (
+        ) : ordered.length === 0 ? (
           <div style={{ textAlign: 'center', paddingTop: 80 }}>
             <IonIcon icon={calendarOutline} style={{ fontSize: 64, color: '#e8e5e0' }} />
             <p style={{ color: '#9a9490' }}>No shifts scheduled</p>
           </div>
         ) : (
-          Object.entries(grouped).map(([date, dayShifts]) => (
-            <div key={date}>
-              <div style={{ padding: '12px 16px 4px', color: '#c96442', fontWeight: 600, fontSize: 13 }}>
-                {date === new Date().toDateString() ? 'Today' : date}
-              </div>
-              <IonList style={{ background: 'transparent', padding: '0 8px 8px' }}>
-                {dayShifts.map((s) => (
-                  <IonItem
-                    key={s.id}
-                    style={{ '--background': '#ffffff', '--color': '#1a1916', borderRadius: 8, marginBottom: 6 }}
-                  >
-                    <IonLabel>
-                      <h2 style={{ color: '#1a1916' }}>
-                        {new Date(s.startsAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                        {' – '}
-                        {new Date(s.endsAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                      </h2>
-                      {s.notes && <p style={{ color: '#9a9490' }}>{s.notes}</p>}
-                    </IonLabel>
-                    <IonBadge color={STATUS_COLOR[s.status] ?? 'medium'} slot="end">
-                      {s.status}
-                    </IonBadge>
-                  </IonItem>
-                ))}
-              </IonList>
+          <div style={{ padding: '14px 14px 24px' }}>
+            {/* Shifts table */}
+            <div style={{
+              background: '#ffffff',
+              border: '1px solid #e8e5e0',
+              borderRadius: 12,
+              overflow: 'hidden',
+              marginBottom: 16,
+            }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                <thead>
+                  <tr style={{ background: '#fafaf9' }}>
+                    {['Date', 'Site', 'Clock in', 'Clock out'].map(h => (
+                      <th key={h} style={{
+                        padding: '10px 8px',
+                        textAlign: 'left',
+                        color: '#9a9490',
+                        fontWeight: 600,
+                        fontSize: 11,
+                        letterSpacing: '0.05em',
+                        textTransform: 'uppercase',
+                        borderBottom: '1px solid #e8e5e0',
+                      }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ordered.map(s => {
+                    const badge = STATUS_BADGE[s.status] ?? STATUS_BADGE.scheduled
+                    return (
+                      <tr key={s.id} style={{ borderBottom: '1px solid #f0ede8' }}>
+                        <td style={{ padding: '11px 8px', color: '#1a1916', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          <div>{fmtDate(s.startsAt)}</div>
+                          <div style={{ marginTop: 3 }}>
+                            <span style={{
+                              fontSize: 10, fontWeight: 600,
+                              padding: '1px 7px', borderRadius: 10,
+                              background: badge.bg, color: badge.color,
+                            }}>{badge.label}</span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '11px 8px', color: '#5c5855' }}>{s.siteName ?? '—'}</td>
+                        <td style={{ padding: '11px 8px', color: s.checkInAt ? '#1a1916' : '#9a9490' }}>
+                          {fmtTime(s.checkInAt)}
+                        </td>
+                        <td style={{ padding: '11px 8px', color: s.checkOutAt ? '#1a1916' : '#9a9490' }}>
+                          {fmtTime(s.checkOutAt)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
-          ))
+
+            {/* Monthly totals */}
+            <div style={{
+              background: '#ffffff',
+              border: '1px solid #e8e5e0',
+              borderRadius: 12,
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                padding: '11px 14px',
+                borderBottom: '1px solid #e8e5e0',
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: '#9a9490',
+              }}>Hours by month</div>
+              {monthKeysOrdered.length === 0 ? (
+                <div style={{ padding: '14px', color: '#9a9490', fontSize: 13 }}>
+                  No completed shifts yet — clock in and out to log hours.
+                </div>
+              ) : monthKeysOrdered.map(key => {
+                const isCurrent = key === currentMonthKey
+                return (
+                  <div key={key} style={{
+                    display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+                    padding: '11px 14px',
+                    borderBottom: '1px solid #f5f4f2',
+                    background: isCurrent ? 'rgba(201,100,66,0.04)' : 'transparent',
+                  }}>
+                    <div style={{
+                      fontSize: 13,
+                      fontWeight: isCurrent ? 600 : 500,
+                      color: isCurrent ? '#c96442' : '#1a1916',
+                    }}>
+                      {monthLabel(key)}{isCurrent && <span style={{ marginLeft: 8, fontSize: 11, color: '#9a9490', fontWeight: 500 }}>(this month)</span>}
+                    </div>
+                    <div style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: isCurrent ? '#c96442' : '#1a1916',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}>
+                      {monthlyTotals[key].toFixed(1)}h
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         )}
       </IonContent>
     </IonPage>

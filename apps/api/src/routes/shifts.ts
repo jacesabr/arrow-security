@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { db, shifts, users } from '@secureops/db'
-import { eq, and, gte, lte, inArray } from 'drizzle-orm'
+import { eq, and, gte, lte, inArray, sql } from 'drizzle-orm'
 import { requireAuth, requireTenantAdmin, requireSupervisor, getSupervisorSiteIds } from '../lib/auth'
 import { solveSchedule } from '../lib/scheduler'
 import { computeShiftMovement, computeAndStoreShiftMovement } from '../lib/shift-movement'
@@ -33,8 +33,87 @@ export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
     if (query.from) conditions.push(gte(shifts.startsAt, new Date(query.from)))
     if (query.to) conditions.push(lte(shifts.endsAt, new Date(query.to)))
 
-    const all = await db.select().from(shifts).where(and(...conditions)).orderBy(shifts.startsAt)
-    return reply.send({ data: all })
+    // Build extra WHERE fragments matching the same scoping logic.
+    const guardScope = payload.role === 'guard'
+      ? sql`AND s.guard_id = ${payload.sub}`
+      : query.guardId
+        ? sql`AND s.guard_id = ${query.guardId}`
+        : sql``
+    const supervisorScope = payload.role === 'supervisor'
+      ? await (async () => {
+          const siteIds = await getSupervisorSiteIds(payload.sub, payload.role)
+          if (siteIds === null) return sql``
+          if (siteIds.length === 0) return sql`AND FALSE`
+          return sql`AND s.site_id = ANY(${siteIds})`
+        })()
+      : sql``
+    const siteScope = query.siteId ? sql`AND s.site_id = ${query.siteId}` : sql``
+    const fromScope = query.from ? sql`AND s.starts_at >= ${new Date(query.from)}` : sql``
+    const toScope   = query.to   ? sql`AND s.ends_at   <= ${new Date(query.to)}`   : sql``
+
+    // Pull every shift plus its site name and the closest check-in / check-out
+    // attendance timestamps. LATERAL subqueries keep the join O(N) over shifts
+    // and let Postgres pick the right index per shift. The 30/60-minute padding
+    // either side of the shift window absorbs guards who clock in slightly
+    // early or out slightly late — adjust if the real tolerance is different.
+    const rows = await db.execute(sql`
+      SELECT
+        s.id, s.tenant_id, s.site_id, s.guard_id, s.starts_at, s.ends_at,
+        s.status, s.notes, s.published, s.created_at,
+        st.name AS site_name,
+        ci.verified_at AS check_in_at,
+        co.verified_at AS check_out_at
+      FROM shifts s
+      LEFT JOIN sites st ON st.id = s.site_id
+      LEFT JOIN LATERAL (
+        SELECT verified_at
+        FROM attendance_records
+        WHERE guard_id = s.guard_id
+          AND site_id  = s.site_id
+          AND type     = 'check_in'
+          AND verified_at >= s.starts_at - INTERVAL '30 minutes'
+          AND verified_at <= s.ends_at
+        ORDER BY verified_at ASC
+        LIMIT 1
+      ) ci ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT verified_at
+        FROM attendance_records
+        WHERE guard_id = s.guard_id
+          AND site_id  = s.site_id
+          AND type     = 'check_out'
+          AND verified_at >= s.starts_at
+          AND verified_at <= s.ends_at + INTERVAL '60 minutes'
+        ORDER BY verified_at DESC
+        LIMIT 1
+      ) co ON TRUE
+      WHERE s.tenant_id = ${payload.tenantId}
+        ${guardScope}
+        ${supervisorScope}
+        ${siteScope}
+        ${fromScope}
+        ${toScope}
+      ORDER BY s.starts_at DESC
+    `)
+
+    // db.execute returns snake_case keys; map to camelCase to match other endpoints.
+    const data = (rows as any[]).map((r) => ({
+      id: r.id,
+      tenantId: r.tenant_id,
+      siteId: r.site_id,
+      guardId: r.guard_id,
+      startsAt: r.starts_at,
+      endsAt: r.ends_at,
+      status: r.status,
+      notes: r.notes,
+      published: r.published,
+      createdAt: r.created_at,
+      siteName: r.site_name,
+      checkInAt:  r.check_in_at,
+      checkOutAt: r.check_out_at,
+    }))
+
+    return reply.send({ data })
   })
 
   fastify.post('/', { preHandler: requireTenantAdmin }, async (request, reply) => {
