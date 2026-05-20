@@ -36,11 +36,11 @@ const registerSchema = z.object({
   name: z.string().min(1),
   email: z.string().min(1),
   password: z.string().min(1),
-  phone: z.string().trim().min(7).max(20),
+  phone: z.string().trim().min(7).max(20).optional(),
   role: z.enum(['guard', 'supervisor', 'tenant_admin']),
   tenantSlug: z.string(),
-  // base64 data URL: "data:image/jpeg;base64,...."
-  profilePhoto: z.string().regex(/^data:image\/(jpeg|jpg|png);base64,/, 'Invalid image data'),
+  // base64 data URL: "data:image/jpeg;base64,...."; admins self-registering on the web portal don't capture a selfie
+  profilePhoto: z.string().regex(/^data:image\/(jpeg|jpg|png);base64,/, 'Invalid image data').optional(),
 })
 
 function dataUrlToBuffer(dataUrl: string): { buffer: Buffer; contentType: string } {
@@ -71,18 +71,20 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(409).send({ error: 'Conflict', message: 'Email already registered', statusCode: 409 })
     }
 
-    // Upload registration selfie to object storage before we create the user row
-    const { buffer, contentType } = dataUrlToBuffer(body.profilePhoto)
-    const ext = contentType === 'image/png' ? 'png' : 'jpg'
-    const profilePhotoKey = `${tenant.id}/profile-photos/${randomBytes(12).toString('hex')}-${Date.now()}.${ext}`
-    await putObject(profilePhotoKey, buffer, contentType)
+    let profilePhotoKey: string | null = null
+    if (body.profilePhoto) {
+      const { buffer, contentType } = dataUrlToBuffer(body.profilePhoto)
+      const ext = contentType === 'image/png' ? 'png' : 'jpg'
+      profilePhotoKey = `${tenant.id}/profile-photos/${randomBytes(12).toString('hex')}-${Date.now()}.${ext}`
+      await putObject(profilePhotoKey, buffer, contentType)
+    }
 
     const [user] = await db
       .insert(users)
       .values({
         name: body.name,
         email: body.email,
-        phone: body.phone,
+        phone: body.phone ?? null,
         role: body.role,
         tenantId: tenant.id,
         passwordHash: await hashPassword(body.password),
