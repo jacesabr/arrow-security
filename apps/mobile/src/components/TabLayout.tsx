@@ -6,6 +6,8 @@ import {
   IonIcon,
   IonLabel,
   IonRouterOutlet,
+  IonPage,
+  IonContent,
 } from '@ionic/react'
 import { Route, Redirect, Link, useLocation } from 'react-router-dom'
 import {
@@ -33,11 +35,198 @@ import { LeaveRequestPage } from '../pages/LeaveRequestPage'
 const R = Route as React.ComponentType<any>
 const Redir = Redirect as React.ComponentType<any>
 
+/* ─── Missing-from-shift insight (supervisor + admin) ─────────────────────── */
+//
+// Pulls /guard-status/missing — guards whose shift window is open right now
+// but who haven't checked in. Supervisor scope is automatic on the backend
+// (their assigned sites only). Admin scope is everything in the tenant.
+// Tap the card to open the detail sheet.
+
+type MissingRow = {
+  shiftId: string
+  guardId: string
+  guardName: string
+  guardUsername: string
+  siteId: string
+  siteName: string
+  shiftStatus: string
+  shiftStartsAt: string
+  shiftEndsAt: string
+  minutesLate: number
+  supervisor: { id: string; name: string; username: string } | null
+}
+
+function useMissingShifts(): { rows: MissingRow[]; loading: boolean; reload: () => void } {
+  const [rows, setRows] = useState<MissingRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    fetch(`${BASE_URL}/guard-status/missing`, {
+      headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
+    })
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setRows(d.data ?? []) })
+      .catch(() => { if (!cancelled) setRows([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [tick])
+
+  return { rows, loading, reload: () => setTick(x => x + 1) }
+}
+
+function fmtLate(min: number): string {
+  if (min < 60) return `${min}m late`
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return m === 0 ? `${h}h late` : `${h}h ${m}m late`
+}
+
+function MissingShiftCard({
+  rows, loading, showSupervisor, onTap,
+}: {
+  rows: MissingRow[]
+  loading: boolean
+  showSupervisor: boolean
+  onTap: () => void
+}) {
+  const count = rows.length
+  const empty = !loading && count === 0
+  const accent = count === 0 ? '#10b981' : count <= 2 ? '#f59e0b' : '#ef4444'
+  const bg    = count === 0 ? 'rgba(16,185,129,0.06)' : count <= 2 ? 'rgba(245,158,11,0.06)' : 'rgba(239,68,68,0.06)'
+  const borderC = count === 0 ? 'rgba(16,185,129,0.25)' : count <= 2 ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.35)'
+
+  return (
+    <button
+      onClick={empty ? undefined : onTap}
+      disabled={empty}
+      style={{
+        all: 'unset',
+        display: 'block', width: '100%', boxSizing: 'border-box',
+        background: bg,
+        border: `1px solid ${borderC}`,
+        borderRadius: 12,
+        padding: '14px 16px',
+        cursor: empty ? 'default' : 'pointer',
+        textAlign: 'left',
+        marginBottom: 14,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: accent,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#ffffff', fontWeight: 700, fontSize: 16,
+          }}>{loading ? '·' : count}</div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1916', letterSpacing: '-0.01em' }}>
+              {showSupervisor ? 'Guards missing from shift' : 'My guards missing from shift'}
+            </div>
+            <div style={{ fontSize: 12, color: '#5c5855', marginTop: 1 }}>
+              {loading ? 'Checking…' : count === 0 ? 'Everyone scheduled right now is checked in' : 'Shift window is open but they haven’t checked in. Tap to see details.'}
+            </div>
+          </div>
+        </div>
+        {!empty && !loading && <span style={{ color: accent, fontSize: 18, fontWeight: 600 }}>›</span>}
+      </div>
+    </button>
+  )
+}
+
+function MissingShiftModal({
+  rows, showSupervisor, onClose,
+}: {
+  rows: MissingRow[]
+  showSupervisor: boolean
+  onClose: () => void
+}) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(0,0,0,0.45)',
+        zIndex: 9000,
+        display: 'flex', alignItems: 'flex-end',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#ffffff',
+          width: '100%',
+          maxHeight: '82vh',
+          borderTopLeftRadius: 18, borderTopRightRadius: 18,
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          display: 'flex', flexDirection: 'column',
+          animation: 'slideUp 0.22s ease-out',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 0' }}>
+          <div style={{ width: 38, height: 4, borderRadius: 3, background: '#dcd8d2' }} />
+        </div>
+        <div style={{ padding: '12px 18px 8px', borderBottom: '1px solid #e8e5e0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1916' }}>Missing from shift</div>
+            <div style={{ fontSize: 12, color: '#9a9490', marginTop: 1 }}>{rows.length} {rows.length === 1 ? 'guard' : 'guards'} · shift open, not checked in</div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', color: '#5c5855', fontSize: 22, cursor: 'pointer', padding: 4 }}
+            aria-label="Close"
+          >✕</button>
+        </div>
+        <div style={{ overflowY: 'auto', flex: 1, padding: '8px 0 18px' }}>
+          {rows.length === 0 ? (
+            <div style={{ padding: '24px 18px', color: '#9a9490', fontSize: 13, textAlign: 'center' }}>No missing guards right now.</div>
+          ) : rows.map(r => (
+            <div key={r.shiftId} style={{ padding: '12px 18px', borderBottom: '1px solid #f5f4f2' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 600, color: '#1a1916' }}>{r.guardName}</div>
+                  <div style={{ fontSize: 12, color: '#5c5855', marginTop: 2 }}>{r.siteName}</div>
+                  {showSupervisor && (
+                    <div style={{ fontSize: 11.5, color: '#9a9490', marginTop: 4 }}>
+                      Supervisor: <span style={{ color: '#5c5855', fontWeight: 500 }}>{r.supervisor?.name ?? '— unassigned'}</span>
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11, color: '#9a9490', marginTop: 4 }}>
+                    Scheduled {new Date(r.shiftStartsAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} – {new Date(r.shiftEndsAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+                <span style={{
+                  fontSize: 11, fontWeight: 700,
+                  background: r.minutesLate > 120 ? '#fee2e2' : '#fef3c7',
+                  color: r.minutesLate > 120 ? '#b91c1c' : '#92400e',
+                  padding: '3px 8px', borderRadius: 12,
+                  whiteSpace: 'nowrap', flexShrink: 0,
+                }}>{fmtLate(r.minutesLate)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <style>{`
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to   { transform: translateY(0); }
+        }
+      `}</style>
+    </div>
+  )
+}
+
 const SupervisorDashboard: React.FC = () => {
   const { user, logout } = useAuthStore()
   const [guardStatus, setGuardStatus] = useState<any[]>([])
   const [incidents, setIncidents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const { rows: missing, loading: missingLoading } = useMissingShifts()
+  const [showMissing, setShowMissing] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -55,7 +244,6 @@ const SupervisorDashboard: React.FC = () => {
 
   const onShift = guardStatus.length
   const online = guardStatus.filter((g: any) => g.isOnline).length
-  const pendingReview = guardStatus.filter((g: any) => g.selfieReviewStatus === 'pending' && g.selfieUrl).length
 
   const statBoxStyle: React.CSSProperties = {
     background: '#ffffff',
@@ -66,7 +254,9 @@ const SupervisorDashboard: React.FC = () => {
   }
 
   return (
-    <div style={{ background: '#fafaf9', minHeight: '100vh', color: '#1a1916' }}>
+    <IonPage>
+      <IonContent style={{ '--background': '#fafaf9' }}>
+      <div style={{ background: '#fafaf9', color: '#1a1916' }}>
       {/* Header */}
       <div style={{ background: '#ffffff', borderBottom: '1px solid #e8e5e0', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
@@ -82,6 +272,7 @@ const SupervisorDashboard: React.FC = () => {
       </div>
 
       <div style={{ padding: 16 }}>
+        <MissingShiftCard rows={missing} loading={missingLoading} showSupervisor={false} onTap={() => setShowMissing(true)} />
         {/* Stats row */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
           <div style={statBoxStyle}>
@@ -91,10 +282,6 @@ const SupervisorDashboard: React.FC = () => {
           <div style={statBoxStyle}>
             <div style={{ fontSize: 22, fontWeight: 700, color: '#10b981' }}>{loading ? '—' : online}</div>
             <div style={{ fontSize: 11, color: '#9a9490', marginTop: 2 }}>Online</div>
-          </div>
-          <div style={statBoxStyle}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: pendingReview > 0 ? '#f59e0b' : '#9a9490' }}>{loading ? '—' : pendingReview}</div>
-            <div style={{ fontSize: 11, color: '#9a9490', marginTop: 2 }}>To Review</div>
           </div>
         </div>
 
@@ -148,7 +335,12 @@ const SupervisorDashboard: React.FC = () => {
           )}
         </div>
       </div>
-    </div>
+      </div>
+      </IonContent>
+      {showMissing && (
+        <MissingShiftModal rows={missing} showSupervisor={false} onClose={() => setShowMissing(false)} />
+      )}
+    </IonPage>
   )
 }
 
@@ -378,7 +570,13 @@ const SupervisorMapPage: React.FC = () => {
   const guardList = Array.from(guards.values())
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 56px)', background: '#1a1916', overflow: 'hidden' }}>
+    <IonPage>
+      <IonContent
+        fullscreen
+        scrollY={false}
+        style={{ '--background': '#1a1916', '--padding-top': '0', '--padding-bottom': '0', '--padding-start': '0', '--padding-end': '0' } as any}
+      >
+    <div style={{ position: 'relative', width: '100%', height: '100%', background: '#1a1916', overflow: 'hidden' }}>
       {/* Map container */}
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
 
@@ -492,45 +690,165 @@ const SupervisorMapPage: React.FC = () => {
         }
       `}</style>
     </div>
+      </IonContent>
+    </IonPage>
   )
 }
 
 const LeaveApprovalsPage: React.FC = () => (
-  <div style={{ background: '#fafaf9', minHeight: '100vh', padding: 24, color: '#1a1916' }}>
-    <h2 style={{ margin: '0 0 8px' }}>Leave Approvals</h2>
-    <p style={{ color: '#9a9490', margin: 0 }}>Time-off request approvals — coming soon.</p>
-  </div>
+  <IonPage>
+    <IonContent style={{ '--background': '#fafaf9' }}>
+      <div style={{ padding: 24, color: '#1a1916' }}>
+        <h2 style={{ margin: '0 0 8px' }}>Leave Approvals</h2>
+        <p style={{ color: '#9a9490', margin: 0 }}>Time-off request approvals — coming soon.</p>
+      </div>
+    </IonContent>
+  </IonPage>
 )
 
 const AdminDashboard: React.FC = () => {
-  const { user } = useAuthStore()
+  const { user, logout } = useAuthStore()
+  const [stats, setStats] = useState<any>(null)
+  const [incidents, setIncidents] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const { rows: missing, loading: missingLoading } = useMissingShifts()
+  const [showMissing, setShowMissing] = useState(false)
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${BASE_URL}/stats`, {
+        headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
+      }).then(r => r.json()).catch(() => ({ data: null })),
+      fetch(`${BASE_URL}/incidents?status=open&limit=5`, {
+        headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
+      }).then(r => r.json()).catch(() => ({ data: [] })),
+    ]).then(([s, inc]) => {
+      setStats(s.data ?? null)
+      setIncidents(inc.data ?? [])
+    }).finally(() => setLoading(false))
+  }, [])
+
+  const statBoxStyle: React.CSSProperties = {
+    background: '#ffffff',
+    borderRadius: 12,
+    padding: '14px 16px',
+    border: '1px solid #e8e5e0',
+  }
+
   return (
-    <div style={{ background: '#fafaf9', minHeight: '100vh', padding: 24, color: '#1a1916' }}>
-      <h2 style={{ margin: '0 0 8px' }}>Management View</h2>
-      <p style={{ color: '#9a9490', margin: 0 }}>Logged in as: {user?.name}</p>
-      <p style={{ color: '#5c5855', marginTop: 16, fontSize: 14 }}>
-        Use the Operations Portal for full management features including payroll, roster, and guard status.
-      </p>
-    </div>
+    <IonPage>
+      <IonContent style={{ '--background': '#fafaf9' }}>
+        <div style={{ padding: '24px 20px 12px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ color: '#1a1916', fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>
+                Good {getTimeOfDay()}, {user?.name?.split(' ')[0] ?? 'admin'}
+              </div>
+              <div style={{ color: '#9a9490', fontSize: 13, marginTop: 4 }}>
+                {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </div>
+            </div>
+            <button
+              onClick={() => { logout(); window.location.replace('/login') }}
+              style={{ background: 'none', border: 'none', color: '#9a9490', cursor: 'pointer', padding: 6, fontSize: 18 }}
+              aria-label="Sign out"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <div style={{ padding: '0 20px' }}>
+          <MissingShiftCard rows={missing} loading={missingLoading} showSupervisor={true} onTap={() => setShowMissing(true)} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+            <div style={statBoxStyle}>
+              <div style={{ fontSize: 24, fontWeight: 700, color: '#c96442' }}>{loading ? '—' : stats?.activeShifts ?? 0}</div>
+              <div style={{ fontSize: 12, color: '#9a9490', marginTop: 2 }}>Guards on shift</div>
+            </div>
+            <div style={statBoxStyle}>
+              <div style={{ fontSize: 24, fontWeight: 700, color: stats?.openIncidents > 0 ? '#ef4444' : '#10b981' }}>
+                {loading ? '—' : stats?.openIncidents ?? 0}
+              </div>
+              <div style={{ fontSize: 12, color: '#9a9490', marginTop: 2 }}>Open incidents</div>
+            </div>
+            <div style={statBoxStyle}>
+              <div style={{ fontSize: 24, fontWeight: 700, color: '#1a1916' }}>{loading ? '—' : stats?.guards ?? 0}</div>
+              <div style={{ fontSize: 12, color: '#9a9490', marginTop: 2 }}>Total guards</div>
+            </div>
+            <div style={statBoxStyle}>
+              <div style={{ fontSize: 24, fontWeight: 700, color: '#1a1916' }}>{loading ? '—' : stats?.sites ?? 0}</div>
+              <div style={{ fontSize: 12, color: '#9a9490', marginTop: 2 }}>Active sites</div>
+            </div>
+          </div>
+
+          <a
+            href="https://arrow-security-tenant.onrender.com"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: 'block', textDecoration: 'none',
+              background: 'linear-gradient(135deg, #c96442 0%, #b3572e 100%)',
+              color: '#ffffff', borderRadius: 14, padding: '18px 18px',
+              marginBottom: 16,
+              boxShadow: '0 4px 14px rgba(201,100,66,0.25)',
+            }}
+          >
+            <div style={{ fontSize: 11, opacity: 0.85, letterSpacing: 0.4, textTransform: 'uppercase', fontWeight: 600 }}>
+              Operations Portal
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>
+              Open full management →
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.88, marginTop: 4, lineHeight: 1.4 }}>
+              Payroll, roster, guard status, sites — everything you need is on the web portal.
+            </div>
+          </a>
+
+          <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e8e5e0', overflow: 'hidden', marginBottom: 24 }}>
+            <div style={{ padding: '12px 14px', borderBottom: '1px solid #e8e5e0', fontWeight: 600, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>Recent incidents</span>
+              {incidents.length > 0 && (
+                <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 20 }}>{incidents.length}</span>
+              )}
+            </div>
+            {loading ? (
+              <div style={{ padding: '16px 14px', color: '#9a9490', fontSize: 13 }}>Loading…</div>
+            ) : incidents.length === 0 ? (
+              <div style={{ padding: '16px 14px', color: '#9a9490', fontSize: 13 }}>No open incidents</div>
+            ) : (
+              incidents.map((inc: any) => (
+                <div key={inc.id} style={{ padding: '10px 14px', borderBottom: '1px solid #f5f4f2' }}>
+                  <div style={{ fontWeight: 500, fontSize: 13, color: '#1a1916' }}>{inc.title}</div>
+                  <div style={{ color: '#9a9490', fontSize: 11, marginTop: 2 }}>
+                    {inc.severity?.toUpperCase()} · {new Date(inc.createdAt).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </IonContent>
+      {showMissing && (
+        <MissingShiftModal rows={missing} showSupervisor={true} onClose={() => setShowMissing(false)} />
+      )}
+    </IonPage>
   )
 }
 
 /* ─── Guide Banner (top of every screen except /tabs/guide itself) ─────── */
-//
-// Full-width banner inviting users to the user guide. Sits below the Android
-// status bar (safe-area-inset-top) and above the page content. Hides on the
-// guide page itself. Includes the dev account-switch bar offset when running
-// in dev.
+// Full-width banner inviting users to the user guide. Lives as a normal block
+// in TabLayout's flex column (NOT position: fixed) so IonRouterOutlet — which
+// uses position: absolute and ignores its parent's padding — naturally sits
+// below it. `padding-top: env(safe-area-inset-top)` handles the Android status
+// bar without relying on a fragile fixed-offset constant.
 
-const GUIDE_BANNER_HEIGHT = 56
-
-function GuideBanner({ devOffset = 0 }: { devOffset?: number }) {
+function GuideBanner() {
   const location = useLocation()
   const onGuide = location.pathname === '/tabs/guide'
   if (onGuide) return null
   return (
     <div style={{
-      position: 'fixed', top: devOffset, left: 0, right: 0, zIndex: 8000,
+      flexShrink: 0,
       paddingTop: 'env(safe-area-inset-top)',
       background: 'linear-gradient(135deg, rgba(201,100,66,0.10) 0%, rgba(201,100,66,0.04) 100%)',
       borderBottom: '1px solid rgba(201,100,66,0.18)',
@@ -539,7 +857,7 @@ function GuideBanner({ devOffset = 0 }: { devOffset?: number }) {
         to="/tabs/guide"
         style={{
           display: 'flex', alignItems: 'center', gap: 12,
-          height: GUIDE_BANNER_HEIGHT,
+          height: 56,
           padding: '0 16px',
           textDecoration: 'none',
         }}
@@ -566,10 +884,12 @@ function GuideBanner({ devOffset = 0 }: { devOffset?: number }) {
   )
 }
 
-// Height used for top padding so page content starts below the banner + safe area.
-// `env(safe-area-inset-top)` is added at runtime via CSS, so we approximate it
-// with a comfortable static padding here.
-const GUIDE_BANNER_TOTAL = GUIDE_BANNER_HEIGHT + 24
+const LAYOUT_SHELL: React.CSSProperties = {
+  display: 'flex', flexDirection: 'column', height: '100vh',
+}
+const LAYOUT_BODY: React.CSSProperties = {
+  flex: 1, position: 'relative', minHeight: 0,
+}
 
 /* ─── Main Layout ───────────────────────────────────────────────────────── */
 
@@ -580,13 +900,12 @@ export const TabLayout: React.FC = () => {
   const isSupervisor = role === 'supervisor'
   const isAdmin = role === 'tenant_admin' || role === 'platform_admin'
   const tabBarStyle = { '--background': '#ffffff', '--border': '1px solid #e8e5e0' } as any
-  const topPad = { paddingTop: GUIDE_BANNER_TOTAL }
 
   if (isAdmin) {
     return (
-      <>
-        <GuideBanner devOffset={0} />
-        <div style={topPad}>
+      <div style={LAYOUT_SHELL}>
+        <GuideBanner />
+        <div style={LAYOUT_BODY}>
           <IonTabs>
             <IonRouterOutlet>
               <R exact path="/tabs/dashboard" component={AdminDashboard} />
@@ -617,15 +936,15 @@ export const TabLayout: React.FC = () => {
             </IonTabBar>
           </IonTabs>
         </div>
-      </>
+      </div>
     )
   }
 
   if (isSupervisor) {
     return (
-      <>
-        <GuideBanner devOffset={0} />
-        <div style={topPad}>
+      <div style={LAYOUT_SHELL}>
+        <GuideBanner />
+        <div style={LAYOUT_BODY}>
           <IonTabs>
             <IonRouterOutlet>
               <R exact path="/tabs/dashboard" component={SupervisorDashboard} />
@@ -659,15 +978,15 @@ export const TabLayout: React.FC = () => {
             </IonTabBar>
           </IonTabs>
         </div>
-      </>
+      </div>
     )
   }
 
-  // Guard view (default) — no DevAccountBar
+  // Guard view (default)
   return (
-    <>
-      <GuideBanner devOffset={0} />
-      <div style={{ paddingTop: GUIDE_BANNER_TOTAL }}>
+    <div style={LAYOUT_SHELL}>
+      <GuideBanner />
+      <div style={LAYOUT_BODY}>
         <IonTabs>
           <IonRouterOutlet>
             <R exact path="/tabs/dashboard" component={DashboardPage} />
@@ -702,6 +1021,6 @@ export const TabLayout: React.FC = () => {
           </IonTabBar>
         </IonTabs>
       </div>
-    </>
+    </div>
   )
 }

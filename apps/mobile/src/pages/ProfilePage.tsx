@@ -11,7 +11,7 @@ import {
   IonItem,
   IonLabel,
 } from '@ionic/react'
-import { personOutline, logOutOutline, shieldCheckmarkOutline, callOutline, mailOutline } from 'ionicons/icons'
+import { personOutline, logOutOutline, mailOutline } from 'ionicons/icons'
 import { useHistory } from 'react-router-dom'
 import { useAuthStore } from '../store/auth'
 
@@ -47,10 +47,6 @@ export const ProfilePage: React.FC = () => {
           <IonItem style={{ '--background': '#ffffff', '--color': '#1a1916', borderRadius: 8, marginBottom: 8 }}>
             <IonIcon icon={mailOutline} slot="start" style={{ color: '#c96442' }} />
             <IonLabel>@{user?.username}</IonLabel>
-          </IonItem>
-          <IonItem style={{ '--background': '#ffffff', '--color': '#1a1916', borderRadius: 8, marginBottom: 8 }}>
-            <IonIcon icon={shieldCheckmarkOutline} slot="start" style={{ color: user?.faceEnrolled ? '#10b981' : '#ef4444' }} />
-            <IonLabel>Face Recognition: {user?.faceEnrolled ? 'Enrolled' : 'Not enrolled'}</IonLabel>
           </IonItem>
         </IonList>
 

@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { db, shifts, sites, users, supervisorSites } from '@secureops/db'
-import { eq, and, gte, inArray, sql } from 'drizzle-orm'
+import { eq, and, gte, lte, inArray, sql, ne } from 'drizzle-orm'
 import { requireSupervisor, getSupervisorSiteIds } from '../lib/auth'
 
 export const guardStatusRoutes: FastifyPluginAsync = async (fastify) => {
@@ -121,5 +121,93 @@ export const guardStatusRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     return reply.send({ data: result })
+  })
+
+  // GET /api/guard-status/missing
+  //
+  // Guards whose shift window is open right now but they haven't checked in
+  // (status still 'scheduled' or already 'missed'). Supervisor sees only the
+  // shifts at sites they cover; tenant_admin / platform_admin see all shifts
+  // in their tenant. Each row carries the assigned supervisor (if any) and
+  // the site so the admin can drill in.
+  fastify.get('/missing', { preHandler: requireSupervisor }, async (request, reply) => {
+    const payload = request.user as { tenantId: string; sub: string; role: string }
+    const now = new Date()
+
+    const supervisorSiteIds = await getSupervisorSiteIds(payload.sub, payload.role)
+
+    const conditions = [
+      eq(shifts.tenantId, payload.tenantId),
+      lte(shifts.startsAt, now),
+      gte(shifts.endsAt, now),
+      ne(shifts.status, 'active'),
+      ne(shifts.status, 'completed'),
+    ]
+    if (supervisorSiteIds !== null) {
+      if (supervisorSiteIds.length === 0) return reply.send({ data: [] })
+      conditions.push(inArray(shifts.siteId, supervisorSiteIds))
+    }
+
+    const rows = await db
+      .select({
+        shiftId: shifts.id,
+        siteId: shifts.siteId,
+        siteName: sites.name,
+        guardId: shifts.guardId,
+        guardName: users.name,
+        guardUsername: users.username,
+        shiftStatus: shifts.status,
+        shiftStartsAt: shifts.startsAt,
+        shiftEndsAt: shifts.endsAt,
+      })
+      .from(shifts)
+      .innerJoin(sites, eq(shifts.siteId, sites.id))
+      .innerJoin(users, eq(shifts.guardId, users.id))
+      .where(and(...conditions))
+      .orderBy(shifts.startsAt)
+
+    if (rows.length === 0) return reply.send({ data: [] })
+
+    // Pull the supervisor(s) assigned to each affected site in one query.
+    const affectedSiteIds = [...new Set(rows.map((r) => r.siteId))]
+    const supervisorRows = await db
+      .select({
+        siteId: supervisorSites.siteId,
+        supervisorId: users.id,
+        supervisorName: users.name,
+        supervisorUsername: users.username,
+      })
+      .from(supervisorSites)
+      .innerJoin(users, eq(supervisorSites.supervisorId, users.id))
+      .where(inArray(supervisorSites.siteId, affectedSiteIds))
+
+    // First supervisor per site wins for the headline display; the full list
+    // is still in `supervisors[]` for the detail view.
+    const supByStorageSite = new Map<string, { id: string; name: string; username: string }[]>()
+    for (const s of supervisorRows) {
+      const list = supByStorageSite.get(s.siteId) ?? []
+      list.push({ id: s.supervisorId, name: s.supervisorName, username: s.supervisorUsername })
+      supByStorageSite.set(s.siteId, list)
+    }
+
+    const data = rows.map((r) => {
+      const sups = supByStorageSite.get(r.siteId) ?? []
+      return {
+        shiftId: r.shiftId,
+        guardId: r.guardId,
+        guardName: r.guardName,
+        guardUsername: r.guardUsername,
+        siteId: r.siteId,
+        siteName: r.siteName,
+        shiftStatus: r.shiftStatus,
+        shiftStartsAt: r.shiftStartsAt,
+        shiftEndsAt: r.shiftEndsAt,
+        minutesLate: Math.max(0, Math.floor((now.getTime() - new Date(r.shiftStartsAt).getTime()) / 60000)),
+        supervisor: sups[0] ?? null,
+        supervisors: sups,
+      }
+    })
+
+    return reply.send({ data })
   })
 }
