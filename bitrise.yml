@@ -34,7 +34,9 @@ workflows:
             - content: |-
                 #!/bin/bash
                 set -ex
-                npm install -g pnpm@9
+                # Bitrise's ubuntu-22-android stack ships pnpm via asdf; install only if absent.
+                command -v pnpm || npm install -g pnpm@9
+                pnpm --version
                 pnpm install
       - script@1:
           title: Build mobile web bundle (Vite)
