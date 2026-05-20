@@ -10,50 +10,35 @@ import { X, Loader2, BookOpen } from 'lucide-react'
 function TopBar() {
   const pathname = usePathname()
   const onGuide = pathname === '/guide'
+  if (onGuide) return null
+
   return (
-    <div style={{
-      height: 38,
-      flexShrink: 0,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'flex-end',
-      padding: '0 24px',
-      background: '#ffffff',
-      borderBottom: '1px solid #ebe8e2',
-    }}>
-      <Link
-        href="/guide"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: '5px 11px',
-          borderRadius: 7,
-          fontSize: 12.5,
-          fontWeight: 500,
-          textDecoration: 'none',
-          background: onGuide ? 'rgba(201,100,66,0.1)' : 'transparent',
-          color: onGuide ? '#c96442' : '#5c5855',
-          border: `1px solid ${onGuide ? 'rgba(201,100,66,0.2)' : 'transparent'}`,
-          transition: 'color 0.12s, background 0.12s, border-color 0.12s',
-        }}
-        onMouseEnter={e => {
-          if (!onGuide) {
-            (e.currentTarget as HTMLElement).style.background = '#f4f2ef'
-            ;(e.currentTarget as HTMLElement).style.color = '#1a1916'
-          }
-        }}
-        onMouseLeave={e => {
-          if (!onGuide) {
-            (e.currentTarget as HTMLElement).style.background = 'transparent'
-            ;(e.currentTarget as HTMLElement).style.color = '#5c5855'
-          }
-        }}
-      >
-        <BookOpen size={14} />
-        User Guide
-      </Link>
-    </div>
+    <Link
+      href="/guide"
+      style={{
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        padding: '11px 24px',
+        background: 'linear-gradient(90deg, rgba(201,100,66,0.10) 0%, rgba(201,100,66,0.16) 50%, rgba(201,100,66,0.10) 100%)',
+        borderBottom: '1px solid rgba(201,100,66,0.25)',
+        textDecoration: 'none',
+        color: '#c96442',
+        fontSize: 13.5,
+        fontWeight: 600,
+        letterSpacing: '-0.005em',
+        cursor: 'pointer',
+        transition: 'background 0.15s',
+      }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'linear-gradient(90deg, rgba(201,100,66,0.14) 0%, rgba(201,100,66,0.22) 50%, rgba(201,100,66,0.14) 100%)' }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'linear-gradient(90deg, rgba(201,100,66,0.10) 0%, rgba(201,100,66,0.16) 50%, rgba(201,100,66,0.10) 100%)' }}
+    >
+      <BookOpen size={16} />
+      <span>New here? Read the <span style={{ textDecoration: 'underline' }}>User Guide</span> — what every role can do inside Arrow Security</span>
+      <span style={{ fontSize: 16, marginLeft: 2 }}>›</span>
+    </Link>
   )
 }
 

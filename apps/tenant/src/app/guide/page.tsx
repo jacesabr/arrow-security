@@ -2,6 +2,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageShell, Main, PageHeader, Card } from '../../components/ui'
+import { NavMockup, NavMockupStyles } from '../../components/NavMockup'
 import { GUIDE_INTRO, GUIDE_SECTIONS, GUIDE_VERSION, type GuideSection } from '@secureops/shared'
 
 function PlatformPill({ label }: { label: string }) {
@@ -21,25 +22,6 @@ function PlatformPill({ label }: { label: string }) {
   )
 }
 
-function NavDiagram({ ascii }: { ascii: string }) {
-  return (
-    <pre style={{
-      background: 'var(--surface-2)',
-      border: '1px solid var(--border)',
-      borderRadius: 8,
-      padding: '14px 16px',
-      fontSize: 12.5,
-      lineHeight: 1.5,
-      color: 'var(--text-2)',
-      fontFamily: '"JetBrains Mono","Cascadia Code",ui-monospace,monospace',
-      overflowX: 'auto',
-      margin: '0 0 20px',
-    }}>
-      {ascii}
-    </pre>
-  )
-}
-
 function SectionCard({ section }: { section: GuideSection }) {
   return (
     <Card style={{ padding: 28, marginBottom: 18 }}>
@@ -51,7 +33,7 @@ function SectionCard({ section }: { section: GuideSection }) {
       </div>
       <p style={{ color: 'var(--text-2)', fontSize: 14, margin: '0 0 18px' }}>{section.oneLiner}</p>
 
-      <NavDiagram ascii={section.navDiagram} />
+      <NavMockup section={section} />
 
       <h3 style={{ color: 'var(--text)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 12px' }}>
         Screens
@@ -92,6 +74,7 @@ export default function GuidePage() {
 
   return (
     <PageShell>
+      <NavMockupStyles />
       <Main maxWidth={920}>
         <PageHeader
           title="User Guide"

@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useViewAs, type ViewAsRole } from '../context/ViewAsContext'
 
 const ROLE_DISPLAY: Record<string, string> = {
   tenant_admin:    'Admin',
@@ -35,60 +34,6 @@ const NAV: NavItem[] = [
   { href: '/supervisors',    label: 'Supervisors',     adminOnly: true },
 ]
 
-const ROLE_LABELS: Record<ViewAsRole, string> = {
-  owner: 'Owner',
-  supervisor: 'Supervisor',
-  guard: 'Guard',
-}
-
-function ViewAsSwitcher() {
-  const { viewAs, setViewAs, isSimulating } = useViewAs()
-
-  return (
-    <div style={{ padding: '12px 16px', borderTop: '1px solid #e8e5e0' }}>
-      {isSimulating && (
-        <div style={{
-          marginBottom: 8,
-          padding: '4px 8px',
-          borderRadius: 6,
-          fontSize: 12,
-          textAlign: 'center',
-          background: 'rgba(201,100,66,0.08)',
-          border: '1px solid rgba(201,100,66,0.2)',
-          color: '#c96442',
-        }}>
-          Viewing as {viewAs}
-        </div>
-      )}
-      <p style={{ color: '#9a9490', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-        View As
-      </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {(Object.keys(ROLE_LABELS) as ViewAsRole[]).map((role) => (
-          <button
-            key={role}
-            onClick={() => setViewAs(role)}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '6px 10px',
-              borderRadius: 6,
-              fontSize: 13,
-              background: viewAs === role ? 'rgba(201,100,66,0.08)' : 'transparent',
-              border: `1px solid ${viewAs === role ? 'rgba(201,100,66,0.2)' : 'transparent'}`,
-              color: viewAs === role ? '#c96442' : '#9a9490',
-              cursor: 'pointer',
-              transition: 'color 0.1s',
-            }}
-          >
-            {ROLE_LABELS[role]}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
@@ -108,7 +53,6 @@ export function Sidebar() {
   }, [])
 
   const isAdmin = userRole === 'tenant_admin' || userRole === 'platform_admin'
-  const isManager = isAdmin || userRole === 'supervisor'
 
   function visibleNav() {
     return NAV.filter(item => {
@@ -158,28 +102,10 @@ export function Sidebar() {
             <span style={{ fontSize: 11.5, fontWeight: 600, color: '#c96442' }}>{userLabel}</span>
           </div>
         )}
-        {isManager && (
-          <button
-            onClick={() => window.open('/dev-ref', '_blank')}
-            title="Developer reference"
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              padding: '6px 10px', borderRadius: 7, cursor: 'pointer',
-              background: '#f9f8f6', border: '1px solid #ebe8e2',
-              color: '#9a9490', fontSize: 11.5,
-              fontFamily: '"JetBrains Mono","Cascadia Code",ui-monospace,monospace',
-              transition: 'border-color 0.15s, color 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = '#c96442'; e.currentTarget.style.color = '#c96442' }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '#ebe8e2'; e.currentTarget.style.color = '#9a9490' }}
-          >
-            <span>◈</span> dev reference
-          </button>
-        )}
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: '12px 10px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <nav className="sidebar-nav" style={{ flex: 1, padding: '12px 10px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
         {visibleNav().map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
@@ -206,9 +132,6 @@ export function Sidebar() {
           )
         })}
       </nav>
-
-      {/* View As Switcher — managers only. Guards have no other role to simulate. */}
-      {isManager && <ViewAsSwitcher />}
 
       {/* Sign out */}
       <div style={{ padding: '12px 10px', borderTop: '1px solid #ebe8e2' }}>
