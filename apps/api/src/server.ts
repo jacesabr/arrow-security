@@ -115,6 +115,18 @@ async function runMigrations() {
   const migrateDb = drizzle(sql)
   const migrationsFolder = path.join(__dirname, '../../../packages/db/src/migrations')
   try {
+    // One-shot reconciliation: when the migration history is consolidated
+    // (e.g. the old 0000–0009 chain replaced with a single baseline), the
+    // existing `drizzle.__drizzle_migrations` rows no longer match the journal
+    // and Drizzle refuses to boot. Setting RESET_DRIZZLE_MIGRATIONS=true on the
+    // next deploy clears those rows so the new baseline records cleanly. The
+    // new baseline is idempotent (DO $$ + IF NOT EXISTS), so re-running it
+    // against an existing schema is a no-op. Remove the env var after one
+    // successful deploy.
+    if (process.env.RESET_DRIZZLE_MIGRATIONS === 'true') {
+      console.warn('RESET_DRIZZLE_MIGRATIONS=true — clearing drizzle.__drizzle_migrations before migrate')
+      await sql.unsafe('DELETE FROM drizzle.__drizzle_migrations')
+    }
     await migrate(migrateDb, { migrationsFolder })
     console.log('Migrations complete.')
 
