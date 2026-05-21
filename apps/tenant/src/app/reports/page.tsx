@@ -1,10 +1,5 @@
 'use client'
-// Bails out of Next's static prerender — the page reads ?month from the URL
-// via useSearchParams() and renders auth-gated live data, so prerender would
-// throw "useSearchParams() should be wrapped in a suspense boundary".
-export const dynamic = 'force-dynamic'
-
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PageShell, Main, PageHeader, Card } from '../../components/ui'
@@ -105,8 +100,22 @@ function SortTh({
 }
 
 /* ─── Page ──────────────────────────────────────────────────────────────── */
+//
+// Next 16's static prerender chokes on top-level useSearchParams() in a client
+// page, so we extract the content into an inner component and wrap it in
+// Suspense at the export boundary. The Suspense fallback is null because the
+// shell renders immediately and the inner component's own loading state takes
+// over once Suspense resolves.
 
 export default function ReportsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReportsContent />
+    </Suspense>
+  )
+}
+
+function ReportsContent() {
   const router = useRouter()
   const params = useSearchParams()
   const initialMonth = params.get('month') || currentMonthKey()
