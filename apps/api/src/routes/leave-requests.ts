@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { db, leaveRequests } from '@secureops/db'
-import { eq, and, desc, gte, inArray } from 'drizzle-orm'
+import { db, leaveRequests, supervisorSites, shifts, users } from '@secureops/db'
+import { eq, and, or, desc, gte, inArray } from 'drizzle-orm'
 import { requireAuth, requireSupervisor, getSupervisorGuardIds } from '../lib/auth'
 
 export const leaveRequestsRoutes: FastifyPluginAsync = async (fastify) => {
@@ -10,39 +10,71 @@ export const leaveRequestsRoutes: FastifyPluginAsync = async (fastify) => {
     const payload = request.user as { tenantId: string; sub: string; role: string }
     const query = z.object({
       guardId: z.string().optional(),
+      supervisorId: z.string().optional(), // admin filter
       status: z.enum(['pending', 'approved', 'rejected', 'cancelled']).optional(),
       from: z.string().optional(),
     }).parse(request.query)
 
     const conditions = [eq(leaveRequests.tenantId, payload.tenantId)]
 
-    // Guards can only see their own requests
     if (payload.role === 'guard') {
+      // Guard sees only their own requests
       conditions.push(eq(leaveRequests.guardId, payload.sub))
     } else if (payload.role === 'supervisor') {
-      // Supervisors only see requests from guards at their sites
-      const guardIds = await getSupervisorGuardIds(payload.sub, payload.role)
-      if (!guardIds || guardIds.length === 0) return reply.send({ data: [] })
+      // Supervisor sees their team's requests + their own
+      const teamIds = await getSupervisorGuardIds(payload.sub, payload.role) ?? []
+      const scopeIds = [...new Set([...teamIds, payload.sub])]
       if (query.guardId) {
-        if (!guardIds.includes(query.guardId)) return reply.send({ data: [] })
+        if (!scopeIds.includes(query.guardId)) return reply.send({ data: [] })
         conditions.push(eq(leaveRequests.guardId, query.guardId))
       } else {
+        conditions.push(inArray(leaveRequests.guardId, scopeIds))
+      }
+    } else {
+      // Admin / platform_admin — optional filter dropdowns
+      if (query.guardId) conditions.push(eq(leaveRequests.guardId, query.guardId))
+      if (query.supervisorId) {
+        // Resolve supervisor → guards who've worked their sites
+        const siteRows = await db
+          .select({ siteId: supervisorSites.siteId })
+          .from(supervisorSites)
+          .where(eq(supervisorSites.supervisorId, query.supervisorId))
+        const siteIds = siteRows.map(r => r.siteId)
+        if (siteIds.length === 0) return reply.send({ data: [] })
+        const guardRows = await db
+          .selectDistinct({ guardId: shifts.guardId })
+          .from(shifts)
+          .where(inArray(shifts.siteId, siteIds))
+        const guardIds = guardRows.map(r => r.guardId)
+        if (guardIds.length === 0) return reply.send({ data: [] })
+        // Filter doesn't include supervisor themselves — admin is filtering by
+        // "this supervisor's team", so adding the supervisor's own row would
+        // muddy the answer. Admins after a supervisor's own request can use
+        // ?guardId=<supervisorId> directly.
         conditions.push(inArray(leaveRequests.guardId, guardIds))
       }
-    } else if (query.guardId) {
-      conditions.push(eq(leaveRequests.guardId, query.guardId))
     }
 
     if (query.status) conditions.push(eq(leaveRequests.status, query.status))
     if (query.from) conditions.push(gte(leaveRequests.startDate, new Date(query.from)))
 
-    const all = await db
-      .select()
+    // Join users so the supervisor view shows whose request it is without an
+    // extra round trip. Spread the leave-request row keys so existing consumers
+    // (guards) don't notice the join.
+    const rows = await db
+      .select({
+        leave: leaveRequests,
+        guardName: users.name,
+        guardUsername: users.username,
+      })
       .from(leaveRequests)
+      .leftJoin(users, eq(users.id, leaveRequests.guardId))
       .where(and(...conditions))
       .orderBy(desc(leaveRequests.createdAt))
 
-    return reply.send({ data: all })
+    return reply.send({
+      data: rows.map((r) => ({ ...r.leave, guardName: r.guardName, guardUsername: r.guardUsername })),
+    })
   })
 
   // POST / — guard submits leave request

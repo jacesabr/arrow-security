@@ -695,17 +695,6 @@ const SupervisorMapPage: React.FC = () => {
   )
 }
 
-const LeaveApprovalsPage: React.FC = () => (
-  <IonPage>
-    <IonContent style={{ '--background': '#fafaf9' }}>
-      <div style={{ padding: 24, color: '#1a1916' }}>
-        <h2 style={{ margin: '0 0 8px' }}>Leave Approvals</h2>
-        <p style={{ color: '#9a9490', margin: 0 }}>Time-off request approvals — coming soon.</p>
-      </div>
-    </IonContent>
-  </IonPage>
-)
-
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuthStore()
   const [stats, setStats] = useState<any>(null)
@@ -912,7 +901,7 @@ export const TabLayout: React.FC = () => {
               <R exact path="/tabs/map" component={SupervisorMapPage} />
               <R exact path="/tabs/shifts" component={ShiftsPage} />
               <R exact path="/tabs/incidents" component={IncidentPage} />
-              <R exact path="/tabs/leave" component={LeaveApprovalsPage} />
+              <R exact path="/tabs/leave" component={LeaveRequestPage} />
               <R exact path="/tabs/guide" component={GuidePage} />
               <R exact path="/tabs/profile" component={ProfilePage} />
               <R exact path="/tabs"><Redir to="/tabs/dashboard" /></R>
@@ -948,10 +937,12 @@ export const TabLayout: React.FC = () => {
           <IonTabs>
             <IonRouterOutlet>
               <R exact path="/tabs/dashboard" component={SupervisorDashboard} />
+              <R exact path="/tabs/checkin" component={CheckInPage} />
+              <R exact path="/tabs/patrol" component={PatrolPage} />
               <R exact path="/tabs/map" component={SupervisorMapPage} />
               <R exact path="/tabs/shifts" component={ShiftsPage} />
               <R exact path="/tabs/incidents" component={IncidentPage} />
-              <R exact path="/tabs/leave" component={LeaveApprovalsPage} />
+              <R exact path="/tabs/leave" component={LeaveRequestPage} />
               <R exact path="/tabs/guide" component={GuidePage} />
               <R exact path="/tabs/profile" component={ProfilePage} />
               <R exact path="/tabs"><Redir to="/tabs/dashboard" /></R>
@@ -960,6 +951,9 @@ export const TabLayout: React.FC = () => {
               <IonTabButton tab="dashboard" href="/tabs/dashboard">
                 <IonIcon icon={homeOutline} /><IonLabel>Home</IonLabel>
               </IonTabButton>
+              <IonTabButton tab="checkin" href="/tabs/checkin">
+                <IonIcon icon={cameraOutline} /><IonLabel>Check In</IonLabel>
+              </IonTabButton>
               <IonTabButton tab="map" href="/tabs/map">
                 <IonIcon icon={mapOutline} /><IonLabel>Map</IonLabel>
               </IonTabButton>
@@ -967,7 +961,7 @@ export const TabLayout: React.FC = () => {
                 <IonIcon icon={calendarOutline} /><IonLabel>Shifts</IonLabel>
               </IonTabButton>
               <IonTabButton tab="incidents" href="/tabs/incidents">
-                <IonIcon icon={warningOutline} /><IonLabel>Incidents</IonLabel>
+                <IonIcon icon={warningOutline} /><IonLabel>Reports</IonLabel>
               </IonTabButton>
               <IonTabButton tab="leave" href="/tabs/leave">
                 <IonIcon icon={checkmarkCircleOutline} /><IonLabel>Leave</IonLabel>
@@ -1009,11 +1003,14 @@ export const TabLayout: React.FC = () => {
             <IonTabButton tab="patrol" href="/tabs/patrol">
               <IonIcon icon={walkOutline} /><IonLabel>Patrol</IonLabel>
             </IonTabButton>
-            <IonTabButton tab="incidents" href="/tabs/incidents">
-              <IonIcon icon={warningOutline} /><IonLabel>Incidents</IonLabel>
-            </IonTabButton>
             <IonTabButton tab="shifts" href="/tabs/shifts">
               <IonIcon icon={calendarOutline} /><IonLabel>Shifts</IonLabel>
+            </IonTabButton>
+            <IonTabButton tab="incidents" href="/tabs/incidents">
+              <IonIcon icon={warningOutline} /><IonLabel>My reports</IonLabel>
+            </IonTabButton>
+            <IonTabButton tab="leave" href="/tabs/leave">
+              <IonIcon icon={checkmarkCircleOutline} /><IonLabel>My leave</IonLabel>
             </IonTabButton>
             <IonTabButton tab="profile" href="/tabs/profile">
               <IonIcon icon={personOutline} /><IonLabel>Profile</IonLabel>

@@ -116,8 +116,11 @@ export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({ data })
   })
 
-  fastify.post('/', { preHandler: requireTenantAdmin }, async (request, reply) => {
-    const payload = request.user as { tenantId: string }
+  // POST /shifts — admin can schedule anyone at any site; supervisor can
+  // only schedule a user who has worked at one of their assigned sites
+  // (i.e. one of "their" guards), at one of their assigned sites.
+  fastify.post('/', { preHandler: requireSupervisor }, async (request, reply) => {
+    const payload = request.user as { tenantId: string; sub: string; role: string }
     const body = z.object({
       siteId: z.string(),
       guardId: z.string(),
@@ -125,6 +128,23 @@ export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
       endsAt: z.string().datetime(),
       notes: z.string().optional(),
     }).parse(request.body)
+
+    if (payload.role === 'supervisor') {
+      const [supSites, supGuards] = await Promise.all([
+        getSupervisorSiteIds(payload.sub, payload.role),
+        getSupervisorGuardIds(payload.sub, payload.role),
+      ])
+      const siteOk = supSites?.includes(body.siteId) ?? false
+      // A brand-new guard (never been scheduled before) won't appear in
+      // supGuards yet — allow if the supervisor manages the target site.
+      const guardOk = (supGuards?.includes(body.guardId) ?? false) || siteOk
+      if (!siteOk) {
+        return reply.code(403).send({ error: 'Forbidden', message: 'You can only schedule shifts at sites you cover', statusCode: 403 })
+      }
+      if (!guardOk) {
+        return reply.code(403).send({ error: 'Forbidden', message: 'You can only schedule shifts for users in your team', statusCode: 403 })
+      }
+    }
 
     const [shift] = await db
       .insert(shifts)

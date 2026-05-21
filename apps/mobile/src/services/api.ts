@@ -130,6 +130,8 @@ export const api = {
 
   leaveRequests: {
     list: () => request<{ data: any[] }>('/leave-requests'),
+    review: (id: string, body: { status: 'approved' | 'rejected'; reviewNote?: string }) =>
+      request<{ data: any }>(`/leave-requests/${id}/review`, { method: 'PATCH', body: JSON.stringify(body) }),
     create: (body: { leaveType?: string; startDate: string; endDate: string; reason?: string }) =>
       request<{ data: any }>('/leave-requests', { method: 'POST', body: JSON.stringify(body) }),
     cancel: (id: string) => request<{ data: any }>(`/leave-requests/${id}/cancel`, { method: 'PATCH' }),

@@ -23,6 +23,7 @@ import {
 } from '@ionic/react'
 import { calendarOutline, addOutline, closeOutline, timeOutline } from 'ionicons/icons'
 import { api } from '../services/api'
+import { useAuthStore } from '../store/auth'
 
 const LEAVE_TYPE_LABELS: Record<string, string> = {
   casual: 'Casual Leave',
@@ -52,11 +53,16 @@ function dayCount(start: string, end: string): number {
 }
 
 export const LeaveRequestPage: React.FC = () => {
+  const { user } = useAuthStore()
+  const canReview = user?.role === 'supervisor' || user?.role === 'tenant_admin' || user?.role === 'platform_admin'
+  const myId = user?.id
+
   const [requests, setRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [cancelling, setCancelling] = useState<string | null>(null)
+  const [reviewing, setReviewing] = useState<string | null>(null)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const [toastColor, setToastColor] = useState<string>('danger')
 
@@ -135,6 +141,19 @@ export const LeaveRequestPage: React.FC = () => {
       showError(e?.message ?? 'Failed to cancel request')
     } finally {
       setCancelling(null)
+    }
+  }
+
+  async function handleReview(id: string, status: 'approved' | 'rejected') {
+    try {
+      setReviewing(id)
+      await api.leaveRequests.review(id, { status })
+      showSuccess(`Request ${status}`)
+      await loadRequests()
+    } catch (e: any) {
+      showError(e?.message ?? `Failed to ${status === 'approved' ? 'approve' : 'reject'} request`)
+    } finally {
+      setReviewing(null)
     }
   }
 
@@ -264,19 +283,50 @@ export const LeaveRequestPage: React.FC = () => {
                     </p>
                   )}
 
-                  {/* Cancel button — only for pending */}
+                  {/* Action row — different actions depending on whose request and viewer's role */}
                   {req.status === 'pending' && (
-                    <div style={{ marginTop: 12 }}>
-                      <IonButton
-                        size="small"
-                        fill="outline"
-                        color="medium"
-                        disabled={cancelling === req.id}
-                        onClick={() => handleCancel(req.id)}
-                        style={{ '--border-color': '#e8e5e0', '--color': '#5c5855' } as any}
-                      >
-                        {cancelling === req.id ? 'Cancelling…' : 'Cancel Request'}
-                      </IonButton>
+                    <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {req.guardId === myId ? (
+                        // Your own pending request — let you cancel it
+                        <IonButton
+                          size="small"
+                          fill="outline"
+                          color="medium"
+                          disabled={cancelling === req.id}
+                          onClick={() => handleCancel(req.id)}
+                          style={{ '--border-color': '#e8e5e0', '--color': '#5c5855' } as any}
+                        >
+                          {cancelling === req.id ? 'Cancelling…' : 'Cancel Request'}
+                        </IonButton>
+                      ) : canReview ? (
+                        // Someone else's request and you can review it
+                        <>
+                          <IonButton
+                            size="small"
+                            disabled={reviewing === req.id}
+                            onClick={() => handleReview(req.id, 'approved')}
+                            style={{ '--background': '#10b981', '--color': '#fff' } as any}
+                          >
+                            {reviewing === req.id ? '…' : 'Approve'}
+                          </IonButton>
+                          <IonButton
+                            size="small"
+                            fill="outline"
+                            disabled={reviewing === req.id}
+                            onClick={() => handleReview(req.id, 'rejected')}
+                            style={{ '--border-color': '#ef4444', '--color': '#ef4444' } as any}
+                          >
+                            Reject
+                          </IonButton>
+                        </>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {/* Show whose request it is when not your own — supervisor view */}
+                  {req.guardId !== myId && req.guardName && (
+                    <div style={{ marginTop: 8, color: '#9a9490', fontSize: 11.5 }}>
+                      From <span style={{ color: '#5c5855', fontWeight: 500 }}>{req.guardName}</span>
                     </div>
                   )}
                 </div>

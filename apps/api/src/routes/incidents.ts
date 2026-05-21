@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { db, incidents, users } from '@secureops/db'
-import { eq, and, desc, isNotNull, inArray } from 'drizzle-orm'
-import { requireAuth, requireSupervisor, getSupervisorSiteIds } from '../lib/auth'
+import { db, incidents, users, supervisorSites } from '@secureops/db'
+import { eq, and, or, desc, isNotNull, inArray } from 'drizzle-orm'
+import { requireAuth, requireSupervisor, getSupervisorSiteIds, getSupervisorGuardIds } from '../lib/auth'
 import { SLA_HOURS } from '@secureops/shared'
 import { appendAuditEntry } from '../lib/audit'
 import { sendPush } from '../lib/push'
@@ -22,6 +22,10 @@ export const incidentsRoutes: FastifyPluginAsync = async (fastify) => {
       status: z.string().optional(),
       severity: z.string().optional(),
       siteId: z.string().optional(),
+      // Admin-only filters; ignored for guards/supervisors so they can't
+      // peek outside their scope by setting a query param.
+      guardId: z.string().optional(),
+      supervisorId: z.string().optional(),
       limit: z.coerce.number().default(50),
     }).parse(request.query)
 
@@ -33,11 +37,31 @@ export const incidentsRoutes: FastifyPluginAsync = async (fastify) => {
     // Role scoping
     if (payload.role === 'guard') {
       conditions.push(eq(incidents.reportedBy, payload.sub))
+    } else if (payload.role === 'supervisor') {
+      // Supervisor sees:
+      //   - incidents at sites they cover
+      //   - incidents reported by their managed guards (even if at another site)
+      //   - their own incidents (so they can track what they filed)
+      const [supSites, supGuards] = await Promise.all([
+        getSupervisorSiteIds(payload.sub, payload.role),
+        getSupervisorGuardIds(payload.sub, payload.role),
+      ])
+      const orClauses = [eq(incidents.reportedBy, payload.sub)]
+      if (supSites && supSites.length > 0)   orClauses.push(inArray(incidents.siteId, supSites))
+      if (supGuards && supGuards.length > 0) orClauses.push(inArray(incidents.reportedBy, supGuards))
+      conditions.push(or(...orClauses)!)
     } else {
-      const supervisorSiteIds = await getSupervisorSiteIds(payload.sub, payload.role)
-      if (supervisorSiteIds !== null) {
-        if (supervisorSiteIds.length === 0) return reply.send({ data: [] })
-        conditions.push(inArray(incidents.siteId, supervisorSiteIds))
+      // Admin / platform_admin — optional filter dropdowns
+      if (query.guardId) conditions.push(eq(incidents.reportedBy, query.guardId))
+      if (query.supervisorId) {
+        // Resolve supervisor → their sites; show every incident at those sites.
+        const rows = await db
+          .select({ siteId: supervisorSites.siteId })
+          .from(supervisorSites)
+          .where(eq(supervisorSites.supervisorId, query.supervisorId))
+        const siteIds = rows.map(r => r.siteId)
+        if (siteIds.length === 0) return reply.send({ data: [] })
+        conditions.push(inArray(incidents.siteId, siteIds))
       }
     }
 
@@ -66,9 +90,19 @@ export const incidentsRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(403).send({ error: 'Forbidden', message: 'Not your incident', statusCode: 403 })
     }
     if (payload.role === 'supervisor') {
-      const allowed = await getSupervisorSiteIds(payload.sub, payload.role)
-      if (!allowed || !allowed.includes(incident.siteId)) {
-        return reply.code(403).send({ error: 'Forbidden', message: 'Incident not at your site', statusCode: 403 })
+      // Supervisor allowed if: it's their own report, OR at a site they cover,
+      // OR reported by one of their managed guards.
+      const isOwn = incident.reportedBy === payload.sub
+      if (!isOwn) {
+        const [supSites, supGuards] = await Promise.all([
+          getSupervisorSiteIds(payload.sub, payload.role),
+          getSupervisorGuardIds(payload.sub, payload.role),
+        ])
+        const atTheirSite = supSites?.includes(incident.siteId) ?? false
+        const byTheirGuard = supGuards?.includes(incident.reportedBy ?? '') ?? false
+        if (!atTheirSite && !byTheirGuard) {
+          return reply.code(403).send({ error: 'Forbidden', message: 'Incident not in your scope', statusCode: 403 })
+        }
       }
     }
 
