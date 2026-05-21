@@ -62,47 +62,33 @@ const CONFIDENCE_FLOOR = 50
 // short enough not to feel laggy when you start moving.
 const STRIP_SECONDS = 60
 
-// GPS reality-check classifier — research-backed (Feng & Timmermans 2015,
-// PMC4320483) layered with a "VWAP-style" adaptive baseline. Replaces the
-// fixed-threshold version because that one still got fooled by phones with
-// noisier GPS floors (multipath near windows, indoors).
+// GPS reality-check classifier. Earlier attempts used σ + adaptive baseline,
+// both of which back-fired in practice:
+//   - σ (step cadence) — GPS smooths walking speed over distanceFilter
+//     intervals, so real walking has low σ (~0.1) at GPS sample rates. The
+//     σ floor rejected real walks.
+//   - Adaptive baseline — once walking samples accumulate, baseline drifts
+//     up to ~1.0 m/s and the walking threshold becomes higher than real
+//     walking speed. The classifier locked itself out of detecting walks.
 //
-//   sitting still  → P95 close to baseline,           σ low
-//   GPS jitter     → P95 close to baseline,           σ low
-//   walking        → P95 well above baseline,         σ elevated (step cadence)
-//   driving        → P95 far above baseline,          σ doesn't matter
+// So: fixed absolute thresholds, P75 + P95 to reject single GPS spikes.
+// distanceFilter (Background Geolocation) does the heavy lifting for "is
+// the phone moving at all" — no movement = no callbacks = GPS stale → idle.
 //
-// Why P95 and not mean: a single GPS spike can drag the mean up over an
-// entire window and look like walking. P95 is robust to one or two outliers.
-// Why an adaptive baseline: every device + location has its own GPS noise
-// floor. Tracking the session's P10 ("calm floor") gives us a per-device,
-// per-location reference; the walking/driving thresholds shift WITH the floor
-// instead of being absolute.
+//   idle       → P95 below 0.5 m/s, OR no fresh samples
+//   walking    → P95 ≥ 0.7 m/s AND P75 ≥ 0.3 m/s
+//   driving    → P75 ≥ 2.5 m/s
 
-const SPEED_WINDOW_MS  = 30_000
-// Asymmetric hysteresis: harder to promote (go from idle→walking, walking→
-// driving) than to demote. Promoting is where false positives hurt — once
-// idle, we want to require sustained evidence before we say "they're moving
-// now". Demoting toward idle is much less risky since the user genuinely
-// having stopped is the most common case.
-const HYSTERESIS_UP_MS   = 8_000  // idle → walking, walking → driving etc.
+const SPEED_WINDOW_MS    = 30_000
+const HYSTERESIS_UP_MS   = 6_000  // idle → walking, walking → driving
 const HYSTERESIS_DOWN_MS = 2_000  // walking → idle, driving → walking/idle
-const GPS_STALE_MS       = 15_000   // no GPS sample for this long → assume the phone is still
-// Retroactive correction: a "blip" bucket period (X → Y → X, where Y was
-// short) is almost always a sensor misclassification. When we transition out
-// of Y back to X (the bucket before Y), if Y lasted less than this, reassign
-// Y's seconds to X instead of crediting them to Y. The user sees their
-// walking/driving counters snap back when this fires.
-const BLIP_MAX_MS        = 90_000
+const GPS_STALE_MS       = 15_000 // no GPS sample for this long → idle
+const BLIP_MAX_MS        = 60_000 // X → Y → X with Y shorter than this gets reassigned to X
 
-// Thresholds expressed as "delta above adaptive baseline". We check BOTH
-// P95 (peak movement) and P75 (the top quartile) so a single GPS outlier
-// can't promote the classification — the top 25% of samples have to support
-// the call, not just the very tail.
-const DRIVING_P75_OVER_BASE = 2.0   // P75 above base → at least a quarter of samples are driving-speed
-const WALKING_P95_OVER_BASE = 0.8   // P95 above base → at least one strong walking-speed sample
-const WALKING_P75_OVER_BASE = 0.3   // AND P75 above base → not just an isolated GPS spike
-const WALKING_SIGMA_FLOOR   = 0.30  // AND σ this high → real oscillation, not a flat noise floor
+const STILL_P95_MAX      = 0.5
+const WALKING_P95_MIN    = 0.7
+const WALKING_P75_MIN    = 0.3
+const DRIVING_P75_MIN    = 2.5
 
 type SpeedSample = { ts: number; speed: number }
 
@@ -110,9 +96,6 @@ type SpeedStats = {
   bucket: Bucket | null
   p95: number
   p75: number
-  mean: number
-  sigma: number
-  baseline: number
   count: number
   reason: string
 }
@@ -123,61 +106,37 @@ function percentile(sortedAsc: number[], q: number): number {
   return sortedAsc[idx]
 }
 
-function classifySpeed(
-  samples: SpeedSample[],
-  baseline: number,
-  now: number,
-): SpeedStats {
+function classifySpeed(samples: SpeedSample[], now: number): SpeedStats {
   const recent = samples.filter(s => now - s.ts <= SPEED_WINDOW_MS)
   const lastAge = samples.length === 0 ? Infinity : now - samples[samples.length - 1].ts
 
-  // No fresh GPS = the phone hasn't moved (or has lost signal). Either way,
-  // we shouldn't credit walking/driving. This is what kills the "9 minutes of
-  // phantom walking while sitting" bug — when you stop moving, you stop
-  // getting GPS pings, and we converge to idle.
+  // Stationary phone gets no movement-triggered GPS callbacks → samples
+  // age out → lastAge climbs → we land here, classify as idle.
   if (lastAge > GPS_STALE_MS) {
-    return { bucket: 'idle', p95: 0, p75: 0, mean: 0, sigma: 0, baseline, count: recent.length, reason: 'stale GPS' }
+    return { bucket: 'idle', p95: 0, p75: 0, count: recent.length, reason: `stale GPS ${(lastAge / 1000).toFixed(0)}s` }
   }
-  if (recent.length < 3) {
-    return { bucket: null, p95: 0, p75: 0, mean: 0, sigma: 0, baseline, count: recent.length, reason: 'too few samples' }
+  // Only 1 sample is too few to be confident. With 2+, the percentile signal
+  // is meaningful enough to call. We deliberately keep this floor low so a
+  // gappy sampler doesn't park us in "no opinion" land for minutes.
+  if (recent.length < 2) {
+    return { bucket: null, p95: 0, p75: 0, count: recent.length, reason: 'waiting for more samples' }
   }
 
   const speeds = recent.map(s => s.speed)
   const sorted = [...speeds].sort((a, b) => a - b)
-  const p75  = percentile(sorted, 0.75)
-  const p95  = percentile(sorted, 0.95)
-  const mean = speeds.reduce((a, b) => a + b, 0) / speeds.length
-  const variance = speeds.reduce((a, s) => a + (s - mean) ** 2, 0) / speeds.length
-  const sigma = Math.sqrt(variance)
+  const p75 = percentile(sorted, 0.75)
+  const p95 = percentile(sorted, 0.95)
 
-  const p95Above = p95 - baseline
-  const p75Above = p75 - baseline
-
-  // Driving — sustained high speed: top quartile already above driving threshold
-  if (p75Above >= DRIVING_P75_OVER_BASE) {
-    return { bucket: 'driving', p95, p75, mean, sigma, baseline, count: recent.length, reason: 'P75 ≥ base + 2' }
+  if (p75 >= DRIVING_P75_MIN) {
+    return { bucket: 'driving', p95, p75, count: recent.length, reason: `P75 ${p75.toFixed(1)} ≥ 2.5 m/s` }
   }
-  // Walking — peak AND top quartile AND σ all elevated
-  if (
-    p95Above >= WALKING_P95_OVER_BASE &&
-    p75Above >= WALKING_P75_OVER_BASE &&
-    sigma   >= WALKING_SIGMA_FLOOR
-  ) {
-    return { bucket: 'walking', p95, p75, mean, sigma, baseline, count: recent.length, reason: 'P75 + P95 above base, σ elevated' }
+  if (p95 >= WALKING_P95_MIN && p75 >= WALKING_P75_MIN) {
+    return { bucket: 'walking', p95, p75, count: recent.length, reason: `P95 ${p95.toFixed(1)} ≥ 0.7, P75 ${p75.toFixed(1)} ≥ 0.3` }
   }
-  return { bucket: 'idle', p95, p75, mean, sigma, baseline, count: recent.length, reason: 'near baseline / single-spike or flat' }
-}
-
-// Adaptive baseline = running P10 of session speeds, floored at 0.
-// Updated continuously so a phone settling into a quieter GPS floor pulls the
-// thresholds down with it. We never let it climb past 1.5 m/s — otherwise a
-// device that started while driving would lock its "still" baseline at
-// driving speeds and never recognise idle afterwards.
-function computeBaseline(samples: SpeedSample[]): number {
-  if (samples.length < 5) return 0
-  const sorted = samples.map(s => s.speed).sort((a, b) => a - b)
-  const p10 = percentile(sorted, 0.10)
-  return Math.min(1.5, Math.max(0, p10))
+  if (p95 < STILL_P95_MAX) {
+    return { bucket: 'idle', p95, p75, count: recent.length, reason: `P95 ${p95.toFixed(1)} below 0.5 m/s` }
+  }
+  return { bucket: 'idle', p95, p75, count: recent.length, reason: 'P95 in walking band but P75 too low — single-spike' }
 }
 
 const TestMovementCard: React.FC = () => {
@@ -189,15 +148,12 @@ const TestMovementCard: React.FC = () => {
   const [lastPos, setLastPos] = useState<{ lat: number; lng: number } | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [lastSampleAt, setLastSampleAt] = useState(0)
-  const [speedStats, setSpeedStats] = useState<SpeedStats>({ bucket: null, p95: 0, p75: 0, mean: 0, sigma: 0, baseline: 0, count: 0, reason: '' })
+  const [speedStats, setSpeedStats] = useState<SpeedStats>({ bucket: null, p95: 0, p75: 0, count: 0, reason: '' })
 
   // Hysteresis state — a candidate bucket must hold steady for HYSTERESIS_MS
   // before we actually flip the credited bucket. Prevents single-sample flaps.
   const pendingBucketRef = useRef<Bucket | null>(null)
   const pendingSinceRef = useRef<number>(0)
-  // Cumulative session samples (not the 30s window) — used to compute the
-  // adaptive baseline as session P10. Capped at 600 samples to bound memory.
-  const allSamplesRef = useRef<SpeedSample[]>([])
   // History of committed bucket entries — drives retroactive blip correction.
   // Only buckets that survived hysteresis AND weren't reassigned end up here.
   const bucketHistoryRef = useRef<{ bucket: Bucket; startedAt: number }[]>([])
@@ -264,6 +220,12 @@ const TestMovementCard: React.FC = () => {
   // someone is walking when they're sitting) is much higher than a false
   // negative.
   function maybeCommitBucket(candidate: Bucket | null, now: number) {
+    // A null candidate means "I have no opinion right now" (e.g., not enough
+    // GPS samples yet). DON'T reset the hysteresis countdown — keep whatever
+    // pending state we had. Otherwise a single-sample dropout would erase
+    // 5+ seconds of building "walking" confidence.
+    if (candidate === null) return
+
     if (candidate === lastBucketRef.current) {
       pendingBucketRef.current = null
       pendingSinceRef.current = 0
@@ -308,7 +270,6 @@ const TestMovementCard: React.FC = () => {
     lastChangeRef.current = Date.now()
     stripRef.current = []
     speedSamplesRef.current = []
-    allSamplesRef.current = []
     bucketHistoryRef.current = []
     pendingBucketRef.current = null
     pendingSinceRef.current = 0
@@ -325,8 +286,7 @@ const TestMovementCard: React.FC = () => {
     intervalRef.current = setInterval(() => {
       const now = Date.now()
       speedSamplesRef.current = speedSamplesRef.current.filter(s => now - s.ts <= SPEED_WINDOW_MS)
-      const baseline = computeBaseline(allSamplesRef.current)
-      const stats = classifySpeed(speedSamplesRef.current, baseline, now)
+      const stats = classifySpeed(speedSamplesRef.current, now)
       setSpeedStats(stats)
       const candidate = effectiveBucket(stats)
       maybeCommitBucket(candidate, now)
@@ -373,12 +333,7 @@ const TestMovementCard: React.FC = () => {
           // Speed in m/s. Devices that don't compute speed report null/-1; we
           // treat those as 0 so a parked phone falls cleanly into 'idle'.
           const speed = position.speed != null && position.speed >= 0 ? position.speed : 0
-          const sample = { ts: Date.now(), speed }
-          speedSamplesRef.current.push(sample)
-          // Cumulative session log for the adaptive baseline. Cap at 600 so
-          // memory bounded even on a long test.
-          allSamplesRef.current.push(sample)
-          if (allSamplesRef.current.length > 600) allSamplesRef.current.shift()
+          speedSamplesRef.current.push({ ts: Date.now(), speed })
         },
       )
       watcherIdRef.current = id
@@ -496,10 +451,9 @@ const TestMovementCard: React.FC = () => {
             </div>
           )}
 
-          {/* GPS speed stats — the "show your work" line. P75 + P95 above
-              the adaptive baseline are what drive the classification. */}
+          {/* GPS speed stats — the "show your work" line. */}
           <div style={{ fontSize: 10.5, color: '#9a9490', fontFamily: 'ui-monospace,monospace', marginBottom: 8, lineHeight: 1.5 }}>
-            P75 {speedStats.p75.toFixed(2)} · P95 {speedStats.p95.toFixed(2)} · σ {speedStats.sigma.toFixed(2)} · base {speedStats.baseline.toFixed(2)} · {speedStats.count} samples
+            P75 {speedStats.p75.toFixed(2)} · P95 {speedStats.p95.toFixed(2)} · {speedStats.count} samples
             {speedStats.reason && <><br /><span style={{ color: '#5c5855' }}>{speedStats.reason}</span></>}
           </div>
           {lastPos && (
