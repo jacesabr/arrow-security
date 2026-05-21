@@ -50,6 +50,36 @@ function monthLabel(key: string): string {
   return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
 }
 
+function fmtMovement(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)}s`
+  const m = Math.floor(seconds / 60)
+  if (m < 60) return `${m}m`
+  const h = m / 60
+  return h >= 10 ? `${Math.round(h)}h` : `${h.toFixed(1)}h`
+}
+
+// Small stacked bar used in the shifts table + monthly rollup. Matches the
+// colours used in the Patrol test panel + tenant /reports so a guard sees a
+// consistent green/blue/tan story across surfaces.
+const MOVEMENT_COLORS = { walking: '#10b981', driving: '#3b82f6', idle: '#d4a574' }
+
+function MovementBar({
+  walking, driving, idle, width = 70, height = 6,
+}: { walking: number; driving: number; idle: number; width?: number; height?: number }) {
+  const total = walking + driving + idle
+  if (total === 0) {
+    return <div style={{ width, height, borderRadius: height / 2, background: '#ebe8e2' }} />
+  }
+  return (
+    <div title={`walking ${Math.round(walking)}s · driving ${Math.round(driving)}s · idle ${Math.round(idle)}s`}
+      style={{ display: 'flex', width, height, borderRadius: height / 2, overflow: 'hidden', background: '#ebe8e2' }}>
+      <div style={{ width: `${(walking / total) * 100}%`, background: MOVEMENT_COLORS.walking }} />
+      <div style={{ width: `${(driving / total) * 100}%`, background: MOVEMENT_COLORS.driving }} />
+      <div style={{ width: `${(idle    / total) * 100}%`, background: MOVEMENT_COLORS.idle }} />
+    </div>
+  )
+}
+
 function getActiveShift(shifts: any[]): any | null {
   const now = Date.now()
   return (
@@ -173,16 +203,28 @@ export const ShiftsPage: React.FC = () => {
     (a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime(),
   )
 
-  // Roll up hours by calendar month (1st → last day of that month). Only shifts
-  // with both a clock-in and clock-out contribute — incomplete shifts don't count.
-  const monthlyTotals = ordered.reduce<Record<string, number>>((acc, s) => {
-    const hrs = hoursWorked(s.checkInAt, s.checkOutAt)
-    if (hrs <= 0) return acc
+  // Roll up by calendar month (1st → last day). Tracks both hours-worked
+  // (from check-in/out timestamps) and walking / driving / idle totals (from
+  // the per-shift movement aggregates computed when each shift completed).
+  type MonthlyRollup = { hours: number; walking: number; driving: number; idle: number }
+  const monthlyTotals = ordered.reduce<Record<string, MonthlyRollup>>((acc, s) => {
     const key = monthKey(s.startsAt)
-    acc[key] = (acc[key] ?? 0) + hrs
+    const row = acc[key] ?? { hours: 0, walking: 0, driving: 0, idle: 0 }
+    row.hours    += hoursWorked(s.checkInAt, s.checkOutAt)
+    row.walking  += s.walkingSeconds ?? 0
+    row.driving  += s.drivingSeconds ?? 0
+    row.idle     += s.idleSeconds    ?? 0
+    acc[key] = row
     return acc
   }, {})
-  const monthKeysOrdered = Object.keys(monthlyTotals).sort().reverse()
+  // Show every month that has either hours or movement (a completed shift
+  // with no clock-out still has movement data worth showing).
+  const monthKeysOrdered = Object.keys(monthlyTotals)
+    .filter(k => {
+      const r = monthlyTotals[k]
+      return r.hours > 0 || r.walking + r.driving + r.idle > 0
+    })
+    .sort().reverse()
   const currentMonthKey = monthKey(new Date().toISOString())
 
   return (
@@ -232,7 +274,7 @@ export const ShiftsPage: React.FC = () => {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
                 <thead>
                   <tr style={{ background: '#fafaf9' }}>
-                    {['Date', 'Site', 'Clock in', 'Clock out'].map(h => (
+                    {['Date', 'Site', 'Clock in', 'Clock out', 'Movement'].map(h => (
                       <th key={h} style={{
                         padding: '10px 8px',
                         textAlign: 'left',
@@ -249,6 +291,10 @@ export const ShiftsPage: React.FC = () => {
                 <tbody>
                   {ordered.map(s => {
                     const badge = STATUS_BADGE[s.status] ?? STATUS_BADGE.scheduled
+                    const walking = s.walkingSeconds ?? 0
+                    const driving = s.drivingSeconds ?? 0
+                    const idle    = s.idleSeconds    ?? 0
+                    const trackedTotal = walking + driving + idle
                     return (
                       <tr key={s.id} style={{ borderBottom: '1px solid #f0ede8' }}>
                         <td style={{ padding: '11px 8px', color: '#1a1916', fontWeight: 600, whiteSpace: 'nowrap' }}>
@@ -267,6 +313,18 @@ export const ShiftsPage: React.FC = () => {
                         </td>
                         <td style={{ padding: '11px 8px', color: s.checkOutAt ? '#1a1916' : '#9a9490' }}>
                           {fmtTime(s.checkOutAt)}
+                        </td>
+                        <td style={{ padding: '11px 8px' }}>
+                          {trackedTotal === 0 ? (
+                            <span style={{ color: '#9a9490', fontSize: 11 }}>—</span>
+                          ) : (
+                            <>
+                              <MovementBar walking={walking} driving={driving} idle={idle} />
+                              <div style={{ fontSize: 10.5, color: '#9a9490', marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
+                                {fmtMovement(trackedTotal)}
+                              </div>
+                            </>
+                          )}
                         </td>
                       </tr>
                     )
@@ -297,28 +355,46 @@ export const ShiftsPage: React.FC = () => {
                 </div>
               ) : monthKeysOrdered.map(key => {
                 const isCurrent = key === currentMonthKey
+                const r = monthlyTotals[key]
+                const movementTotal = r.walking + r.driving + r.idle
                 return (
                   <div key={key} style={{
-                    display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
                     padding: '11px 14px',
                     borderBottom: '1px solid #f5f4f2',
                     background: isCurrent ? 'rgba(201,100,66,0.04)' : 'transparent',
                   }}>
-                    <div style={{
-                      fontSize: 13,
-                      fontWeight: isCurrent ? 600 : 500,
-                      color: isCurrent ? '#c96442' : '#1a1916',
-                    }}>
-                      {monthLabel(key)}{isCurrent && <span style={{ marginLeft: 8, fontSize: 11, color: '#9a9490', fontWeight: 500 }}>(this month)</span>}
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                      <div style={{
+                        fontSize: 13,
+                        fontWeight: isCurrent ? 600 : 500,
+                        color: isCurrent ? '#c96442' : '#1a1916',
+                      }}>
+                        {monthLabel(key)}{isCurrent && <span style={{ marginLeft: 8, fontSize: 11, color: '#9a9490', fontWeight: 500 }}>(this month)</span>}
+                      </div>
+                      <div style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: isCurrent ? '#c96442' : '#1a1916',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        {r.hours.toFixed(1)}h
+                      </div>
                     </div>
-                    <div style={{
-                      fontSize: 14,
-                      fontWeight: 700,
-                      color: isCurrent ? '#c96442' : '#1a1916',
-                      fontVariantNumeric: 'tabular-nums',
-                    }}>
-                      {monthlyTotals[key].toFixed(1)}h
-                    </div>
+                    {movementTotal > 0 && (
+                      <>
+                        <div style={{ marginTop: 8 }}>
+                          <MovementBar walking={r.walking} driving={r.driving} idle={r.idle} width={'100%' as any} height={7} />
+                        </div>
+                        <div style={{
+                          display: 'flex', justifyContent: 'space-between', gap: 8,
+                          marginTop: 5, fontSize: 11, color: '#5c5855', fontVariantNumeric: 'tabular-nums',
+                        }}>
+                          <span><span style={{ width: 7, height: 7, borderRadius: 3.5, background: MOVEMENT_COLORS.walking, display: 'inline-block', marginRight: 4 }} />walking {fmtMovement(r.walking)}</span>
+                          <span><span style={{ width: 7, height: 7, borderRadius: 3.5, background: MOVEMENT_COLORS.driving, display: 'inline-block', marginRight: 4 }} />driving {fmtMovement(r.driving)}</span>
+                          <span><span style={{ width: 7, height: 7, borderRadius: 3.5, background: MOVEMENT_COLORS.idle,    display: 'inline-block', marginRight: 4 }} />idle {fmtMovement(r.idle)}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )
               })}

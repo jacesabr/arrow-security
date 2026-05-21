@@ -60,6 +60,7 @@ export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
       SELECT
         s.id, s.tenant_id, s.site_id, s.guard_id, s.starts_at, s.ends_at,
         s.status, s.notes, s.published, s.created_at,
+        s.walking_seconds, s.driving_seconds, s.stationary_seconds,
         st.name AS site_name,
         ci.verified_at AS check_in_at,
         co.verified_at AS check_out_at
@@ -111,6 +112,9 @@ export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
       siteName: r.site_name,
       checkInAt:  r.check_in_at,
       checkOutAt: r.check_out_at,
+      walkingSeconds: r.walking_seconds == null ? null : Number(r.walking_seconds),
+      drivingSeconds: r.driving_seconds == null ? null : Number(r.driving_seconds),
+      idleSeconds:    r.stationary_seconds == null ? null : Number(r.stationary_seconds),
     }))
 
     return reply.send({ data })

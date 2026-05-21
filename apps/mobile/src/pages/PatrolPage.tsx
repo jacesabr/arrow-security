@@ -80,8 +80,20 @@ const STRIP_SECONDS = 60
 // instead of being absolute.
 
 const SPEED_WINDOW_MS  = 30_000
-const HYSTERESIS_MS    = 4_000    // bucket change must persist this long before we commit
-const GPS_STALE_MS     = 15_000   // no GPS sample for this long → assume the phone is still
+// Asymmetric hysteresis: harder to promote (go from idle→walking, walking→
+// driving) than to demote. Promoting is where false positives hurt — once
+// idle, we want to require sustained evidence before we say "they're moving
+// now". Demoting toward idle is much less risky since the user genuinely
+// having stopped is the most common case.
+const HYSTERESIS_UP_MS   = 8_000  // idle → walking, walking → driving etc.
+const HYSTERESIS_DOWN_MS = 2_000  // walking → idle, driving → walking/idle
+const GPS_STALE_MS       = 15_000   // no GPS sample for this long → assume the phone is still
+// Retroactive correction: a "blip" bucket period (X → Y → X, where Y was
+// short) is almost always a sensor misclassification. When we transition out
+// of Y back to X (the bucket before Y), if Y lasted less than this, reassign
+// Y's seconds to X instead of crediting them to Y. The user sees their
+// walking/driving counters snap back when this fires.
+const BLIP_MAX_MS        = 90_000
 
 // Thresholds expressed as "delta above adaptive baseline". We check BOTH
 // P95 (peak movement) and P75 (the top quartile) so a single GPS outlier
@@ -186,6 +198,9 @@ const TestMovementCard: React.FC = () => {
   // Cumulative session samples (not the 30s window) — used to compute the
   // adaptive baseline as session P10. Capped at 600 samples to bound memory.
   const allSamplesRef = useRef<SpeedSample[]>([])
+  // History of committed bucket entries — drives retroactive blip correction.
+  // Only buckets that survived hysteresis AND weren't reassigned end up here.
+  const bucketHistoryRef = useRef<{ bucket: Bucket; startedAt: number }[]>([])
 
   // Accumulators (refs so we don't trigger renders for every micro-update)
   const accRef = useRef<{ walking: number; driving: number; idle: number }>({ walking: 0, driving: 0, idle: 0 })
@@ -205,7 +220,27 @@ const TestMovementCard: React.FC = () => {
   function applyBucket(newBucket: Bucket | null, now: number) {
     const prev = lastBucketRef.current
     if (prev) {
-      accRef.current[prev] += (now - lastChangeRef.current) / 1000
+      const duration = (now - lastChangeRef.current) / 1000
+      const history = bucketHistoryRef.current
+      const last = history[history.length - 1]  // bucket BEFORE prev (prev not yet pushed)
+      const isBlip =
+        newBucket !== null &&
+        last !== undefined &&
+        last.bucket === newBucket &&        // we're returning to the bucket we were in before prev
+        (now - lastChangeRef.current) < BLIP_MAX_MS
+
+      if (isBlip) {
+        // Reassign prev's seconds to the surrounding bucket — that whole
+        // period was almost certainly sensor noise.
+        accRef.current[newBucket as Bucket] += duration
+        // Don't add prev to history; the surrounding bucket is conceptually
+        // unbroken.
+      } else {
+        accRef.current[prev] += duration
+        if (!last || last.bucket !== prev) {
+          history.push({ bucket: prev, startedAt: lastChangeRef.current })
+        }
+      }
     }
     lastBucketRef.current = newBucket
     lastChangeRef.current = now
@@ -223,17 +258,21 @@ const TestMovementCard: React.FC = () => {
     return sensor ?? gps
   }
 
-  // Commit a candidate bucket if it has held steady through HYSTERESIS_MS.
-  // Initial 'null → X' transition is committed immediately so the first
-  // classification appears without delay.
+  // Commit a candidate bucket if it has held steady through the appropriate
+  // hysteresis window. Asymmetric: going UP (idle → walking → driving) takes
+  // longer than going DOWN, because the cost of a false positive (claiming
+  // someone is walking when they're sitting) is much higher than a false
+  // negative.
   function maybeCommitBucket(candidate: Bucket | null, now: number) {
     if (candidate === lastBucketRef.current) {
       pendingBucketRef.current = null
       pendingSinceRef.current = 0
       return
     }
-    // First classification after a 'null' bucket — commit instantly
-    if (lastBucketRef.current === null) {
+    // First classification after a 'null' bucket — only auto-commit if the
+    // landing bucket is idle. Otherwise let the UP-hysteresis gate apply so a
+    // one-shot phantom sensor event can't seed walking instantly at startup.
+    if (lastBucketRef.current === null && candidate === 'idle') {
       applyBucket(candidate, now)
       pendingBucketRef.current = null
       pendingSinceRef.current = 0
@@ -244,11 +283,21 @@ const TestMovementCard: React.FC = () => {
       pendingSinceRef.current = now
       return
     }
-    if (now - pendingSinceRef.current >= HYSTERESIS_MS) {
+    const goingUp = bucketRank(candidate) > bucketRank(lastBucketRef.current)
+    const needed = goingUp ? HYSTERESIS_UP_MS : HYSTERESIS_DOWN_MS
+    if (now - pendingSinceRef.current >= needed) {
       applyBucket(candidate, now)
       pendingBucketRef.current = null
       pendingSinceRef.current = 0
     }
+  }
+
+  // Higher = more "energetic" bucket. idle < walking < driving.
+  // null is treated as lowest so promoting from "no opinion" still counts as UP.
+  function bucketRank(b: Bucket | null): number {
+    if (b === 'driving') return 2
+    if (b === 'walking') return 1
+    return 0
   }
 
   async function start() {
@@ -260,6 +309,7 @@ const TestMovementCard: React.FC = () => {
     stripRef.current = []
     speedSamplesRef.current = []
     allSamplesRef.current = []
+    bucketHistoryRef.current = []
     pendingBucketRef.current = null
     pendingSinceRef.current = 0
     setPings(0)
