@@ -6,7 +6,7 @@
  * Update this file whenever a role's pages or capabilities change.
  */
 
-export const GUIDE_VERSION = '2026.05.21d'
+export const GUIDE_VERSION = '2026.05.21e'
 
 export type GuideRole = 'guard' | 'supervisor' | 'manager'
 
