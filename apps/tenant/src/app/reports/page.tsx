@@ -1,4 +1,9 @@
 'use client'
+// Bails out of Next's static prerender — the page reads ?month from the URL
+// via useSearchParams() and renders auth-gated live data, so prerender would
+// throw "useSearchParams() should be wrapped in a suspense boundary".
+export const dynamic = 'force-dynamic'
+
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'

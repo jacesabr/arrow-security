@@ -1,4 +1,8 @@
 'use client'
+// /guards/[id]?month=… — same reasoning as /reports: bail out of static
+// prerender since useSearchParams is read at top-level.
+export const dynamic = 'force-dynamic'
+
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { PageShell, Main, PageHeader, Card, CardHeader, DataTable, TR, TD, Badge, Btn, Modal, Field, Input, ErrorMsg, ModalActions } from '../../../components/ui'
