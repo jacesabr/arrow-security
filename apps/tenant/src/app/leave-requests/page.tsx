@@ -37,26 +37,38 @@ export default function LeaveRequestsPage() {
   const [reviewing, setReviewing] = useState<any | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [supervisors, setSupervisors] = useState<any[]>([])
+  const [role, setRole] = useState<string>('')
   const [filterGuard, setFilterGuard] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterSupervisor, setFilterSupervisor] = useState('')
   const [form, setForm] = useState({ leaveType: 'casual', startDate: '', endDate: '', reason: '' })
   const [reviewForm, setReviewForm] = useState<{ status: 'approved' | 'rejected'; reviewNote: string }>({ status: 'approved', reviewNote: '' })
 
   useEffect(() => {
     const token = localStorage.getItem('td_token')
     if (!token) { router.replace('/login'); return }
+    try {
+      const u = localStorage.getItem('td_user')
+      if (u) setRole(JSON.parse(u).role ?? '')
+    } catch { /* ignore */ }
     tdApi.users.list()
-      .then((r) => setGuards((r.data ?? []).filter((u: any) => u.role === 'guard' || u.role === 'supervisor')))
+      .then((r) => {
+        const all = r.data ?? []
+        setGuards(all.filter((u: any) => u.role === 'guard' || u.role === 'supervisor'))
+        setSupervisors(all.filter((u: any) => u.role === 'supervisor'))
+      })
       .catch(() => {})
     load()
   }, [router])
 
-  useEffect(() => { load() }, [filterGuard, filterStatus])
+  useEffect(() => { load() }, [filterGuard, filterStatus, filterSupervisor])
 
   function load() {
     setLoading(true)
     tdApi.leaveRequests.list({
       guardId: filterGuard || undefined,
+      supervisorId: filterSupervisor || undefined,
       status: filterStatus || undefined,
     })
       .then((r) => setRequests(r.data ?? []))
@@ -130,6 +142,14 @@ export default function LeaveRequestsPage() {
               {guards.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
             </Select>
           </FilterField>
+          {(role === 'tenant_admin' || role === 'platform_admin') && (
+            <FilterField label="Supervisor">
+              <Select value={filterSupervisor} onChange={(e) => setFilterSupervisor(e.target.value)} style={{ width: 180 }}>
+                <option value="">Any supervisor</option>
+                {supervisors.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </Select>
+            </FilterField>
+          )}
           <FilterField label="Status">
             <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ width: 150 }}>
               <option value="">All statuses</option>
@@ -138,6 +158,18 @@ export default function LeaveRequestsPage() {
               <option value="rejected">Rejected</option>
             </Select>
           </FilterField>
+          {(filterGuard || filterStatus || filterSupervisor) && (
+            <button
+              onClick={() => { setFilterGuard(''); setFilterStatus(''); setFilterSupervisor('') }}
+              style={{
+                marginTop: 22,
+                padding: '7px 12px', borderRadius: 7, border: '1px solid #e8e5e0',
+                background: '#fff', color: '#c96442', fontSize: 13, cursor: 'pointer',
+              }}
+            >
+              Clear filters
+            </button>
+          )}
         </FilterRow>
 
         <Card overflow="hidden">

@@ -103,7 +103,7 @@ export const tdApi = {
       request<{ data: any }>(`/shifts/${id}/movement/recompute`, { method: 'POST' }),
   },
   incidents: {
-    list: (params?: { status?: string; severity?: string; siteId?: string; limit?: number }) => {
+    list: (params?: { status?: string; severity?: string; siteId?: string; guardId?: string; supervisorId?: string; limit?: number }) => {
       const entries = Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== '')
       const qs = entries.length ? '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString() : ''
       return request<{ data: any[] }>(`/incidents${qs}`)
@@ -192,7 +192,7 @@ export const tdApi = {
       request<{ data: any }>(`/certifications/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   },
   leaveRequests: {
-    list: (params?: { guardId?: string; status?: string }) => {
+    list: (params?: { guardId?: string; supervisorId?: string; status?: string }) => {
       const entries = Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== '')
       const qs = entries.length ? '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString() : ''
       return request<{ data: any[] }>(`/leave-requests${qs}`)
@@ -243,11 +243,14 @@ export const tdApi = {
     removeSite: (supervisorId: string, siteId: string) =>
       request<{ data: any }>(`/supervisor-sites/${supervisorId}/${siteId}`, { method: 'DELETE' }),
   },
-  panic: {
-    list: () => request<{ data: any[] }>('/panic'),
-    acknowledge: (id: string) =>
-      request<{ data: any }>(`/panic/${id}/acknowledge`, { method: 'PATCH' }),
-    resolve: (id: string, notes?: string) =>
-      request<{ data: any }>(`/panic/${id}/resolve`, { method: 'PATCH', body: JSON.stringify({ notes }) }),
+  guardStats: {
+    list: (params?: { month?: string }) => {
+      const qs = params?.month ? `?month=${encodeURIComponent(params.month)}` : ''
+      return request<{ data: { month: string; guards: any[] } }>(`/guard-stats${qs}`)
+    },
+    get: (guardId: string, params?: { month?: string }) => {
+      const qs = params?.month ? `?month=${encodeURIComponent(params.month)}` : ''
+      return request<{ data: { month: string; guard: any; summary: any; shifts: any[] } }>(`/guard-stats/${guardId}${qs}`)
+    },
   },
 }

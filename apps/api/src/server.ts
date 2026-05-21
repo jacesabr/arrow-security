@@ -27,6 +27,7 @@ import { leaveRequestsRoutes } from './routes/leave-requests'
 import { payrollRoutes } from './routes/payroll'
 import { certificationsRoutes } from './routes/certifications'
 import { postOrdersRoutes } from './routes/post-orders'
+import { guardStatsRoutes } from './routes/guard-stats'
 import { passdownsRoutes } from './routes/passdowns'
 import { exceptionsRoutes } from './routes/exceptions'
 import { auditLogRoutes } from './routes/audit-log'
@@ -61,7 +62,15 @@ async function build() {
     }
   })
 
-  await app.register(helmet)
+  // In dev, disable HSTS + the upgrade-insecure-requests CSP directive — both
+  // cause the browser to silently rewrite http://localhost:4000 to https and
+  // fail with "Client network socket disconnected before secure TLS connection
+  // was established". Production still gets the strict defaults.
+  const isProd = process.env.NODE_ENV === 'production'
+  await app.register(helmet, isProd ? undefined : {
+    contentSecurityPolicy: false,
+    strictTransportSecurity: false,
+  })
   await app.register(cors, {
     origin: process.env.CORS_ORIGIN?.split(',') ?? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],
     credentials: true,
@@ -92,6 +101,7 @@ async function build() {
   await app.register(payrollRoutes, { prefix: '/api/payroll' })
   await app.register(certificationsRoutes, { prefix: '/api/certifications' })
   await app.register(postOrdersRoutes, { prefix: '/api/post-orders' })
+  await app.register(guardStatsRoutes, { prefix: '/api/guard-stats' })
   await app.register(passdownsRoutes, { prefix: '/api/passdowns' })
   await app.register(exceptionsRoutes, { prefix: '/api/exceptions' })
   await app.register(auditLogRoutes, { prefix: '/api/audit-log' })
