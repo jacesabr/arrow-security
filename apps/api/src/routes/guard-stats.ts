@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { db } from '@secureops/db'
 import { sql } from 'drizzle-orm'
-import { requireSupervisor, getSupervisorSiteIds } from '../lib/auth'
+import { requireAuth, requireSupervisor, getSupervisorSiteIds } from '../lib/auth'
 
 // Reports endpoints — admin/supervisor monthly summary of every guard's
 // shifts + movement (walking / driving / idle). Designed for the birds-eye
@@ -98,7 +98,9 @@ export const guardStatsRoutes: FastifyPluginAsync = async (fastify) => {
   })
 
   // GET /api/guard-stats/:guardId?month=YYYY-MM — single guard summary + per-shift breakdown.
-  fastify.get('/:guardId', { preHandler: requireSupervisor }, async (request, reply) => {
+  // Auth: a guard can query their own stats; supervisor sees guards at their
+  // sites; admin sees anyone.
+  fastify.get('/:guardId', { preHandler: requireAuth }, async (request, reply) => {
     const payload = request.user as { tenantId: string; sub: string; role: string }
     const { guardId } = request.params as { guardId: string }
     const { month } = z.object({
@@ -106,7 +108,16 @@ export const guardStatsRoutes: FastifyPluginAsync = async (fastify) => {
     }).parse(request.query)
     const { start, end, key } = parseMonth(month)
 
-    const supervisorSiteIds = await getSupervisorSiteIds(payload.sub, payload.role)
+    const isSelf = guardId === payload.sub
+    if (payload.role === 'guard' && !isSelf) {
+      return reply.code(403).send({ error: 'Forbidden', message: 'Guards can only view their own stats', statusCode: 403 })
+    }
+
+    // Supervisor scope only applies when they're querying OTHER guards. Their
+    // own self-query bypasses the site filter (a supervisor's shifts may be
+    // at any site they cover, but we don't want to fail because we filtered
+    // them out somehow).
+    const supervisorSiteIds = isSelf ? null : await getSupervisorSiteIds(payload.sub, payload.role)
     if (supervisorSiteIds !== null && supervisorSiteIds.length === 0) {
       return reply.code(403).send({ error: 'Forbidden', message: 'No site access', statusCode: 403 })
     }
@@ -114,11 +125,13 @@ export const guardStatsRoutes: FastifyPluginAsync = async (fastify) => {
       ? sql``
       : sql`AND s.site_id = ANY(${supervisorSiteIds})`
 
-    // 1. Guard row (always scoped to tenant)
+    // 1. User row (always scoped to tenant). Note we DON'T filter by role here
+    // — supervisors have shifts too and should be able to see their own stats
+    // on this endpoint. The list endpoint above still scopes to role='guard'.
     const guardRows = await db.execute(sql`
       SELECT id, name, username, created_at
       FROM users
-      WHERE id = ${guardId} AND tenant_id = ${payload.tenantId} AND role = 'guard'
+      WHERE id = ${guardId} AND tenant_id = ${payload.tenantId}
       LIMIT 1
     `) as any[]
     const guard = guardRows[0]

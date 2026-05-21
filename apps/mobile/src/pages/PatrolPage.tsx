@@ -20,6 +20,7 @@ import type { PluginListenerHandle } from '@capacitor/core'
 import type { BackgroundGeolocationPlugin, Location } from '@capacitor-community/background-geolocation'
 import { ActivityRecognition, type ActivityTransitionEvent, type ActivityType } from '@secureops/capacitor-activity-recognition'
 import { api } from '../services/api'
+import { useAuthStore } from '../store/auth'
 
 const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>('BackgroundGeolocation')
 
@@ -446,115 +447,204 @@ function Bucket({ label, color, seconds, active }: { label: string; color: strin
   )
 }
 
-export const PatrolPage: React.FC = () => {
-  const [sites, setSites] = useState<any[]>([])
-  const [selectedSite, setSelectedSite] = useState<string>('')
-  const [patrol, setPatrol] = useState<any | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
+/* ─── Monthly activity log ────────────────────────────────────────────── */
+//
+// Pulls the current user's per-month stats from /api/guard-stats/:userId
+// (the backend now allows self-query for any role). Shows walking /
+// driving / idle as a stacked bar + per-bucket totals, plus a per-shift
+// breakdown for the chosen month.
+
+function monthKeyToday(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+function monthLabel(key: string): string {
+  const [y, m] = key.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+}
+function recentMonths(n: number): string[] {
+  const out: string[] = []
+  const d = new Date(); d.setDate(1)
+  for (let i = 0; i < n; i++) {
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+    d.setMonth(d.getMonth() - 1)
+  }
+  return out
+}
+function fmtHoursOrMin(seconds: number): string {
+  if (seconds < 60) return '0h'
+  const h = seconds / 3600
+  return h >= 10 ? `${h.toFixed(0)}h` : `${h.toFixed(1)}h`
+}
+
+const MOVE_COLORS = { walking: '#10b981', driving: '#3b82f6', idle: '#d4a574' }
+
+const MyActivityLog: React.FC<{ userId: string }> = ({ userId }) => {
+  const [month, setMonth] = useState<string>(monthKeyToday())
+  const [data, setData] = useState<any | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.sites.list().then((res) => {
-      setSites(res.data)
-      if (res.data.length > 0) setSelectedSite(res.data[0].id)
-    }).catch(console.error)
-  }, [])
-
-  async function startPatrol() {
-    if (!selectedSite) return
     setLoading(true)
-    try {
-      const res = await api.patrol.startPatrol(selectedSite)
-      setPatrol(res.data)
-    } catch (e: any) {
-      setToast(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
+    api.guardStats.get(userId, { month })
+      .then(r => setData(r.data))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false))
+  }, [userId, month])
 
-  async function completePatrol() {
-    if (!patrol) return
-    try {
-      await api.patrol.complete(patrol.id)
-      setPatrol(null)
-      setToast('Patrol completed!')
-    } catch (e: any) {
-      setToast(e.message)
-    }
-  }
+  const summary = data?.summary
+  const shifts = data?.shifts ?? []
+  const tracked = summary
+    ? (summary.walkingSeconds ?? 0) + (summary.drivingSeconds ?? 0) + (summary.idleSeconds ?? 0)
+    : 0
+
+  return (
+    <div style={{ background: '#ffffff', border: '1px solid #e8e5e0', borderRadius: 12, padding: '16px 16px 18px', marginBottom: 16, textAlign: 'left' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1916', letterSpacing: '-0.01em' }}>
+            My activity — {monthLabel(month)}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#9a9490', marginTop: 2 }}>
+            Walking / driving / idle, accumulated from every shift this month.
+          </div>
+        </div>
+        <select
+          value={month}
+          onChange={e => setMonth(e.target.value)}
+          style={{
+            padding: '6px 9px', borderRadius: 6, border: '1px solid #e8e5e0',
+            background: '#fff', fontSize: 12, color: '#1a1916',
+          }}
+        >
+          {recentMonths(12).map(k => (
+            <option key={k} value={k}>{monthLabel(k)}</option>
+          ))}
+        </select>
+      </div>
+
+      {loading ? (
+        <div style={{ color: '#9a9490', fontSize: 13 }}>Loading…</div>
+      ) : !summary || tracked === 0 ? (
+        <div style={{ color: '#9a9490', fontSize: 13 }}>No tracked activity yet for this month.</div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', background: '#ebe8e2', marginBottom: 14 }}>
+            <div style={{ width: `${(summary.walkingSeconds / tracked) * 100}%`, background: MOVE_COLORS.walking }} />
+            <div style={{ width: `${(summary.drivingSeconds / tracked) * 100}%`, background: MOVE_COLORS.driving }} />
+            <div style={{ width: `${(summary.idleSeconds    / tracked) * 100}%`, background: MOVE_COLORS.idle }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
+            <ActivityCell color={MOVE_COLORS.walking} label="Walking" value={fmtHoursOrMin(summary.walkingSeconds)} />
+            <ActivityCell color={MOVE_COLORS.driving} label="Driving" value={fmtHoursOrMin(summary.drivingSeconds)} />
+            <ActivityCell color={MOVE_COLORS.idle}    label="Idle"    value={fmtHoursOrMin(summary.idleSeconds)} />
+          </div>
+          <div style={{ fontSize: 11.5, color: '#9a9490', textAlign: 'center', marginBottom: shifts.length > 0 ? 14 : 0 }}>
+            {summary.shiftsCompleted} completed · {summary.shiftsMissed} missed · {fmtHoursOrMin(summary.workedSeconds ?? 0)} worked
+          </div>
+          {shifts.length > 0 && (
+            <div style={{ borderTop: '1px solid #f0ede8', paddingTop: 12 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#9a9490', marginBottom: 8 }}>
+                Shifts this month ({shifts.length})
+              </div>
+              {shifts.slice(0, 12).map((s: any) => {
+                const tr = (s.walkingSeconds ?? 0) + (s.drivingSeconds ?? 0) + (s.idleSeconds ?? 0)
+                return (
+                  <div key={s.shiftId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid #f5f4f2', fontSize: 11.5 }}>
+                    <div style={{ minWidth: 50, color: '#1a1916', fontWeight: 600 }}>
+                      {new Date(s.startsAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                    </div>
+                    <div style={{ flex: 1, color: '#5c5855', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.siteName ?? '—'}</div>
+                    {tr > 0 ? (
+                      <div style={{ display: 'flex', height: 5, borderRadius: 2.5, overflow: 'hidden', width: 70, background: '#ebe8e2', flexShrink: 0 }}>
+                        <div style={{ width: `${(s.walkingSeconds / tr) * 100}%`, background: MOVE_COLORS.walking }} />
+                        <div style={{ width: `${(s.drivingSeconds / tr) * 100}%`, background: MOVE_COLORS.driving }} />
+                        <div style={{ width: `${(s.idleSeconds    / tr) * 100}%`, background: MOVE_COLORS.idle }} />
+                      </div>
+                    ) : <div style={{ width: 70 }} />}
+                    <div style={{ minWidth: 38, textAlign: 'right', color: '#1a1916', fontVariantNumeric: 'tabular-nums' }}>
+                      {tr > 0 ? fmtHoursOrMin(tr) : '—'}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function ActivityCell({ color, label, value }: { color: string; label: string; value: string }) {
+  return (
+    <div style={{ background: '#fafaf9', border: '1px solid #ebe8e2', borderRadius: 8, padding: '8px 10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+        <span style={{ width: 7, height: 7, borderRadius: 3.5, background: color }} />
+        <span style={{ fontSize: 10, color: '#9a9490', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
+      </div>
+      <div style={{ fontSize: 17, fontWeight: 700, color: '#1a1916', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+    </div>
+  )
+}
+
+export const PatrolPage: React.FC = () => {
+  const { user } = useAuthStore()
+  const [showTest, setShowTest] = useState(false)
 
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar style={{ '--background': '#ffffff', '--color': '#1a1916' }}>
-          <IonTitle>Patrol</IonTitle>
+          <IonTitle>Activity</IonTitle>
         </IonToolbar>
       </IonHeader>
 
       <IonContent style={{ '--background': '#fafaf9' }}>
-        {!patrol ? (
-          <div className="ion-padding" style={{ textAlign: 'center', paddingTop: 48 }}>
-            <IonIcon icon={walkOutline} style={{ fontSize: 72, color: '#10b981', marginBottom: 24 }} />
-            <h2 style={{ color: '#1a1916', marginBottom: 8 }}>Start a Patrol</h2>
-
-            {sites.length === 0 ? (
-              <div style={{
-                background: '#ffffff', border: '1px solid #e8e5e0', borderRadius: 12,
-                padding: '18px 16px', margin: '8px 0 16px',
-                color: '#5c5855', fontSize: 13.5, lineHeight: 1.5, textAlign: 'left',
-              }}>
-                <div style={{ fontWeight: 600, color: '#1a1916', marginBottom: 4 }}>No sites yet</div>
-                Your admin needs to create a site (and ideally assign you a shift) before you can start a patrol. Once that's done this page will list the sites you can patrol.
-              </div>
-            ) : sites.length > 1 ? (
-              <div style={{ background: '#ffffff', borderRadius: 8, padding: 4, marginBottom: 16, textAlign: 'left' }}>
-                <IonItem lines="none" style={{ '--background': 'transparent' }}>
-                  <IonLabel style={{ color: '#5c5855' }}>Site</IonLabel>
-                  <IonSelect
-                    value={selectedSite}
-                    onIonChange={(e) => setSelectedSite(e.detail.value)}
-                    interface="action-sheet"
-                    style={{ '--color': '#1a1916' }}
-                  >
-                    {sites.map((s) => (
-                      <IonSelectOption key={s.id} value={s.id}>{s.name}</IonSelectOption>
-                    ))}
-                  </IonSelect>
-                </IonItem>
-              </div>
-            ) : null}
-
-            <IonButton
-              expand="block"
-              onClick={startPatrol}
-              disabled={loading || !selectedSite}
-              style={{ '--background': '#10b981', '--border-radius': '12px' }}
-            >
-              {loading ? <IonSpinner /> : 'Begin Patrol'}
-            </IonButton>
-
-            <div style={{ height: 24 }} />
-            <TestMovementCard />
-          </div>
-        ) : (
-          <div className="ion-padding" style={{ textAlign: 'center', paddingTop: 48 }}>
-            <IonIcon icon={walkOutline} style={{ fontSize: 72, color: '#10b981', marginBottom: 24 }} />
-            <h2 style={{ color: '#1a1916', marginBottom: 8 }}>Patrol in Progress</h2>
-            <p style={{ color: '#5c5855', marginBottom: 32 }}>
-              {sites.find(s => s.id === selectedSite)?.name ?? 'Site'}
+        <div style={{ padding: '14px 14px 24px' }}>
+          {/* Why this exists — context for supervisors + guards */}
+          <div style={{
+            background: '#ffffff', border: '1px solid #e8e5e0', borderRadius: 12,
+            padding: '14px 16px', marginBottom: 14,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <IonIcon icon={walkOutline} style={{ fontSize: 18, color: '#10b981' }} />
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1916' }}>Activity tracking</div>
+            </div>
+            <p style={{ margin: 0, color: '#5c5855', fontSize: 12.5, lineHeight: 1.5 }}>
+              Your phone records walking, driving, and idle time during each shift. We use it to:
             </p>
-            <IonButton
-              expand="block"
-              onClick={completePatrol}
-              style={{ '--background': '#c96442', '--border-radius': '12px' }}
-            >
-              Complete Patrol
-            </IonButton>
+            <ul style={{ margin: '6px 0 0', padding: '0 0 0 18px', color: '#5c5855', fontSize: 12.5, lineHeight: 1.55 }}>
+              <li>Reimburse supervisors for the gas they spend driving between shifts.</li>
+              <li>Confirm guards are doing the patrolling they're meant to be doing.</li>
+            </ul>
           </div>
-        )}
 
-        <IonToast isOpen={!!toast} onDidDismiss={() => setToast(null)} message={toast ?? ''} duration={2500} />
+          {user?.id && <MyActivityLog userId={user.id} />}
+
+          {/* Test movement panel — collapsed by default, mainly a dev / "is the
+              classifier working on this device" tool. */}
+          <button
+            onClick={() => setShowTest(s => !s)}
+            style={{
+              all: 'unset', display: 'block', width: '100%', boxSizing: 'border-box',
+              background: '#ffffff', border: '1px solid #e8e5e0', borderRadius: 12,
+              padding: '12px 14px', cursor: 'pointer', textAlign: 'left',
+              marginBottom: showTest ? 10 : 0,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1a1916' }}>Test movement tracking</div>
+                <div style={{ fontSize: 11.5, color: '#9a9490', marginTop: 2 }}>
+                  Sanity-check that walking/driving/idle detection works on this device.
+                </div>
+              </div>
+              <span style={{ color: '#9a9490', fontSize: 16 }}>{showTest ? '▾' : '▸'}</span>
+            </div>
+          </button>
+          {showTest && <TestMovementCard />}
+        </div>
       </IonContent>
     </IonPage>
   )

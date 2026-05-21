@@ -72,7 +72,7 @@ export const DashboardPage: React.FC = () => {
         {/* Quick actions */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, padding: '0 20px 20px' }}>
           <ActionCard icon={qrCodeOutline} label="Check In" color="#c96442" onClick={() => history.push('/tabs/checkin')} />
-          <ActionCard icon={walkOutline} label="Patrol" color="#10b981" onClick={() => history.push('/tabs/patrol')} />
+          <ActionCard icon={walkOutline} label="Activity" color="#10b981" onClick={() => history.push('/tabs/patrol')} />
           <ActionCard icon={warningOutline} label="Incident" color="#f59e0b" onClick={() => history.push('/tabs/incidents')} />
           <ActionCard icon={timeOutline} label="Shifts" color="#3b82f6" onClick={() => history.push('/tabs/shifts')} />
         </div>

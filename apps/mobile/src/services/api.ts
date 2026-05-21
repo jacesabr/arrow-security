@@ -125,6 +125,13 @@ export const api = {
     listStats: () => request<{ data: any[] }>('/site-stats'),
   },
 
+  guardStats: {
+    get: (userId: string, params?: { month?: string }) => {
+      const qs = params?.month ? `?month=${encodeURIComponent(params.month)}` : ''
+      return request<{ data: { month: string; guard: any; summary: any; shifts: any[] } }>(`/guard-stats/${userId}${qs}`)
+    },
+  },
+
   clients: {
     list: () => request<{ data: any[] }>('/clients'),
   },
