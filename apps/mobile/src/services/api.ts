@@ -80,7 +80,7 @@ export const api = {
   },
 
   incidents: {
-    list: (params?: { status?: string; siteId?: string }) => {
+    list: (params?: { status?: string; siteId?: string; severity?: string }) => {
       const qs = new URLSearchParams(params as any).toString()
       return request<{ data: any[] }>(`/incidents?${qs}`)
     },
@@ -122,6 +122,7 @@ export const api = {
 
   sites: {
     list: () => request<{ data: any[] }>('/sites'),
+    listStats: () => request<{ data: any[] }>('/site-stats'),
   },
 
   clients: {

@@ -30,6 +30,7 @@ import { ProfilePage } from '../pages/ProfilePage'
 import { GuidePage } from '../pages/GuidePage'
 import { useAuthStore } from '../store/auth'
 import { LeaveRequestPage } from '../pages/LeaveRequestPage'
+import { api } from '../services/api'
 
 // Cast react-router-dom v5 components to work around @types/react 18 incompatibility
 const R = Route as React.ComponentType<any>
@@ -220,6 +221,366 @@ function MissingShiftModal({
   )
 }
 
+/* ─── Pending leave + high-severity incident triage (Home cards) ──────────── */
+//
+// Two more "glance + one-tap action" cards for the admin / supervisor Home
+// pages, designed so an away-from-desk admin can clear common review work
+// without ever opening the laptop. Both follow the same shape as
+// MissingShiftCard above — coloured pill on the left, count + label + a
+// bottom-sheet on tap with quick action buttons inline.
+
+function fmtRelativeDate(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+}
+
+function useGenericList<T = any>(
+  fetcher: () => Promise<{ data: T[] }>,
+  deps: any[] = [],
+): { rows: T[]; loading: boolean; reload: () => void } {
+  const [rows, setRows] = useState<T[]>([])
+  const [loading, setLoading] = useState(true)
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    fetcher()
+      .then(r => { if (!cancelled) setRows(r.data ?? []) })
+      .catch(() => { if (!cancelled) setRows([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [...deps, tick])
+  return { rows, loading, reload: () => setTick(x => x + 1) }
+}
+
+/* Sites under my supervision ----------------------------------------------- */
+//
+// One card per site the caller can see (supervisor → their assigned sites;
+// admin → every site). 6 metrics: total guards, on shift, missing,
+// weekly attendance %, weekly tardiness %, weekly incidents.
+//
+// Tap behaviour intentionally not wired yet — when we have a /sites/:id
+// drill-down on mobile we'll hook the card into it.
+
+function pctTone(v: number | null, kind: 'attendance' | 'tardy'): string {
+  if (v === null) return '#9a9490'
+  if (kind === 'attendance') return v >= 90 ? '#065f46' : v >= 75 ? '#92400e' : '#b91c1c'
+  // tardiness — lower is better
+  return v <= 5 ? '#065f46' : v <= 15 ? '#92400e' : '#b91c1c'
+}
+
+function SiteSupervisionCard({ s }: { s: any }) {
+  const attendance = s.weeklyAttendancePct
+  const tardy = s.weeklyTardinessPct
+  return (
+    <div style={{
+      background: '#ffffff', border: '1px solid #e8e5e0', borderRadius: 12,
+      padding: '12px 14px', marginBottom: 8,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1916', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {s.siteName}
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: '#5c5855', marginBottom: 10 }}>
+        <strong style={{ color: '#1a1916' }}>{s.totalGuards}</strong> guards
+        {' · '}<strong style={{ color: s.onShift > 0 ? '#065f46' : '#9a9490' }}>{s.onShift}</strong> on shift
+        {s.missing > 0 && <> {' · '}<strong style={{ color: '#b91c1c' }}>{s.missing}</strong> missing</>}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, paddingTop: 10, borderTop: '1px solid #f0ede8' }}>
+        <Metric label="Attendance" value={attendance === null ? '—' : `${attendance}%`} color={pctTone(attendance, 'attendance')} />
+        <Metric label="Tardy"      value={tardy      === null ? '—' : `${tardy}%`}      color={pctTone(tardy,      'tardy')} />
+        <Metric label="Incidents"  value={String(s.weeklyIncidents)} color={s.weeklyIncidents > 0 ? '#b91c1c' : '#5c5855'} />
+      </div>
+    </div>
+  )
+}
+
+function Metric({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: '#9a9490', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ fontSize: 14, fontWeight: 700, color, marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+    </div>
+  )
+}
+
+function SitesUnderSupervision({ title }: { title: string }) {
+  const { rows, loading } = useGenericList(() => api.sites.listStats())
+  return (
+    <div style={{
+      background: '#ffffff', border: '1px solid #e8e5e0', borderRadius: 12,
+      overflow: 'hidden', marginBottom: 14,
+    }}>
+      <div style={{
+        padding: '12px 14px', borderBottom: '1px solid #e8e5e0',
+        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+      }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1916' }}>{title}</div>
+          <div style={{ fontSize: 11, color: '#9a9490', marginTop: 1 }}>Past 7 days. Tap a site for the live map.</div>
+        </div>
+        <span style={{ fontSize: 12, color: '#9a9490' }}>
+          {loading ? '…' : `${rows.length} site${rows.length === 1 ? '' : 's'}`}
+        </span>
+      </div>
+      <div style={{ padding: '10px 10px 4px' }}>
+        {loading ? (
+          <div style={{ padding: '12px 4px', color: '#9a9490', fontSize: 13 }}>Loading…</div>
+        ) : rows.length === 0 ? (
+          <div style={{ padding: '12px 4px', color: '#9a9490', fontSize: 13 }}>No sites yet.</div>
+        ) : (
+          rows.map((s: any) => <SiteSupervisionCard key={s.siteId} s={s} />)
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* Pending leave card -------------------------------------------------------- */
+
+function PendingLeaveCard({
+  count, loading, onTap,
+}: { count: number; loading: boolean; onTap: () => void }) {
+  const empty = !loading && count === 0
+  const accent = count === 0 ? '#10b981' : '#f59e0b'
+  const bg     = count === 0 ? 'rgba(16,185,129,0.06)' : 'rgba(245,158,11,0.08)'
+  const border = count === 0 ? 'rgba(16,185,129,0.25)' : 'rgba(245,158,11,0.3)'
+  return (
+    <button
+      onClick={empty ? undefined : onTap}
+      disabled={empty}
+      style={{
+        all: 'unset', display: 'block', width: '100%', boxSizing: 'border-box',
+        background: bg, border: `1px solid ${border}`, borderRadius: 12,
+        padding: '14px 16px', cursor: empty ? 'default' : 'pointer',
+        textAlign: 'left', marginBottom: 14,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10, background: accent,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#ffffff', fontWeight: 700, fontSize: 16,
+          }}>{loading ? '·' : count}</div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1916', letterSpacing: '-0.01em' }}>
+              Pending leave requests
+            </div>
+            <div style={{ fontSize: 12, color: '#5c5855', marginTop: 1 }}>
+              {loading ? 'Checking…' : count === 0 ? 'Nothing waiting for your review' : 'Tap to approve or reject inline.'}
+            </div>
+          </div>
+        </div>
+        {!empty && !loading && <span style={{ color: accent, fontSize: 18, fontWeight: 600 }}>›</span>}
+      </div>
+    </button>
+  )
+}
+
+function PendingLeaveModal({
+  rows, onClose, onActed,
+}: { rows: any[]; onClose: () => void; onActed: () => void }) {
+  const [acting, setActing] = useState<string | null>(null)
+  async function act(id: string, status: 'approved' | 'rejected') {
+    setActing(id)
+    try { await api.leaveRequests.review(id, { status }); onActed() }
+    catch { /* swallow — toast surfaces on the dashboard if needed */ }
+    finally { setActing(null) }
+  }
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9000, display: 'flex', alignItems: 'flex-end' }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#ffffff', width: '100%', maxHeight: '82vh',
+        borderTopLeftRadius: 18, borderTopRightRadius: 18,
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        display: 'flex', flexDirection: 'column',
+        animation: 'slideUp 0.22s ease-out',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 0' }}>
+          <div style={{ width: 38, height: 4, borderRadius: 3, background: '#dcd8d2' }} />
+        </div>
+        <div style={{ padding: '12px 18px 8px', borderBottom: '1px solid #e8e5e0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1916' }}>Pending leave</div>
+            <div style={{ fontSize: 12, color: '#9a9490', marginTop: 1 }}>{rows.length} waiting for review</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#5c5855', fontSize: 22, cursor: 'pointer', padding: 4 }} aria-label="Close">✕</button>
+        </div>
+        <div style={{ overflowY: 'auto', flex: 1, padding: '8px 0 18px' }}>
+          {rows.length === 0 ? (
+            <div style={{ padding: '24px 18px', color: '#9a9490', fontSize: 13, textAlign: 'center' }}>Nothing pending.</div>
+          ) : rows.map(r => (
+            <div key={r.id} style={{ padding: '12px 18px', borderBottom: '1px solid #f5f4f2' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1916' }}>{r.guardName ?? r.guardUsername ?? 'Guard'}</div>
+                <div style={{ fontSize: 11.5, color: '#9a9490' }}>{r.leaveType ?? 'leave'}</div>
+              </div>
+              <div style={{ fontSize: 12.5, color: '#5c5855', marginTop: 4 }}>
+                {fmtRelativeDate(r.startDate)} – {fmtRelativeDate(r.endDate)}
+              </div>
+              {r.reason && (
+                <div style={{ fontSize: 12, color: '#9a9490', marginTop: 4, lineHeight: 1.4 }}>{r.reason}</div>
+              )}
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <button
+                  onClick={() => act(r.id, 'approved')}
+                  disabled={acting === r.id}
+                  style={{
+                    flex: 1, padding: '9px 0', borderRadius: 8, border: 'none',
+                    background: '#10b981', color: '#fff', fontWeight: 600, fontSize: 13,
+                    opacity: acting === r.id ? 0.6 : 1, cursor: 'pointer',
+                  }}
+                >Approve</button>
+                <button
+                  onClick={() => act(r.id, 'rejected')}
+                  disabled={acting === r.id}
+                  style={{
+                    flex: 1, padding: '9px 0', borderRadius: 8,
+                    border: '1.5px solid #ef4444', background: 'transparent',
+                    color: '#ef4444', fontWeight: 600, fontSize: 13,
+                    opacity: acting === r.id ? 0.6 : 1, cursor: 'pointer',
+                  }}
+                >Reject</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* High-severity incidents card --------------------------------------------- */
+
+function HighSeverityCard({
+  count, loading, onTap,
+}: { count: number; loading: boolean; onTap: () => void }) {
+  const empty = !loading && count === 0
+  const accent = count === 0 ? '#10b981' : '#ef4444'
+  const bg     = count === 0 ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)'
+  const border = count === 0 ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.35)'
+  return (
+    <button
+      onClick={empty ? undefined : onTap}
+      disabled={empty}
+      style={{
+        all: 'unset', display: 'block', width: '100%', boxSizing: 'border-box',
+        background: bg, border: `1px solid ${border}`, borderRadius: 12,
+        padding: '14px 16px', cursor: empty ? 'default' : 'pointer',
+        textAlign: 'left', marginBottom: 14,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10, background: accent,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#ffffff', fontWeight: 700, fontSize: 16,
+          }}>{loading ? '·' : count}</div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1916', letterSpacing: '-0.01em' }}>
+              High-priority incidents
+            </div>
+            <div style={{ fontSize: 12, color: '#5c5855', marginTop: 1 }}>
+              {loading ? 'Checking…' : count === 0 ? 'Nothing critical open right now' : 'Critical / high open. Tap to triage.'}
+            </div>
+          </div>
+        </div>
+        {!empty && !loading && <span style={{ color: accent, fontSize: 18, fontWeight: 600 }}>›</span>}
+      </div>
+    </button>
+  )
+}
+
+function IncidentTriageModal({
+  rows, onClose, onActed,
+}: { rows: any[]; onClose: () => void; onActed: () => void }) {
+  const [acting, setActing] = useState<string | null>(null)
+  async function act(id: string, status: 'acknowledged' | 'resolved') {
+    setActing(id)
+    try { await api.incidents.updateStatus(id, status); onActed() }
+    catch { /* ignore */ }
+    finally { setActing(null) }
+  }
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9000, display: 'flex', alignItems: 'flex-end' }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#ffffff', width: '100%', maxHeight: '82vh',
+        borderTopLeftRadius: 18, borderTopRightRadius: 18,
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        display: 'flex', flexDirection: 'column',
+        animation: 'slideUp 0.22s ease-out',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 0' }}>
+          <div style={{ width: 38, height: 4, borderRadius: 3, background: '#dcd8d2' }} />
+        </div>
+        <div style={{ padding: '12px 18px 8px', borderBottom: '1px solid #e8e5e0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1916' }}>High-priority incidents</div>
+            <div style={{ fontSize: 12, color: '#9a9490', marginTop: 1 }}>{rows.length} open · acknowledge or resolve inline</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#5c5855', fontSize: 22, cursor: 'pointer', padding: 4 }} aria-label="Close">✕</button>
+        </div>
+        <div style={{ overflowY: 'auto', flex: 1, padding: '8px 0 18px' }}>
+          {rows.length === 0 ? (
+            <div style={{ padding: '24px 18px', color: '#9a9490', fontSize: 13, textAlign: 'center' }}>Nothing open.</div>
+          ) : rows.map(r => {
+            const sev = r.severity ?? 'medium'
+            const sevColor = sev === 'critical' ? '#b91c1c' : '#ea580c'
+            return (
+              <div key={r.id} style={{ padding: '12px 18px', borderBottom: '1px solid #f5f4f2' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1916', flex: 1, minWidth: 0 }}>{r.title}</div>
+                  <span style={{
+                    fontSize: 10.5, fontWeight: 700,
+                    background: sev === 'critical' ? '#fee2e2' : '#ffedd5',
+                    color: sevColor,
+                    padding: '2px 7px', borderRadius: 10,
+                    textTransform: 'uppercase', letterSpacing: '0.04em',
+                  }}>{sev}</span>
+                </div>
+                {r.description && (
+                  <div style={{ fontSize: 12, color: '#5c5855', marginTop: 4, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden' }}>{r.description}</div>
+                )}
+                <div style={{ fontSize: 11, color: '#9a9490', marginTop: 4 }}>
+                  {new Date(r.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  {r.status && r.status !== 'open' && <> · <span style={{ color: '#5c5855', fontWeight: 500 }}>{r.status}</span></>}
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  {r.status === 'open' && (
+                    <button
+                      onClick={() => act(r.id, 'acknowledged')}
+                      disabled={acting === r.id}
+                      style={{
+                        flex: 1, padding: '9px 0', borderRadius: 8,
+                        border: '1.5px solid #f59e0b', background: 'transparent',
+                        color: '#92400e', fontWeight: 600, fontSize: 13,
+                        opacity: acting === r.id ? 0.6 : 1, cursor: 'pointer',
+                      }}
+                    >Acknowledge</button>
+                  )}
+                  <button
+                    onClick={() => act(r.id, 'resolved')}
+                    disabled={acting === r.id}
+                    style={{
+                      flex: 1, padding: '9px 0', borderRadius: 8, border: 'none',
+                      background: '#10b981', color: '#fff', fontWeight: 600, fontSize: 13,
+                      opacity: acting === r.id ? 0.6 : 1, cursor: 'pointer',
+                    }}
+                  >Resolve</button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const SupervisorDashboard: React.FC = () => {
   const { user, logout } = useAuthStore()
   const [guardStatus, setGuardStatus] = useState<any[]>([])
@@ -227,6 +588,16 @@ const SupervisorDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const { rows: missing, loading: missingLoading } = useMissingShifts()
   const [showMissing, setShowMissing] = useState(false)
+  // Mobile-triage cards: pending leave + high-severity incidents.
+  // The hook deps array is empty by design — each card refreshes itself on
+  // action via the modal's onActed callback so the dashboard doesn't need
+  // its own visibility-change wiring.
+  const { rows: pendingLeave, loading: leaveLoading, reload: reloadLeave } =
+    useGenericList(() => api.leaveRequests.list().then((r: any) => ({ data: (r.data ?? []).filter((x: any) => x.status === 'pending') })))
+  const { rows: highSev, loading: highSevLoading, reload: reloadHighSev } =
+    useGenericList(() => api.incidents.list({ status: 'open' }).then((r: any) => ({ data: (r.data ?? []).filter((x: any) => x.severity === 'critical' || x.severity === 'high') })))
+  const [showLeave, setShowLeave] = useState(false)
+  const [showHighSev, setShowHighSev] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -273,6 +644,9 @@ const SupervisorDashboard: React.FC = () => {
 
       <div style={{ padding: 16 }}>
         <MissingShiftCard rows={missing} loading={missingLoading} showSupervisor={false} onTap={() => setShowMissing(true)} />
+        <HighSeverityCard count={highSev.length} loading={highSevLoading} onTap={() => setShowHighSev(true)} />
+        <PendingLeaveCard count={pendingLeave.length} loading={leaveLoading} onTap={() => setShowLeave(true)} />
+        <SitesUnderSupervision title="Sites under my supervision" />
         {/* Stats row */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
           <div style={statBoxStyle}>
@@ -339,6 +713,12 @@ const SupervisorDashboard: React.FC = () => {
       </IonContent>
       {showMissing && (
         <MissingShiftModal rows={missing} showSupervisor={false} onClose={() => setShowMissing(false)} />
+      )}
+      {showLeave && (
+        <PendingLeaveModal rows={pendingLeave} onClose={() => setShowLeave(false)} onActed={reloadLeave} />
+      )}
+      {showHighSev && (
+        <IncidentTriageModal rows={highSev} onClose={() => setShowHighSev(false)} onActed={reloadHighSev} />
       )}
     </IonPage>
   )
@@ -702,6 +1082,12 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const { rows: missing, loading: missingLoading } = useMissingShifts()
   const [showMissing, setShowMissing] = useState(false)
+  const { rows: pendingLeave, loading: leaveLoading, reload: reloadLeave } =
+    useGenericList(() => api.leaveRequests.list().then((r: any) => ({ data: (r.data ?? []).filter((x: any) => x.status === 'pending') })))
+  const { rows: highSev, loading: highSevLoading, reload: reloadHighSev } =
+    useGenericList(() => api.incidents.list({ status: 'open' }).then((r: any) => ({ data: (r.data ?? []).filter((x: any) => x.severity === 'critical' || x.severity === 'high') })))
+  const [showLeave, setShowLeave] = useState(false)
+  const [showHighSev, setShowHighSev] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -749,6 +1135,9 @@ const AdminDashboard: React.FC = () => {
 
         <div style={{ padding: '0 20px' }}>
           <MissingShiftCard rows={missing} loading={missingLoading} showSupervisor={true} onTap={() => setShowMissing(true)} />
+          <HighSeverityCard count={highSev.length} loading={highSevLoading} onTap={() => setShowHighSev(true)} />
+          <PendingLeaveCard count={pendingLeave.length} loading={leaveLoading} onTap={() => setShowLeave(true)} />
+          <SitesUnderSupervision title="All sites" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
             <div style={statBoxStyle}>
               <div style={{ fontSize: 24, fontWeight: 700, color: '#c96442' }}>{loading ? '—' : stats?.activeShifts ?? 0}</div>
@@ -819,6 +1208,12 @@ const AdminDashboard: React.FC = () => {
       </IonContent>
       {showMissing && (
         <MissingShiftModal rows={missing} showSupervisor={true} onClose={() => setShowMissing(false)} />
+      )}
+      {showLeave && (
+        <PendingLeaveModal rows={pendingLeave} onClose={() => setShowLeave(false)} onActed={reloadLeave} />
+      )}
+      {showHighSev && (
+        <IncidentTriageModal rows={highSev} onClose={() => setShowHighSev(false)} onActed={reloadHighSev} />
       )}
     </IonPage>
   )
@@ -913,12 +1308,6 @@ export const TabLayout: React.FC = () => {
               <IonTabButton tab="map" href="/tabs/map">
                 <IonIcon icon={mapOutline} /><IonLabel>Map</IonLabel>
               </IonTabButton>
-              <IonTabButton tab="shifts" href="/tabs/shifts">
-                <IonIcon icon={calendarOutline} /><IonLabel>Shifts</IonLabel>
-              </IonTabButton>
-              <IonTabButton tab="incidents" href="/tabs/incidents">
-                <IonIcon icon={warningOutline} /><IonLabel>Incidents</IonLabel>
-              </IonTabButton>
               <IonTabButton tab="profile" href="/tabs/profile">
                 <IonIcon icon={personOutline} /><IonLabel>Profile</IonLabel>
               </IonTabButton>
@@ -997,20 +1386,11 @@ export const TabLayout: React.FC = () => {
             <IonTabButton tab="dashboard" href="/tabs/dashboard">
               <IonIcon icon={homeOutline} /><IonLabel>Home</IonLabel>
             </IonTabButton>
-            <IonTabButton tab="checkin" href="/tabs/checkin">
-              <IonIcon icon={cameraOutline} /><IonLabel>Check In</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="patrol" href="/tabs/patrol">
-              <IonIcon icon={walkOutline} /><IonLabel>Patrol</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="shifts" href="/tabs/shifts">
-              <IonIcon icon={calendarOutline} /><IonLabel>Shifts</IonLabel>
-            </IonTabButton>
             <IonTabButton tab="incidents" href="/tabs/incidents">
-              <IonIcon icon={warningOutline} /><IonLabel>My reports</IonLabel>
+              <IonIcon icon={warningOutline} /><IonLabel>Incidents</IonLabel>
             </IonTabButton>
             <IonTabButton tab="leave" href="/tabs/leave">
-              <IonIcon icon={checkmarkCircleOutline} /><IonLabel>My leave</IonLabel>
+              <IonIcon icon={checkmarkCircleOutline} /><IonLabel>Leave</IonLabel>
             </IonTabButton>
             <IonTabButton tab="profile" href="/tabs/profile">
               <IonIcon icon={personOutline} /><IonLabel>Profile</IonLabel>
