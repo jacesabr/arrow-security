@@ -6,7 +6,7 @@
  * Update this file whenever a role's pages or capabilities change.
  */
 
-export const GUIDE_VERSION = '2026.05.21b'
+export const GUIDE_VERSION = '2026.05.21d'
 
 export type GuideRole = 'guard' | 'supervisor' | 'manager'
 
@@ -48,18 +48,19 @@ export const GUIDE_SECTIONS: GuideSection[] = [
 └─────────────────────────────────────────────┘
 `.trim(),
     pages: [
-      { name: 'Home',       what: "Today's shifts and a quick overview of your day." },
-      { name: 'Check In',   what: 'Start and end your shift. Uses GPS + a selfie (or QR code) to confirm you are at the right site.' },
-      { name: 'Patrol',     what: 'Start a patrol round and scan each checkpoint (QR or manual). Includes a "Test movement tracking" panel so you can verify walking / driving / idle detection on your phone.' },
-      { name: 'Shifts',     what: 'Your shifts grouped by date — completed, active, upcoming. Shows clock in / clock out times plus your hours-worked total per month.' },
-      { name: 'My reports', what: 'Incidents you have personally reported. Tap + to file a new one — title, description, severity, photos. You do not see other guards\' reports here.' },
-      { name: 'My leave',   what: 'Submit a leave request (date range + reason) and track its approval status. Scoped to your own requests only.' },
-      { name: 'Profile',    what: 'Your name, username, and sign out.' },
+      { name: 'Home',       what: 'Your daily landing page. Greeting + four big action cards (Check In, Patrol, Incident, Shifts) that take you to each flow, then a list of today\'s shifts and any open incidents you\'ve reported.' },
+      { name: 'Check In',   what: 'Reached from the Check In card on Home. Start and end your shift — uses GPS + a selfie (or QR code) to confirm you are at the right site.' },
+      { name: 'Patrol',     what: 'Reached from the Patrol card on Home. Start a patrol round and scan each checkpoint (QR or manual). Includes a "Test movement tracking" panel so you can verify walking / driving / idle detection on your phone without a real shift.' },
+      { name: 'Shifts',     what: 'Reached from the Shifts card on Home. Your shifts as a table — date, site, clock in, clock out — plus a running "Hours by month" total at the bottom.' },
+      { name: 'Incidents',  what: 'Incidents you have personally reported. Tap + to file a new one (title, description, severity, photos). You do not see other guards\' reports here. Bottom-tab access.' },
+      { name: 'Leave',      what: 'Submit a leave request (date range + reason) and track its approval status. Scoped to your own requests only. Bottom-tab access.' },
+      { name: 'Profile',    what: 'Your name, username, and sign out. Bottom-tab access.' },
     ],
     tips: [
+      'Bottom bar is just Home / Incidents / Leave / Profile. The everyday actions — Check In, Patrol, Shifts — live as big cards on Home so you tap fewer levels deep.',
       'Background GPS only runs while a shift is active. It stops automatically when you check out.',
       'If GPS is weak at check-in, the app will still accept the check-in but flag it for supervisor review.',
-      '"Test movement tracking" on the Patrol tab is the easiest way to verify your phone\'s activity sensors are working — walk for a minute, then drive, then sit still, and watch the bars fill.',
+      '"Test movement tracking" on the Patrol page is the easiest way to verify your phone\'s activity sensors are working — walk for a minute, then drive, then sit still, and watch the bars fill.',
     ],
   },
   {
@@ -78,7 +79,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
 └─────────────────────────────────────────────┘
 `.trim(),
     pages: [
-      { name: 'Home (mobile)',       what: 'Live counts — guards on shift, online vs offline, plus the "Guards missing from shift" insight (anyone whose shift is open right now but who hasn\'t checked in).' },
+      { name: 'Home (mobile)',       what: 'Triage at a glance — Missing-from-shift / High-priority incidents / Pending leave cards (tap any for inline approve/reject/resolve), a "Sites under my supervision" table with weekly attendance %, tardiness %, and incident counts per site, plus live counts of guards on shift / online.' },
       { name: 'Check In (mobile)',   what: 'Supervisors also work shifts. Use Check In to start and end your own shift exactly like a guard — admin assigns these to you.' },
       { name: 'Map (mobile + web)',  what: 'Live map of every guard at sites you cover. Tap a guard pin to see their last 8 hours of patrol trail.' },
       { name: 'Shifts',              what: 'Scheduled shifts for the guards and sites you cover, plus your own. Create new shifts for guards on your team — admin still handles the higher-level roster.' },
@@ -124,22 +125,26 @@ export const GUIDE_SECTIONS: GuideSection[] = [
 └──────────────┴──────────────────────────────┘
 `.trim(),
     pages: [
-      { name: 'Dashboard',      what: 'High-level operational stats — guards on shift, open incidents, active patrols, total sites.' },
-      { name: 'Reports',        what: 'Birds-eye monthly table of every guard — shifts worked, hours tracked, walking / driving / idle. Filter by site, supervisor, or individual guard via the dropdowns. Click any row to drill into the per-shift detail.' },
-      { name: 'Guard Status',   what: 'Live table of every guard: geofence state and GPS online/offline. Catch problems in real time.' },
-      { name: 'Guards',         what: 'Create, edit, deactivate guard and supervisor accounts. Each guard\'s page now has a "Movement — this month" card showing their walking / driving / idle totals and per-shift breakdown.' },
-      { name: 'Sites',          what: 'Add a physical location (lat/lng + geofence radius in metres). Guards check in against these.' },
-      { name: 'Shifts',         what: 'Browse and filter every scheduled shift. Create one-off shifts. Use Reports for the monthly summary view.' },
-      { name: 'Roster',         what: 'Weekly grid view. Guards as rows, days as columns. Click a cell to schedule a guard at a site.' },
-      { name: 'Incidents',      what: 'All incidents across the company. Filter by site, supervisor, or guard via the dropdowns at the top.' },
-      { name: 'Live Map',       what: 'Real-time map of every guard on shift, with patrol trails on click.' },
-      { name: 'Clients',        what: 'The companies Arrow Security protects. Add clients and link sites to them.' },
-      { name: 'Leave Requests', what: 'Every leave request across the company. Filter by supervisor or specific guard. Approve or reject from here.' },
-      { name: 'Post Orders',    what: 'Per-site standing instructions for guards — what to do, what to watch for.' },
-      { name: 'Payroll',        what: 'Define pay periods, run calculations (gross + ESI + PF + net), finalise payouts.' },
-      { name: 'Supervisors',    what: 'Manage which supervisors are assigned to which sites.' },
+      { name: 'Mobile — Home',     what: 'Quick stats glance for when you\'re away from a laptop — Missing-from-shift, High-priority incidents, Pending leave cards (each tappable for inline action), the "All sites" table with weekly attendance / tardiness / incident counts per site, basic stat tiles, and a big "Operations Portal →" CTA. Everything else is on the web; the mobile bar is just Home / Map / Profile.' },
+      { name: 'Mobile — Map',      what: 'The live guard map on the go. Same SSE feed as the web Live Map.' },
+      { name: 'Mobile — Profile',  what: 'Sign out.' },
+      { name: 'Web — Dashboard',   what: 'High-level operational stats — guards on shift, open incidents, active patrols, total sites.' },
+      { name: 'Web — Reports',     what: 'Birds-eye monthly table of every guard — shifts worked, hours tracked, walking / driving / idle. Filter by site, supervisor, or individual guard via the dropdowns. Click any row to drill into the per-shift detail.' },
+      { name: 'Web — Guard Status',what: 'Live table of every guard: geofence state and GPS online/offline. Catch problems in real time.' },
+      { name: 'Web — Guards',      what: 'Create, edit, deactivate guard and supervisor accounts. Each guard\'s page has a "Movement — this month" card with walking / driving / idle totals and per-shift breakdown.' },
+      { name: 'Web — Sites',       what: 'Add a physical location (lat/lng + geofence radius in metres). Guards check in against these.' },
+      { name: 'Web — Shifts',      what: 'Browse and filter every scheduled shift. Create one-off shifts. Use Reports for the monthly summary view.' },
+      { name: 'Web — Roster',      what: 'Weekly grid view. Guards as rows, days as columns. Click a cell to schedule a guard at a site.' },
+      { name: 'Web — Incidents',   what: 'All incidents across the company. Filter by site, supervisor, or guard via the dropdowns at the top.' },
+      { name: 'Web — Live Map',    what: 'Real-time map of every guard on shift, with patrol trails on click.' },
+      { name: 'Web — Clients',     what: 'The companies Arrow Security protects. Add clients and link sites to them.' },
+      { name: 'Web — Leave',       what: 'Every leave request across the company. Filter by supervisor or specific guard. Approve or reject from here.' },
+      { name: 'Web — Post Orders', what: 'Per-site standing instructions for guards — what to do, what to watch for.' },
+      { name: 'Web — Payroll',     what: 'Define pay periods, run calculations (gross + ESI + PF + net), finalise payouts.' },
+      { name: 'Web — Supervisors', what: 'Manage which supervisors are assigned to which sites.' },
     ],
     tips: [
+      'The mobile app is intentionally tiny for admins — most management is on the web portal. The mobile Home page has a big "Operations Portal" card that takes you straight there.',
       'Reports is your daily birds-eye — sort by Walking to spot guards with the lowest activity, by Driving to estimate inter-site travel costs, or by Active % to find slackers.',
       'Always create a Site before scheduling a shift there — the shift form needs an existing site.',
       'Payroll amounts are stored in paise (₹ × 100). The UI converts for you but exported numbers may show that scale.',
