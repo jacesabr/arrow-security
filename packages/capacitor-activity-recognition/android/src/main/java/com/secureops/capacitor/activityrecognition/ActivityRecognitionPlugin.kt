@@ -17,12 +17,15 @@ import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
 import com.getcapacitor.annotation.PermissionCallback
 import com.google.android.gms.location.ActivityRecognition
-import com.google.android.gms.location.ActivityTransition
-import com.google.android.gms.location.ActivityTransitionEvent
-import com.google.android.gms.location.ActivityTransitionRequest
-import com.google.android.gms.location.ActivityTransitionResult
+import com.google.android.gms.location.ActivityRecognitionResult
 import com.google.android.gms.location.DetectedActivity
 
+// Uses Google's requestActivityUpdates() (NOT requestActivityTransitionUpdates).
+// The Transition API only fires on state CHANGES, so if the OS misses the
+// "EXIT walking" event we stay stuck on a stale verdict indefinitely. The
+// Updates API gives us a periodic ActivityRecognitionResult — a ranked list
+// of detected activities with calibrated confidence (0-100) — and we forward
+// whichever is most probable.
 @CapacitorPlugin(
     name = "ActivityRecognition",
     permissions = [
@@ -34,22 +37,17 @@ import com.google.android.gms.location.DetectedActivity
 )
 class ActivityRecognitionPlugin : Plugin() {
 
-    private var transitionsPendingIntent: PendingIntent? = null
+    private var updatesPendingIntent: PendingIntent? = null
     private var receiver: BroadcastReceiver? = null
 
     @Volatile private var currentActivity: String = "unknown"
     @Volatile private var currentConfidence: Int = 0
     @Volatile private var currentTimestamp: Long = 0
 
-    // The transition types we subscribe to. Bicycle is included for completeness;
-    // the server classifier handles whether or not it's mapped to walking/driving.
-    private val transitionTypes = listOf(
-        DetectedActivity.STILL,
-        DetectedActivity.WALKING,
-        DetectedActivity.RUNNING,
-        DetectedActivity.IN_VEHICLE,
-        DetectedActivity.ON_BICYCLE,
-    )
+    // 5 seconds between activity samples. The OS may coalesce/back off this
+    // value to conserve battery — that's fine, we're checking GPS staleness
+    // on the JS side as the safety net for "actually still" detection.
+    private val intervalMillis: Long = 5_000L
 
     @PluginMethod
     fun start(call: PluginCall) {
@@ -83,16 +81,13 @@ class ActivityRecognitionPlugin : Plugin() {
         if (receiver == null) {
             receiver = object : BroadcastReceiver() {
                 override fun onReceive(c: Context, intent: Intent) {
-                    if (!ActivityTransitionResult.hasResult(intent)) return
-                    val result = ActivityTransitionResult.extractResult(intent) ?: return
-                    for (event in result.transitionEvents) {
-                        if (event.transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER) {
-                            handleEnter(event)
-                        }
-                    }
+                    if (!ActivityRecognitionResult.hasResult(intent)) return
+                    val result = ActivityRecognitionResult.extractResult(intent) ?: return
+                    val most = result.mostProbableActivity ?: return
+                    handleSample(most)
                 }
             }
-            val filter = IntentFilter(TRANSITIONS_ACTION)
+            val filter = IntentFilter(UPDATES_ACTION)
             // RECEIVER_NOT_EXPORTED is required on Android 13+ for runtime registration
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 ctx.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -102,45 +97,28 @@ class ActivityRecognitionPlugin : Plugin() {
             }
         }
 
-        if (transitionsPendingIntent == null) {
-            val intent = Intent(TRANSITIONS_ACTION).setPackage(ctx.packageName)
+        if (updatesPendingIntent == null) {
+            val intent = Intent(UPDATES_ACTION).setPackage(ctx.packageName)
             val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 PendingIntent.FLAG_MUTABLE
             } else {
                 0
             }
-            transitionsPendingIntent = PendingIntent.getBroadcast(
+            updatesPendingIntent = PendingIntent.getBroadcast(
                 ctx, 0, intent, flags or PendingIntent.FLAG_UPDATE_CURRENT
             )
         }
 
-        val transitions = mutableListOf<ActivityTransition>()
-        for (type in transitionTypes) {
-            transitions.add(
-                ActivityTransition.Builder()
-                    .setActivityType(type)
-                    .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_ENTER)
-                    .build()
-            )
-            transitions.add(
-                ActivityTransition.Builder()
-                    .setActivityType(type)
-                    .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_EXIT)
-                    .build()
-            )
-        }
-        val request = ActivityTransitionRequest(transitions)
-
         val client = ActivityRecognition.getClient(ctx)
         try {
-            client.requestActivityTransitionUpdates(request, transitionsPendingIntent!!)
+            client.requestActivityUpdates(intervalMillis, updatesPendingIntent!!)
                 .addOnSuccessListener {
                     val ret = JSObject()
                     ret.put("ok", true)
                     call.resolve(ret)
                 }
                 .addOnFailureListener { e ->
-                    call.reject("Failed to register activity transitions: ${e.message}", e)
+                    call.reject("Failed to register activity updates: ${e.message}", e)
                 }
         } catch (se: SecurityException) {
             call.reject("Missing ACTIVITY_RECOGNITION permission", se)
@@ -150,14 +128,14 @@ class ActivityRecognitionPlugin : Plugin() {
     @PluginMethod
     fun stop(call: PluginCall) {
         val ctx: Context = context
-        val pi = transitionsPendingIntent
+        val pi = updatesPendingIntent
         if (pi != null) {
             try {
                 ActivityRecognition.getClient(ctx)
-                    .removeActivityTransitionUpdates(pi)
+                    .removeActivityUpdates(pi)
             } catch (_: Throwable) { /* best effort */ }
             pi.cancel()
-            transitionsPendingIntent = null
+            updatesPendingIntent = null
         }
         receiver?.let {
             try { ctx.unregisterReceiver(it) } catch (_: Throwable) { }
@@ -177,12 +155,12 @@ class ActivityRecognitionPlugin : Plugin() {
         call.resolve(ret)
     }
 
-    private fun handleEnter(event: ActivityTransitionEvent) {
-        val label = mapType(event.activityType)
-        // The Transition API does not report a per-event confidence — once a
-        // transition fires it has crossed Google's internal threshold (~75/100).
-        // We report 75 to give downstream consumers a usable signal.
-        val confidence = 75
+    private fun handleSample(activity: DetectedActivity) {
+        val label = mapType(activity.type)
+        // mostProbableActivity comes with a calibrated confidence 0-100.
+        // Unlike the Transition API (which we used to fudge to 75), this is
+        // the real signal from Google's classifier and worth forwarding as-is.
+        val confidence = activity.confidence
         val ts = System.currentTimeMillis()
 
         currentActivity = label
@@ -202,6 +180,9 @@ class ActivityRecognitionPlugin : Plugin() {
         data.put("activity", label)
         data.put("confidence", confidence)
         data.put("timestamp", ts)
+        // Event name is kept as "activityTransition" for backward compatibility
+        // with existing JS listeners — the semantics are now "periodic sample"
+        // but the payload shape is identical.
         notifyListeners("activityTransition", data)
     }
 
@@ -215,7 +196,7 @@ class ActivityRecognitionPlugin : Plugin() {
     }
 
     companion object {
-        private const val TRANSITIONS_ACTION =
-            "com.secureops.capacitor.activityrecognition.TRANSITIONS"
+        private const val UPDATES_ACTION =
+            "com.secureops.capacitor.activityrecognition.UPDATES"
     }
 }

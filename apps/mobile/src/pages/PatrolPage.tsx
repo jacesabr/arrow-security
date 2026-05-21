@@ -51,93 +51,29 @@ function fmtSec(sec: number): string {
   return s === 0 ? `${m}m` : `${m}m ${s}s`
 }
 
-// Confidence floor: Android's ActivityRecognition spits out spurious "walking"
-// classifications when the phone is just sitting on a desk picking up vibration
-// from a passing truck or the user adjusting their grip. The plugin maps
-// LOW/MEDIUM/HIGH to 25/50/75 — anything below 50 we treat as noise and stay
-// on the previous bucket.
-const CONFIDENCE_FLOOR = 50
-
 // Length of the live strip in seconds — long enough to see a few transitions,
 // short enough not to feel laggy when you start moving.
 const STRIP_SECONDS = 60
 
-// GPS reality-check classifier. Earlier attempts used σ + adaptive baseline,
-// both of which back-fired in practice:
-//   - σ (step cadence) — GPS smooths walking speed over distanceFilter
-//     intervals, so real walking has low σ (~0.1) at GPS sample rates. The
-//     σ floor rejected real walks.
-//   - Adaptive baseline — once walking samples accumulate, baseline drifts
-//     up to ~1.0 m/s and the walking threshold becomes higher than real
-//     walking speed. The classifier locked itself out of detecting walks.
+// Classifier is now thin: trust Google's Activity Recognition (we switched
+// the Kotlin plugin from requestActivityTransitionUpdates → requestActivity
+// Updates, so samples arrive every ~5s with a calibrated 0-100 confidence
+// per detected activity). All we layer on top is:
+//   - a confidence floor so low-confidence samples don't flap the bucket
+//   - a GPS-staleness override (no GPS movement for 15s → idle, period)
+//   - hysteresis so a single weird sample doesn't flip the credited bucket
 //
-// So: fixed absolute thresholds, P75 + P95 to reject single GPS spikes.
-// distanceFilter (Background Geolocation) does the heavy lifting for "is
-// the phone moving at all" — no movement = no callbacks = GPS stale → idle.
-//
-//   idle       → P95 below 0.5 m/s, OR no fresh samples
-//   walking    → P95 ≥ 0.7 m/s AND P75 ≥ 0.3 m/s
-//   driving    → P75 ≥ 2.5 m/s
-
-const SPEED_WINDOW_MS    = 30_000
-const HYSTERESIS_UP_MS   = 6_000  // idle → walking, walking → driving
-const HYSTERESIS_DOWN_MS = 2_000  // walking → idle, driving → walking/idle
-const GPS_STALE_MS       = 15_000 // no GPS sample for this long → idle
-const BLIP_MAX_MS        = 60_000 // X → Y → X with Y shorter than this gets reassigned to X
-
-const STILL_P95_MAX      = 0.5
-const WALKING_P95_MIN    = 0.7
-const WALKING_P75_MIN    = 0.3
-const DRIVING_P75_MIN    = 2.5
+// No more percentile math, no σ, no adaptive baseline. Removing those got
+// rid of two compounding bug classes (real walks rejected by σ floor, and
+// the classifier locking itself out via baseline drift).
+const CONFIDENCE_FLOOR   = 50      // < this confidence → sample ignored
+const ACTIVITY_STALE_MS  = 30_000  // no Activity Recognition sample for this long → fall back to GPS
+const GPS_STALE_MS       = 15_000  // no GPS sample for this long → idle override
+const HYSTERESIS_UP_MS   = 6_000   // idle → walking → driving takes 6s of sustained candidate
+const HYSTERESIS_DOWN_MS = 2_000   // demoting to a less-energetic bucket is faster
+const BLIP_MAX_MS        = 60_000  // X → Y → X blips shorter than this get reassigned to X
 
 type SpeedSample = { ts: number; speed: number }
-
-type SpeedStats = {
-  bucket: Bucket | null
-  p95: number
-  p75: number
-  count: number
-  reason: string
-}
-
-function percentile(sortedAsc: number[], q: number): number {
-  if (sortedAsc.length === 0) return 0
-  const idx = Math.min(sortedAsc.length - 1, Math.floor(sortedAsc.length * q))
-  return sortedAsc[idx]
-}
-
-function classifySpeed(samples: SpeedSample[], now: number): SpeedStats {
-  const recent = samples.filter(s => now - s.ts <= SPEED_WINDOW_MS)
-  const lastAge = samples.length === 0 ? Infinity : now - samples[samples.length - 1].ts
-
-  // Stationary phone gets no movement-triggered GPS callbacks → samples
-  // age out → lastAge climbs → we land here, classify as idle.
-  if (lastAge > GPS_STALE_MS) {
-    return { bucket: 'idle', p95: 0, p75: 0, count: recent.length, reason: `stale GPS ${(lastAge / 1000).toFixed(0)}s` }
-  }
-  // Only 1 sample is too few to be confident. With 2+, the percentile signal
-  // is meaningful enough to call. We deliberately keep this floor low so a
-  // gappy sampler doesn't park us in "no opinion" land for minutes.
-  if (recent.length < 2) {
-    return { bucket: null, p95: 0, p75: 0, count: recent.length, reason: 'waiting for more samples' }
-  }
-
-  const speeds = recent.map(s => s.speed)
-  const sorted = [...speeds].sort((a, b) => a - b)
-  const p75 = percentile(sorted, 0.75)
-  const p95 = percentile(sorted, 0.95)
-
-  if (p75 >= DRIVING_P75_MIN) {
-    return { bucket: 'driving', p95, p75, count: recent.length, reason: `P75 ${p75.toFixed(1)} ≥ 2.5 m/s` }
-  }
-  if (p95 >= WALKING_P95_MIN && p75 >= WALKING_P75_MIN) {
-    return { bucket: 'walking', p95, p75, count: recent.length, reason: `P95 ${p95.toFixed(1)} ≥ 0.7, P75 ${p75.toFixed(1)} ≥ 0.3` }
-  }
-  if (p95 < STILL_P95_MAX) {
-    return { bucket: 'idle', p95, p75, count: recent.length, reason: `P95 ${p95.toFixed(1)} below 0.5 m/s` }
-  }
-  return { bucket: 'idle', p95, p75, count: recent.length, reason: 'P95 in walking band but P75 too low — single-spike' }
-}
 
 const TestMovementCard: React.FC = () => {
   const [running, setRunning] = useState(false)
@@ -147,26 +83,26 @@ const TestMovementCard: React.FC = () => {
   const [pings, setPings] = useState(0)
   const [lastPos, setLastPos] = useState<{ lat: number; lng: number } | null>(null)
   const [err, setErr] = useState<string | null>(null)
-  const [lastSampleAt, setLastSampleAt] = useState(0)
-  const [speedStats, setSpeedStats] = useState<SpeedStats>({ bucket: null, p95: 0, p75: 0, count: 0, reason: '' })
+  const [lastActivityAt, setLastActivityAt] = useState(0)
+  const [lastActivity, setLastActivity] = useState<string>('—')
 
   // Hysteresis state — a candidate bucket must hold steady for HYSTERESIS_MS
   // before we actually flip the credited bucket. Prevents single-sample flaps.
   const pendingBucketRef = useRef<Bucket | null>(null)
   const pendingSinceRef = useRef<number>(0)
   // History of committed bucket entries — drives retroactive blip correction.
-  // Only buckets that survived hysteresis AND weren't reassigned end up here.
   const bucketHistoryRef = useRef<{ bucket: Bucket; startedAt: number }[]>([])
 
   // Accumulators (refs so we don't trigger renders for every micro-update)
   const accRef = useRef<{ walking: number; driving: number; idle: number }>({ walking: 0, driving: 0, idle: 0 })
   const lastBucketRef = useRef<Bucket | null>(null)
   const lastChangeRef = useRef<number>(0)
-  // GPS speed history — drives the reality-check that overrides phantom
-  // Activity Recognition transitions.
-  const speedSamplesRef = useRef<SpeedSample[]>([])
-  // Sensor's own bucket (what Activity Recognition last claimed)
+  // What Activity Recognition last reported (high-confidence only). Cleared
+  // when stale so the bucket falls back to the GPS-staleness override.
   const sensorBucketRef = useRef<Bucket | null>(null)
+  const sensorAtRef = useRef<number>(0)
+  // Most recent GPS sample timestamp — the safety net for "phone actually moved"
+  const lastGpsAtRef = useRef<number>(0)
   // Live time-series strip — one entry per second of the test session
   const stripRef = useRef<(Bucket | 'unknown')[]>([])
   const watcherIdRef = useRef<string | null>(null)
@@ -203,15 +139,21 @@ const TestMovementCard: React.FC = () => {
     setCurrent(newBucket ?? 'unknown')
   }
 
-  // Reconciles sensor bucket + GPS classifier into a CANDIDATE bucket.
-  // Hysteresis-gated commit happens in the tick loop, not here.
-  function effectiveBucket(stats: SpeedStats): Bucket | null {
-    const sensor = sensorBucketRef.current
-    const gps = stats.bucket
-    if (gps === 'idle') return 'idle'                       // GPS stillness wins
-    const rank = (b: Bucket | null) => b === 'driving' ? 2 : b === 'walking' ? 1 : 0
-    if (sensor && gps) return rank(sensor) <= rank(gps) ? sensor : gps  // pick the more conservative
-    return sensor ?? gps
+  // Decides the candidate bucket from current sensor state + GPS-staleness
+  // override. Activity Recognition is the primary source; GPS only intervenes
+  // to say "this phone hasn't actually moved — ignore the sensor".
+  function effectiveBucket(now: number): Bucket | null {
+    const gpsStale = now - lastGpsAtRef.current > GPS_STALE_MS
+    // Phone hasn't moved 20m in the past 15s → no possible walking/driving
+    // regardless of what Activity Recognition claims.
+    if (gpsStale) return 'idle'
+    const sensorStale = now - sensorAtRef.current > ACTIVITY_STALE_MS
+    if (sensorStale) {
+      // No fresh Activity Recognition sample. We have GPS movement but can't
+      // distinguish walking from driving without the sensor — hold pending.
+      return null
+    }
+    return sensorBucketRef.current
   }
 
   // Commit a candidate bucket if it has held steady through the appropriate
@@ -267,16 +209,18 @@ const TestMovementCard: React.FC = () => {
     accRef.current = { walking: 0, driving: 0, idle: 0 }
     lastBucketRef.current = null
     sensorBucketRef.current = null
+    sensorAtRef.current = 0
+    lastGpsAtRef.current = Date.now()  // give us the staleness grace period at start
     lastChangeRef.current = Date.now()
     stripRef.current = []
-    speedSamplesRef.current = []
     bucketHistoryRef.current = []
     pendingBucketRef.current = null
     pendingSinceRef.current = 0
     setPings(0)
     setLastPos(null)
     setConfidence(0)
-    setLastSampleAt(0)
+    setLastActivityAt(0)
+    setLastActivity('—')
     setRunning(true)
 
     // 1s ticker — drives the elapsed display, the live counters, the strip,
@@ -285,10 +229,7 @@ const TestMovementCard: React.FC = () => {
     // showing stillness, rather than running forever.
     intervalRef.current = setInterval(() => {
       const now = Date.now()
-      speedSamplesRef.current = speedSamplesRef.current.filter(s => now - s.ts <= SPEED_WINDOW_MS)
-      const stats = classifySpeed(speedSamplesRef.current, now)
-      setSpeedStats(stats)
-      const candidate = effectiveBucket(stats)
+      const candidate = effectiveBucket(now)
       maybeCommitBucket(candidate, now)
       stripRef.current.push(lastBucketRef.current ?? 'unknown')
       if (stripRef.current.length > STRIP_SECONDS) stripRef.current.shift()
@@ -299,14 +240,15 @@ const TestMovementCard: React.FC = () => {
       listenerRef.current = await ActivityRecognition.addListener(
         'activityTransition',
         (e: ActivityTransitionEvent) => {
-          setConfidence(e.confidence ?? 0)
-          setLastSampleAt(Date.now())
-          // Drop noisy classifications — keep the previous sensor bucket. This
-          // prevents a phone-on-desk vibration from racking up phantom "walking"
-          // time. We just record what the sensor thinks; the 1s tick re-runs
-          // effectiveBucket() to decide whether to actually credit it.
-          if ((e.confidence ?? 0) < CONFIDENCE_FLOOR) return
+          const conf = e.confidence ?? 0
+          setConfidence(conf)
+          setLastActivity(e.activity)
+          setLastActivityAt(Date.now())
+          // Drop low-confidence samples — keep the previous verdict. The OS
+          // sometimes reports "still: 35" and we'd rather hold than flap.
+          if (conf < CONFIDENCE_FLOOR) return
           sensorBucketRef.current = bucketFor(e.activity)
+          sensorAtRef.current = Date.now()
         },
       )
       await ActivityRecognition.start()
@@ -330,10 +272,11 @@ const TestMovementCard: React.FC = () => {
           if (!position) return
           setPings(p => p + 1)
           setLastPos({ lat: position.latitude, lng: position.longitude })
-          // Speed in m/s. Devices that don't compute speed report null/-1; we
-          // treat those as 0 so a parked phone falls cleanly into 'idle'.
-          const speed = position.speed != null && position.speed >= 0 ? position.speed : 0
-          speedSamplesRef.current.push({ ts: Date.now(), speed })
+          // Every GPS callback means the phone has moved at least distanceFilter
+          // metres (configured below). We just track WHEN — speed values aren't
+          // used by the classifier any more, but a fresh GPS sample tells us
+          // the phone is moving, which is the signal we override with.
+          lastGpsAtRef.current = Date.now()
         },
       )
       watcherIdRef.current = id
@@ -445,16 +388,17 @@ const TestMovementCard: React.FC = () => {
             </span>
             <span>{pings} GPS ping{pings === 1 ? '' : 's'}</span>
           </div>
-          {lastSampleAt > 0 && Date.now() - lastSampleAt > 60_000 && (
-            <div style={{ fontSize: 10.5, color: '#92400e', background: '#fef3c7', padding: '5px 8px', borderRadius: 6, marginBottom: 8 }}>
-              No new activity sample in {Math.floor((Date.now() - lastSampleAt) / 1000)}s — your phone may not be supplying activity events. Counters stop growing until the next reliable sample.
-            </div>
-          )}
-
-          {/* GPS speed stats — the "show your work" line. */}
+          {/* Show-your-work line — what the OS just reported + how stale it is */}
           <div style={{ fontSize: 10.5, color: '#9a9490', fontFamily: 'ui-monospace,monospace', marginBottom: 8, lineHeight: 1.5 }}>
-            P75 {speedStats.p75.toFixed(2)} · P95 {speedStats.p95.toFixed(2)} · {speedStats.count} samples
-            {speedStats.reason && <><br /><span style={{ color: '#5c5855' }}>{speedStats.reason}</span></>}
+            OS sample: <span style={{ color: '#5c5855' }}>{lastActivity}</span>
+            {confidence > 0 && (
+              <span style={{ marginLeft: 4, color: confidence >= CONFIDENCE_FLOOR ? '#10b981' : '#f59e0b' }}>
+                ({confidence}%)
+              </span>
+            )}
+            {lastActivityAt > 0 && (
+              <> · {Math.max(0, Math.floor((Date.now() - lastActivityAt) / 1000))}s ago</>
+            )}
           </div>
           {lastPos && (
             <div style={{ fontSize: 10.5, color: '#9a9490', fontFamily: 'ui-monospace,monospace', marginBottom: 12 }}>
