@@ -120,7 +120,6 @@ function AdminDashboard() {
           <StatCard label="Sites" value={stats?.sites ?? '—'} valueColor="#c96442" href="/sites" />
           <StatCard label="Open Incidents" value={stats?.openIncidents ?? '—'} valueColor="#f87171" href="/incidents" />
           <StatCard label="Active Shifts" value={stats?.activeShifts ?? '—'} valueColor="#10b981" href="/shifts" />
-          <StatCard label="Today's Patrols" value={stats?.todayPatrols ?? '—'} valueColor="#3b82f6" href="/patrols" />
           <StatCard label="Today's Attendance" value={stats?.todayAttendance ?? '—'} valueColor="#fbbf24" />
         </div>
       )}

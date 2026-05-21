@@ -6,7 +6,7 @@
  * Update this file whenever a role's pages or capabilities change.
  */
 
-export const GUIDE_VERSION = '2026.05.21e'
+export const GUIDE_VERSION = '2026.05.21f'
 
 export type GuideRole = 'guard' | 'supervisor' | 'manager'
 
@@ -44,11 +44,11 @@ export const GUIDE_SECTIONS: GuideSection[] = [
 │              [ page content ]               │
 │                                             │
 ├─────────────────────────────────────────────┤
-│ Home | CheckIn | Patrol | Inc. | Shifts | ⓘ │
+│ Home | CheckIn | Activity | Inc. | Shifts | ⓘ │
 └─────────────────────────────────────────────┘
 `.trim(),
     pages: [
-      { name: 'Home',       what: 'Your daily landing page. Greeting + four big action cards (Check In, Patrol, Incident, Shifts) that take you to each flow, then a list of today\'s shifts and any open incidents you\'ve reported.' },
+      { name: 'Home',       what: 'Your daily landing page. Greeting + four big action cards (Check In, Activity, Incident, Shifts) that take you to each flow, then a list of today\'s shifts and any open incidents you\'ve reported.' },
       { name: 'Check In',   what: 'Reached from the Check In card on Home. Start and end your shift — uses GPS + a selfie (or QR code) to confirm you are at the right site.' },
       { name: 'Activity',   what: 'Reached from the Activity card on Home. Shows your walking / driving / idle totals for the current month plus a per-shift breakdown. Activity is recorded automatically during shifts — supervisors use it to reimburse driving between sites, and it confirms guards are doing the patrolling they\'re meant to. A "Test movement tracking" panel at the bottom lets you sanity-check classification on your device.' },
       { name: 'Shifts',     what: 'Reached from the Shifts card on Home. Your shifts as a table — date, site, clock in, clock out — plus a running "Hours by month" total at the bottom.' },
@@ -57,10 +57,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       { name: 'Profile',    what: 'Your name, username, and sign out. Bottom-tab access.' },
     ],
     tips: [
-      'Bottom bar is just Home / Incidents / Leave / Profile. The everyday actions — Check In, Patrol, Shifts — live as big cards on Home so you tap fewer levels deep.',
+      'Bottom bar is just Home / Incidents / Leave / Profile. The everyday actions — Check In, Activity, Shifts — live as big cards on Home so you tap fewer levels deep.',
       'Background GPS only runs while a shift is active. It stops automatically when you check out.',
       'If GPS is weak at check-in, the app will still accept the check-in but flag it for supervisor review.',
-      '"Test movement tracking" on the Patrol page is the easiest way to verify your phone\'s activity sensors are working — walk for a minute, then drive, then sit still, and watch the bars fill.',
+      'The "Test movement tracking" panel at the bottom of the Activity page lets you sanity-check classification on your phone — walk for a minute, then drive, then sit still, and watch the bars fill.',
     ],
   },
   {
@@ -81,7 +81,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     pages: [
       { name: 'Home (mobile)',       what: 'Triage at a glance — Missing-from-shift / High-priority incidents / Pending leave cards (tap any for inline approve/reject/resolve), a "Sites under my supervision" table with weekly attendance %, tardiness %, and incident counts per site, plus live counts of guards on shift / online.' },
       { name: 'Check In (mobile)',   what: 'Supervisors also work shifts. Use Check In to start and end your own shift exactly like a guard — admin assigns these to you.' },
-      { name: 'Map (mobile + web)',  what: 'Live map of every guard at sites you cover. Tap a guard pin to see their last 8 hours of patrol trail.' },
+      { name: 'Map (mobile + web)',  what: 'Live map of every guard at sites you cover. Tap a guard pin to see their last 8 hours of GPS trail.' },
       { name: 'Shifts',              what: 'Scheduled shifts for the guards and sites you cover, plus your own. Create new shifts for guards on your team — admin still handles the higher-level roster.' },
       { name: 'Reports (web)',       what: 'Monthly summary of every guard you manage — shifts worked, hours tracked, walking / driving / idle breakdown. Click a row to drill into a single guard\'s detail.' },
       { name: 'Incidents',           what: 'Incidents from guards at your sites plus your own reports. Update status, reassign, mark resolved. Tap + to file your own incident.' },
@@ -136,7 +136,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       { name: 'Web — Shifts',      what: 'Browse and filter every scheduled shift. Create one-off shifts. Use Reports for the monthly summary view.' },
       { name: 'Web — Roster',      what: 'Weekly grid view. Guards as rows, days as columns. Click a cell to schedule a guard at a site.' },
       { name: 'Web — Incidents',   what: 'All incidents across the company. Filter by site, supervisor, or guard via the dropdowns at the top.' },
-      { name: 'Web — Live Map',    what: 'Real-time map of every guard on shift, with patrol trails on click.' },
+      { name: 'Web — Live Map',    what: 'Real-time map of every guard on shift, with their last 8 hours of GPS trail on click.' },
       { name: 'Web — Clients',     what: 'The companies Arrow Security protects. Add clients and link sites to them.' },
       { name: 'Web — Leave',       what: 'Every leave request across the company. Filter by supervisor or specific guard. Approve or reject from here.' },
       { name: 'Web — Post Orders', what: 'Per-site standing instructions for guards — what to do, what to watch for.' },
