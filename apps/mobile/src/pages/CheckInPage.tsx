@@ -95,6 +95,27 @@ export const CheckInPage: React.FC = () => {
   const reasonTrimmed = outOfZoneReason.trim()
 
   async function takeSelfie() {
+    setError(null)
+    // Make sure we have camera permission before launching the picker.
+    // Capacitor's getPhoto will request internally on first call, but on
+    // some Androids that prompt collides with the back-stack and the
+    // promise hangs — explicit request avoids that.
+    try {
+      const perms = await Camera.checkPermissions()
+      if (perms.camera !== 'granted') {
+        const req = await Camera.requestPermissions({ permissions: ['camera'] })
+        if (req.camera !== 'granted') {
+          setError('Camera permission was denied. You can take a photo from your gallery instead.')
+          fileInputRef.current?.click()
+          return
+        }
+      }
+    } catch (e: any) {
+      // Permission API not available (e.g. running in a browser) — try
+      // getPhoto anyway; on web it'll prompt for getUserMedia.
+      console.warn('Camera.checkPermissions threw:', e?.message ?? e)
+    }
+
     try {
       const photo = await Camera.getPhoto({
         quality: 60,
@@ -105,9 +126,17 @@ export const CheckInPage: React.FC = () => {
         source: CameraSource.Camera,
         saveToGallery: false,
       })
-      if (photo.dataUrl) setSelfieDataUrl(photo.dataUrl)
-    } catch {
-      // User cancelled or camera unavailable — fall back to file input
+      if (photo.dataUrl) {
+        setSelfieDataUrl(photo.dataUrl)
+      } else {
+        setError('Camera returned no image. Try once more, or use the gallery fallback.')
+      }
+    } catch (e: any) {
+      const msg = e?.message ?? String(e ?? 'Camera unavailable')
+      // "User cancelled photos app" is the expected dismissal path — don't
+      // treat that as an error to show.
+      if (/cancel/i.test(msg)) return
+      setError(`Camera error: ${msg}. Falling back to gallery picker — pick any photo for now.`)
       fileInputRef.current?.click()
     }
   }
