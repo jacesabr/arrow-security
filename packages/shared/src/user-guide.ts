@@ -6,7 +6,7 @@
  * Update this file whenever a role's pages or capabilities change.
  */
 
-export const GUIDE_VERSION = '2026.05.21g'
+export const GUIDE_VERSION = '2026.05.21h'
 
 export type GuideRole = 'guard' | 'supervisor' | 'manager'
 
@@ -59,8 +59,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     tips: [
       'Bottom bar is just Home / Incidents / Leave / Profile. The everyday actions — Check In, Activity, Shifts — live as big cards on Home so you tap fewer levels deep.',
       'Background GPS only runs while a shift is active. It stops automatically when you check out.',
+      'While a shift is running you\'ll see a persistent notification — "Arrow Security is tracking your location during your shift." That notification is what keeps tracking alive when the screen is off or you\'re in another app. **Do not swipe the app off the recents list during a shift** — that kills the foreground service and tracking pauses until you reopen the app. The notification appearing is good; clearing it stops the tracking.',
       'If GPS is weak at check-in, the app will still accept the check-in but flag it for supervisor review.',
-      'The "Test movement tracking" panel at the bottom of the Activity page lets you sanity-check classification on your phone — walk for a minute, then drive, then sit still, and watch the bars fill.',
+      'Some phones (especially Xiaomi, Oppo, OnePlus) aggressively kill background services to save battery. If you find your activity isn\'t being recorded, go to Settings → Apps → Arrow Security → Battery and set it to "Unrestricted" / disable battery optimisation.',
+      'The "Test movement tracking" panel at the bottom of the Activity page lets you sanity-check classification on your phone — walk for a minute, then drive, then sit still, and watch the bars fill. Test sessions are saved server-side, so closing/reopening the app picks back up where you left off.',
     ],
   },
   {
