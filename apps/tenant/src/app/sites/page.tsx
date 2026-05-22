@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageShell, Main, PageHeader, Card, DataTable, TR, TD, Badge, Btn, Modal, Field, Input, Select, ErrorMsg, ModalActions } from '../../components/ui'
+import { GoogleAddressAutocomplete, type PlacePick } from '../../components/GoogleAddressAutocomplete'
 import { tdApi } from '../../lib/api'
 
 export default function SitesPage() {
@@ -101,14 +102,27 @@ export default function SitesPage() {
               <Input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             </Field>
             <Field label="Address">
-              <Input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required />
+              <GoogleAddressAutocomplete
+                value={form.address}
+                onChange={(address) => setForm(f => ({ ...f, address }))}
+                onPick={(pick: PlacePick) => setForm(f => ({
+                  ...f,
+                  address: pick.address,
+                  latitude: pick.latitude.toFixed(6),
+                  longitude: pick.longitude.toFixed(6),
+                  // If the user hasn't typed a site name yet, suggest the
+                  // place's short name (e.g. "TCS BKC Tower 1"). Don't
+                  // overwrite a name they've already entered.
+                  name: f.name || pick.shortName || f.name,
+                }))}
+              />
             </Field>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Field label="Latitude">
-                <Input type="number" step="any" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} placeholder="12.9716" />
+                <Input type="number" step="any" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} placeholder="auto-filled from address" />
               </Field>
               <Field label="Longitude">
-                <Input type="number" step="any" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} placeholder="77.5946" />
+                <Input type="number" step="any" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} placeholder="auto-filled from address" />
               </Field>
             </div>
             <Field label="Geofence Radius (meters)">
