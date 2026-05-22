@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { db, testSessions } from '@secureops/db'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import { requireAuth } from '../lib/auth'
 
 // /api/test-sessions
@@ -51,15 +51,34 @@ function aggregate(samples: Sample[], endedAt: number): {
 }
 
 export const testSessionsRoutes: FastifyPluginAsync = async (fastify) => {
-  // POST / — start a new session
+  // POST / — start a new session. If the caller already has an open
+  // (un-ended) session from <30s ago, return that one instead of creating
+  // a duplicate — protects against rapid-tap and React-strict-mode-style
+  // double-fires from the client.
   fastify.post('/', { preHandler: requireAuth }, async (request, reply) => {
     const payload = request.user as { tenantId: string; sub: string }
+    const recent = await db
+      .select()
+      .from(testSessions)
+      .where(and(
+        eq(testSessions.tenantId, payload.tenantId),
+        eq(testSessions.userId, payload.sub),
+      ))
+      .orderBy(desc(testSessions.startedAt))
+      .limit(1)
+    const last = recent[0]
+    if (last && !last.endedAt && Date.now() - new Date(last.startedAt).getTime() < 30_000) {
+      return reply.code(200).send({ data: last })
+    }
     const [row] = await db
       .insert(testSessions)
       .values({
         tenantId: payload.tenantId,
         userId: payload.sub,
-        samples: [] as any,
+        // Cast explicitly — postgres-js's default jsonb handling
+        // double-stringifies plain JS arrays which lands as a jsonb scalar
+        // string instead of an array.
+        samples: sql`'[]'::jsonb` as any,
       })
       .returning()
     return reply.code(201).send({ data: row })
@@ -86,13 +105,22 @@ export const testSessionsRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(400).send({ error: 'Bad request', message: 'Session already ended', statusCode: 400 })
     }
 
-    const merged = [...(existing.samples as any as Sample[]), ...body.samples]
+    // existing.samples may come back as either the JS array or — if a row
+    // pre-dates this fix — a JSON-encoded string. Normalise to an array.
+    let prior: Sample[] = []
+    const raw = existing.samples as unknown
+    if (Array.isArray(raw)) prior = raw as Sample[]
+    else if (typeof raw === 'string') {
+      try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) prior = parsed } catch { /* leave empty */ }
+    }
+    const merged = [...prior, ...body.samples]
     const agg = aggregate(merged, Date.now())
 
     const [row] = await db
       .update(testSessions)
       .set({
-        samples: merged as any,
+        // Explicit jsonb cast — see the corresponding note on insert.
+        samples: sql`${JSON.stringify(merged)}::jsonb` as any,
         walkingSeconds: agg.walkingSeconds,
         drivingSeconds: agg.drivingSeconds,
         idleSeconds:    agg.idleSeconds,
@@ -119,7 +147,15 @@ export const testSessionsRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.send({ data: existing })
     }
     const endedAt = new Date()
-    const agg = aggregate(existing.samples as any as Sample[], endedAt.getTime())
+    // Same normalisation as appendSamples — handle legacy rows whose samples
+    // landed as a JSON-encoded string.
+    let storedSamples: Sample[] = []
+    const raw = existing.samples as unknown
+    if (Array.isArray(raw)) storedSamples = raw as Sample[]
+    else if (typeof raw === 'string') {
+      try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) storedSamples = parsed } catch { /* leave empty */ }
+    }
+    const agg = aggregate(storedSamples, endedAt.getTime())
     const [row] = await db
       .update(testSessions)
       .set({

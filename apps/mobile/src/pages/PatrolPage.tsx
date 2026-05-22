@@ -304,7 +304,14 @@ const TestMovementCard: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Guard against rapid taps creating multiple sessions. The server also
+  // dedupes against recent open sessions, but stopping client-side avoids
+  // the round-trip + race entirely.
+  const startingRef = useRef(false)
+
   async function start() {
+    if (startingRef.current || running) return
+    startingRef.current = true
     setErr(null)
     sampleQueueRef.current = []
     sensorBucketRef.current = null
@@ -327,6 +334,7 @@ const TestMovementCard: React.FC = () => {
       id = r.data.id
     } catch (e: any) {
       setErr(e?.message ?? 'Could not start test session')
+      startingRef.current = false
       return
     }
     sessionIdRef.current = id
@@ -335,6 +343,7 @@ const TestMovementCard: React.FC = () => {
     window.localStorage.setItem(ACTIVE_SESSION_KEY, id)
     setRunning(true)
     await attachWatchersAndTimers()
+    startingRef.current = false
   }
 
   async function stop() {
