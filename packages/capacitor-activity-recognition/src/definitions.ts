@@ -42,6 +42,22 @@ export interface ActivityRecognitionPlugin {
   getCurrent(): Promise<CurrentActivity>
 
   /**
+   * Whether the app is on the OS's "ignore battery optimisations" whitelist.
+   * Apps NOT on the whitelist may have their foreground service killed during
+   * Doze / standby. iOS reports `supported: false` (no equivalent concept).
+   */
+  batteryOptimizationStatus(): Promise<{ whitelisted: boolean; supported: boolean }>
+
+  /**
+   * Open the system prompt asking the user to whitelist the app from battery
+   * optimisation. No-op if already granted or unsupported. The promise
+   * resolves as soon as the system dialog is shown; the user's choice
+   * happens out-of-process. Call `batteryOptimizationStatus()` afterwards
+   * (e.g. on app resume) to see whether they granted it.
+   */
+  requestIgnoreBatteryOptimizations(): Promise<{ ok: boolean; alreadyGranted?: boolean; note?: string; error?: string }>
+
+  /**
    * Listen for activity transitions. Returns a `PluginListenerHandle` whose
    * `remove()` method unbinds the listener.
    */

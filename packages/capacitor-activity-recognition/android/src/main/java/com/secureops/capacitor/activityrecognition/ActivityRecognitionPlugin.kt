@@ -6,7 +6,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.core.content.ContextCompat
 import com.getcapacitor.JSObject
 import com.getcapacitor.PermissionState
@@ -143,6 +146,75 @@ class ActivityRecognitionPlugin : Plugin() {
         receiver = null
         val ret = JSObject()
         ret.put("ok", true)
+        call.resolve(ret)
+    }
+
+    /**
+     * Checks whether the app is on the system's "ignore battery optimisations"
+     * whitelist. Apps not on the whitelist may have their foreground service
+     * killed during Doze / standby, which is the main reason real-shift
+     * tracking drops out for guards. Safe to call any time; idempotent.
+     */
+    @PluginMethod
+    fun batteryOptimizationStatus(call: PluginCall) {
+        val ret = JSObject()
+        if (Build.VERSION.SDK_INT < 23) {
+            ret.put("whitelisted", true)
+            ret.put("supported", false)
+            call.resolve(ret)
+            return
+        }
+        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        ret.put("whitelisted", pm.isIgnoringBatteryOptimizations(context.packageName))
+        ret.put("supported", true)
+        call.resolve(ret)
+    }
+
+    /**
+     * Opens the system prompt asking the user to whitelist the app from
+     * battery optimisation. No-op if we're already whitelisted, or if the
+     * Android version doesn't support it. Returns immediately — the actual
+     * user decision happens on the system dialog out-of-process.
+     */
+    @PluginMethod
+    fun requestIgnoreBatteryOptimizations(call: PluginCall) {
+        val ret = JSObject()
+        if (Build.VERSION.SDK_INT < 23) {
+            ret.put("ok", true)
+            ret.put("alreadyGranted", true)
+            call.resolve(ret)
+            return
+        }
+        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (pm.isIgnoringBatteryOptimizations(context.packageName)) {
+            ret.put("ok", true)
+            ret.put("alreadyGranted", true)
+            call.resolve(ret)
+            return
+        }
+        try {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            intent.data = Uri.parse("package:${context.packageName}")
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            context.startActivity(intent)
+            ret.put("ok", true)
+            ret.put("alreadyGranted", false)
+        } catch (e: Throwable) {
+            // Some OEM ROMs disable the standard intent — fall back to the
+            // generic battery-optimisation settings screen so the user can
+            // still get there manually.
+            try {
+                val fallback = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                fallback.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                context.startActivity(fallback)
+                ret.put("ok", true)
+                ret.put("alreadyGranted", false)
+                ret.put("note", "Could not open targeted dialog; opened generic battery-optimisation settings instead.")
+            } catch (e2: Throwable) {
+                ret.put("ok", false)
+                ret.put("error", e2.message ?: "Failed to open battery settings")
+            }
+        }
         call.resolve(ret)
     }
 

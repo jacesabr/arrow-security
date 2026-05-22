@@ -321,6 +321,16 @@ const TestMovementCard: React.FC = () => {
     setLastActivity('—')
     setTotals({ walkingSeconds: 0, drivingSeconds: 0, idleSeconds: 0 })
 
+    // One-time system prompt so the OS doesn't kill our foreground service
+    // during the test (and during real shifts later — the dialog only fires
+    // until granted).
+    try {
+      const status = await ActivityRecognition.batteryOptimizationStatus()
+      if (status.supported && !status.whitelisted) {
+        await ActivityRecognition.requestIgnoreBatteryOptimizations()
+      }
+    } catch { /* non-fatal */ }
+
     let id: string
     try {
       const r = await api.testSessions.start()

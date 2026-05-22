@@ -24,4 +24,12 @@ export class ActivityRecognitionWeb
   async getCurrent(): Promise<CurrentActivity> {
     return { activity: 'unknown', confidence: 0, timestamp: Date.now() }
   }
+
+  async batteryOptimizationStatus(): Promise<{ whitelisted: boolean; supported: boolean }> {
+    return { whitelisted: true, supported: false }
+  }
+
+  async requestIgnoreBatteryOptimizations(): Promise<{ ok: boolean; alreadyGranted?: boolean }> {
+    return { ok: true, alreadyGranted: true }
+  }
 }
