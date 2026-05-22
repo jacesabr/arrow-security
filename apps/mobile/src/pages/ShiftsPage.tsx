@@ -124,17 +124,6 @@ export const ShiftsPage: React.FC = () => {
     // Already watching — don't register a second watcher
     if (watcherIdRef.current !== null) return
 
-    // Best-effort: ask the OS to exempt us from battery optimisation so its
-    // Doze/standby loops can't kill the foreground service mid-shift. Fires
-    // a one-time system dialog if not already granted; subsequent shifts
-    // see it's already on and skip. Failure is non-fatal.
-    try {
-      const status = await ActivityRecognition.batteryOptimizationStatus()
-      if (status.supported && !status.whitelisted) {
-        await ActivityRecognition.requestIgnoreBatteryOptimizations()
-      }
-    } catch { /* OEM might not support — proceed anyway */ }
-
     // Start activity recognition first — it's independent of GPS and survives
     // a GPS failure. Errors are non-fatal: classifier falls back to speed-only.
     if (activityListenerRef.current === null) {

@@ -31,6 +31,7 @@ import { GuidePage } from '../pages/GuidePage'
 import { useAuthStore } from '../store/auth'
 import { LeaveRequestPage } from '../pages/LeaveRequestPage'
 import { api } from '../services/api'
+import { ActivityRecognition } from '@secureops/capacitor-activity-recognition'
 
 // Cast react-router-dom v5 components to work around @types/react 18 incompatibility
 const R = Route as React.ComponentType<any>
@@ -1284,6 +1285,29 @@ export const TabLayout: React.FC = () => {
   const isSupervisor = role === 'supervisor'
   const isAdmin = role === 'tenant_admin' || role === 'platform_admin'
   const tabBarStyle = { '--background': '#ffffff', '--border': '1px solid #e8e5e0' } as any
+
+  // One-time-per-app-launch: ask the OS to whitelist us from battery
+  // optimisation so the foreground service can't be killed mid-shift. Doing
+  // it here (right after login, before the user does anything) means it
+  // never overlaps with the BackgroundGeolocation foreground-service
+  // notification, which used to bury the dialog and confuse the user.
+  // Idempotent — once the user grants it, status.whitelisted is true and
+  // we never prompt again.
+  useEffect(() => {
+    let cancelled = false
+    // Tiny delay so the dialog appears AFTER the Ionic transition into the
+    // tabs finishes, instead of fighting with the route animation.
+    const t = setTimeout(async () => {
+      if (cancelled) return
+      try {
+        const status = await ActivityRecognition.batteryOptimizationStatus()
+        if (!cancelled && status.supported && !status.whitelisted) {
+          await ActivityRecognition.requestIgnoreBatteryOptimizations()
+        }
+      } catch { /* non-fatal */ }
+    }, 600)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [])
 
   if (isAdmin) {
     return (
