@@ -6,7 +6,7 @@
  * Update this file whenever a role's pages or capabilities change.
  */
 
-export const GUIDE_VERSION = '2026.05.21f'
+export const GUIDE_VERSION = '2026.05.21g'
 
 export type GuideRole = 'guard' | 'supervisor' | 'manager'
 
@@ -50,7 +50,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     pages: [
       { name: 'Home',       what: 'Your daily landing page. Greeting + four big action cards (Check In, Activity, Incident, Shifts) that take you to each flow, then a list of today\'s shifts and any open incidents you\'ve reported.' },
       { name: 'Check In',   what: 'Reached from the Check In card on Home. Start and end your shift — uses GPS + a selfie (or QR code) to confirm you are at the right site.' },
-      { name: 'Activity',   what: 'Reached from the Activity card on Home. Shows your walking / driving / idle totals for the current month plus a per-shift breakdown. Activity is recorded automatically during shifts — supervisors use it to reimburse driving between sites, and it confirms guards are doing the patrolling they\'re meant to. A "Test movement tracking" panel at the bottom lets you sanity-check classification on your device.' },
+      { name: 'Activity',   what: 'Reached from the Activity card on Home. Shows your walking / driving / idle totals for the current month plus a per-shift breakdown. Activity is recorded automatically during shifts — supervisors use it to reimburse driving between sites, and it confirms guards are doing the patrolling they\'re meant to. A "Test movement tracking" panel at the bottom lets you sanity-check classification on your device; test sessions are saved server-side so they survive closing/reopening the app, and the list of past runs is shown right under the panel.' },
       { name: 'Shifts',     what: 'Reached from the Shifts card on Home. Your shifts as a table — date, site, clock in, clock out — plus a running "Hours by month" total at the bottom.' },
       { name: 'Incidents',  what: 'Incidents you have personally reported. Tap + to file a new one (title, description, severity, photos). You do not see other guards\' reports here. Bottom-tab access.' },
       { name: 'Leave',      what: 'Submit a leave request (date range + reason) and track its approval status. Scoped to your own requests only. Bottom-tab access.' },

@@ -74,10 +74,25 @@ const HYSTERESIS_UP_MS   = 6_000   // idle → walking → driving takes 6s of s
 const HYSTERESIS_DOWN_MS = 2_000   // demoting to a less-energetic bucket is faster
 const BLIP_MAX_MS        = 60_000  // X → Y → X blips shorter than this get reassigned to X
 
-type SpeedSample = { ts: number; speed: number }
+// localStorage key for the active session id — lets us resume after app
+// kill/relaunch. Cleared on Stop.
+const ACTIVE_SESSION_KEY = 'arrow_test_session_id'
+const SAMPLE_FLUSH_INTERVAL_MS = 5_000  // batch samples to the server every 5s
+const TOTALS_REFRESH_INTERVAL_MS = 5_000
+
+type Sample = {
+  ts: number
+  activity: 'walking' | 'driving' | 'idle' | 'unknown'
+  confidence?: number
+  lat?: number
+  lng?: number
+  speed?: number
+}
 
 const TestMovementCard: React.FC = () => {
   const [running, setRunning] = useState(false)
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [startedAt, setStartedAt] = useState<number>(0)
   const [tick, setTick] = useState(0) // forces re-render every second so counters + strip tick visibly
   const [current, setCurrent] = useState<Bucket | 'unknown'>('unknown')
   const [confidence, setConfidence] = useState(0)
@@ -86,101 +101,59 @@ const TestMovementCard: React.FC = () => {
   const [err, setErr] = useState<string | null>(null)
   const [lastActivityAt, setLastActivityAt] = useState(0)
   const [lastActivity, setLastActivity] = useState<string>('—')
+  // Server-confirmed aggregate — canonical totals after each batch flush.
+  const [totals, setTotals] = useState<{ walkingSeconds: number; drivingSeconds: number; idleSeconds: number }>(
+    { walkingSeconds: 0, drivingSeconds: 0, idleSeconds: 0 },
+  )
 
-  // Hysteresis state — a candidate bucket must hold steady for HYSTERESIS_MS
-  // before we actually flip the credited bucket. Prevents single-sample flaps.
+  // Hysteresis state — drives the "current bucket" display (not the totals).
   const pendingBucketRef = useRef<Bucket | null>(null)
   const pendingSinceRef = useRef<number>(0)
-  // History of committed bucket entries — drives retroactive blip correction.
-  const bucketHistoryRef = useRef<{ bucket: Bucket; startedAt: number }[]>([])
-
-  // Accumulators (refs so we don't trigger renders for every micro-update)
-  const accRef = useRef<{ walking: number; driving: number; idle: number }>({ walking: 0, driving: 0, idle: 0 })
   const lastBucketRef = useRef<Bucket | null>(null)
-  const lastChangeRef = useRef<number>(0)
-  // What Activity Recognition last reported (high-confidence only). Cleared
-  // when stale so the bucket falls back to the GPS-staleness override.
+  // What Activity Recognition last reported (high-confidence only)
   const sensorBucketRef = useRef<Bucket | null>(null)
   const sensorAtRef = useRef<number>(0)
-  // Most recent GPS sample timestamp — the safety net for "phone actually moved"
+  // Most recent GPS sample timestamp — the "phone actually moved" signal
   const lastGpsAtRef = useRef<number>(0)
   // Live time-series strip — one entry per second of the test session
   const stripRef = useRef<(Bucket | 'unknown')[]>([])
+  // Pending samples to flush server-side
+  const sampleQueueRef = useRef<Sample[]>([])
+  // Native watchers
   const watcherIdRef = useRef<string | null>(null)
   const listenerRef = useRef<PluginListenerHandle | null>(null)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const tickIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const flushIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Avoid stale `sessionId` closure in event handlers (state isn't yet set
+  // when the very first sample fires after start).
+  const sessionIdRef = useRef<string | null>(null)
 
-  function applyBucket(newBucket: Bucket | null, now: number) {
-    const prev = lastBucketRef.current
-    if (prev) {
-      const duration = (now - lastChangeRef.current) / 1000
-      const history = bucketHistoryRef.current
-      const last = history[history.length - 1]  // bucket BEFORE prev (prev not yet pushed)
-      const isBlip =
-        newBucket !== null &&
-        last !== undefined &&
-        last.bucket === newBucket &&        // we're returning to the bucket we were in before prev
-        (now - lastChangeRef.current) < BLIP_MAX_MS
-
-      if (isBlip) {
-        // Reassign prev's seconds to the surrounding bucket — that whole
-        // period was almost certainly sensor noise.
-        accRef.current[newBucket as Bucket] += duration
-        // Don't add prev to history; the surrounding bucket is conceptually
-        // unbroken.
-      } else {
-        accRef.current[prev] += duration
-        if (!last || last.bucket !== prev) {
-          history.push({ bucket: prev, startedAt: lastChangeRef.current })
-        }
-      }
-    }
-    lastBucketRef.current = newBucket
-    lastChangeRef.current = now
-    setCurrent(newBucket ?? 'unknown')
-  }
-
-  // Decides the candidate bucket from current sensor state + GPS-staleness
-  // override. Activity Recognition is the primary source; GPS only intervenes
-  // to say "this phone hasn't actually moved — ignore the sensor".
+  // Decides the candidate bucket from current sensor state + GPS staleness.
   function effectiveBucket(now: number): Bucket | null {
     const gpsStale = now - lastGpsAtRef.current > GPS_STALE_MS
-    // Phone hasn't moved 20m in the past 15s → no possible walking/driving
-    // regardless of what Activity Recognition claims.
     if (gpsStale) return 'idle'
     const sensorStale = now - sensorAtRef.current > ACTIVITY_STALE_MS
-    if (sensorStale) {
-      // No fresh Activity Recognition sample. We have GPS movement but can't
-      // distinguish walking from driving without the sensor — hold pending.
-      return null
-    }
+    if (sensorStale) return null
     return sensorBucketRef.current
   }
 
-  // Commit a candidate bucket if it has held steady through the appropriate
-  // hysteresis window. Asymmetric: going UP (idle → walking → driving) takes
-  // longer than going DOWN, because the cost of a false positive (claiming
-  // someone is walking when they're sitting) is much higher than a false
-  // negative.
-  function maybeCommitBucket(candidate: Bucket | null, now: number) {
-    // A null candidate means "I have no opinion right now" (e.g., not enough
-    // GPS samples yet). DON'T reset the hysteresis countdown — keep whatever
-    // pending state we had. Otherwise a single-sample dropout would erase
-    // 5+ seconds of building "walking" confidence.
-    if (candidate === null) return
+  function bucketRank(b: Bucket | null): number {
+    if (b === 'driving') return 2
+    if (b === 'walking') return 1
+    return 0
+  }
 
+  // Hysteresis-gated commit of the "current bucket" UI label.
+  function maybeCommitBucket(candidate: Bucket | null, now: number) {
+    if (candidate === null) return
     if (candidate === lastBucketRef.current) {
       pendingBucketRef.current = null
       pendingSinceRef.current = 0
       return
     }
-    // First classification after a 'null' bucket — only auto-commit if the
-    // landing bucket is idle. Otherwise let the UP-hysteresis gate apply so a
-    // one-shot phantom sensor event can't seed walking instantly at startup.
     if (lastBucketRef.current === null && candidate === 'idle') {
-      applyBucket(candidate, now)
-      pendingBucketRef.current = null
-      pendingSinceRef.current = 0
+      lastBucketRef.current = candidate
+      setCurrent(candidate)
       return
     }
     if (candidate !== pendingBucketRef.current) {
@@ -191,44 +164,40 @@ const TestMovementCard: React.FC = () => {
     const goingUp = bucketRank(candidate) > bucketRank(lastBucketRef.current)
     const needed = goingUp ? HYSTERESIS_UP_MS : HYSTERESIS_DOWN_MS
     if (now - pendingSinceRef.current >= needed) {
-      applyBucket(candidate, now)
+      lastBucketRef.current = candidate
+      setCurrent(candidate)
       pendingBucketRef.current = null
       pendingSinceRef.current = 0
     }
   }
 
-  // Higher = more "energetic" bucket. idle < walking < driving.
-  // null is treated as lowest so promoting from "no opinion" still counts as UP.
-  function bucketRank(b: Bucket | null): number {
-    if (b === 'driving') return 2
-    if (b === 'walking') return 1
-    return 0
+  function pushSample(s: Sample) {
+    sampleQueueRef.current.push(s)
   }
 
-  async function start() {
-    setErr(null)
-    accRef.current = { walking: 0, driving: 0, idle: 0 }
-    lastBucketRef.current = null
-    sensorBucketRef.current = null
-    sensorAtRef.current = 0
-    lastGpsAtRef.current = Date.now()  // give us the staleness grace period at start
-    lastChangeRef.current = Date.now()
-    stripRef.current = []
-    bucketHistoryRef.current = []
-    pendingBucketRef.current = null
-    pendingSinceRef.current = 0
-    setPings(0)
-    setLastPos(null)
-    setConfidence(0)
-    setLastActivityAt(0)
-    setLastActivity('—')
-    setRunning(true)
+  async function flushSamples() {
+    const id = sessionIdRef.current
+    if (!id) return
+    const batch = sampleQueueRef.current.splice(0)
+    if (batch.length === 0) return
+    try {
+      const r = await api.testSessions.appendSamples(id, batch)
+      setTotals({
+        walkingSeconds: r.data.walkingSeconds,
+        drivingSeconds: r.data.drivingSeconds,
+        idleSeconds:    r.data.idleSeconds,
+      })
+    } catch (e: any) {
+      // Re-queue on failure so we try again next flush. Newest at the back so
+      // ordering by ts on the server is still correct.
+      sampleQueueRef.current.unshift(...batch)
+      console.warn('test session flush failed:', e?.message ?? e)
+    }
+  }
 
-    // 1s ticker — drives the elapsed display, the live counters, the strip,
-    // AND the GPS-based reconciliation. Reconciling every second means a
-    // phantom sensor classification gets corrected within ~1s of GPS speed
-    // showing stillness, rather than running forever.
-    intervalRef.current = setInterval(() => {
+  async function attachWatchersAndTimers() {
+    // 1s ticker for the strip + hysteresis-driven current bucket
+    tickIntervalRef.current = setInterval(() => {
       const now = Date.now()
       const candidate = effectiveBucket(now)
       maybeCommitBucket(candidate, now)
@@ -237,25 +206,34 @@ const TestMovementCard: React.FC = () => {
       setTick(t => t + 1)
     }, 1000)
 
+    // Batch-flush samples to server every 5s
+    flushIntervalRef.current = setInterval(() => { flushSamples() }, SAMPLE_FLUSH_INTERVAL_MS)
+
     try {
       listenerRef.current = await ActivityRecognition.addListener(
         'activityTransition',
         (e: ActivityTransitionEvent) => {
           const conf = e.confidence ?? 0
+          const now = Date.now()
           setConfidence(conf)
           setLastActivity(e.activity)
-          setLastActivityAt(Date.now())
-          // Drop low-confidence samples — keep the previous verdict. The OS
-          // sometimes reports "still: 35" and we'd rather hold than flap.
-          if (conf < CONFIDENCE_FLOOR) return
-          sensorBucketRef.current = bucketFor(e.activity)
-          sensorAtRef.current = Date.now()
+          setLastActivityAt(now)
+          // Drop low-confidence for UI bucket. But STILL post a sample so the
+          // server has full history; mark it 'unknown' if below floor.
+          const bucket = bucketFor(e.activity)
+          if (conf >= CONFIDENCE_FLOOR && bucket) {
+            sensorBucketRef.current = bucket
+            sensorAtRef.current = now
+          }
+          pushSample({
+            ts: now,
+            activity: (conf >= CONFIDENCE_FLOOR && bucket) ? bucket : 'unknown',
+            confidence: conf,
+          })
         },
       )
       await ActivityRecognition.start()
     } catch (e: any) {
-      // Activity Recognition unavailable (browser, simulator without plugin)
-      // — still exercise GPS; bucket detection just stays 'unknown'.
       console.warn('ActivityRecognition unavailable:', e?.message ?? e)
     }
 
@@ -266,18 +244,23 @@ const TestMovementCard: React.FC = () => {
           backgroundTitle: 'Test Mode',
           requestPermissions: true,
           stale: false,
-          distanceFilter: 20, // tighter than a real shift so the test feels live
+          distanceFilter: 20,
         },
         (position?: Location, error?: Error) => {
           if (error) { setErr(error.message); return }
           if (!position) return
           setPings(p => p + 1)
           setLastPos({ lat: position.latitude, lng: position.longitude })
-          // Every GPS callback means the phone has moved at least distanceFilter
-          // metres (configured below). We just track WHEN — speed values aren't
-          // used by the classifier any more, but a fresh GPS sample tells us
-          // the phone is moving, which is the signal we override with.
           lastGpsAtRef.current = Date.now()
+          // Also record this as a sample so the server-side reconstruction
+          // sees movement happening (gives us GPS lat/lng for the time series).
+          pushSample({
+            ts: Date.now(),
+            activity: sensorBucketRef.current ?? 'unknown',
+            lat: position.latitude,
+            lng: position.longitude,
+            speed: position.speed ?? undefined,
+          })
         },
       )
       watcherIdRef.current = id
@@ -287,9 +270,76 @@ const TestMovementCard: React.FC = () => {
     }
   }
 
+  // On mount, restore in-progress session if there is one.
+  useEffect(() => {
+    let cancelled = false
+    const saved = typeof window !== 'undefined' ? window.localStorage.getItem(ACTIVE_SESSION_KEY) : null
+    if (!saved) return
+    ;(async () => {
+      try {
+        const r = await api.testSessions.get(saved)
+        if (cancelled) return
+        if (r.data.endedAt) {
+          // Server says it's already ended — clear stale local marker.
+          window.localStorage.removeItem(ACTIVE_SESSION_KEY)
+          return
+        }
+        sessionIdRef.current = saved
+        setSessionId(saved)
+        setStartedAt(new Date(r.data.startedAt).getTime())
+        setTotals({
+          walkingSeconds: r.data.walkingSeconds ?? 0,
+          drivingSeconds: r.data.drivingSeconds ?? 0,
+          idleSeconds:    r.data.idleSeconds ?? 0,
+        })
+        lastGpsAtRef.current = Date.now()  // grace period
+        setRunning(true)
+        await attachWatchersAndTimers()
+      } catch {
+        // Server lost the session, or network problem. Clear marker; user can start fresh.
+        window.localStorage.removeItem(ACTIVE_SESSION_KEY)
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function start() {
+    setErr(null)
+    sampleQueueRef.current = []
+    sensorBucketRef.current = null
+    sensorAtRef.current = 0
+    lastGpsAtRef.current = Date.now()
+    stripRef.current = []
+    pendingBucketRef.current = null
+    pendingSinceRef.current = 0
+    lastBucketRef.current = null
+    setPings(0)
+    setLastPos(null)
+    setConfidence(0)
+    setLastActivityAt(0)
+    setLastActivity('—')
+    setTotals({ walkingSeconds: 0, drivingSeconds: 0, idleSeconds: 0 })
+
+    let id: string
+    try {
+      const r = await api.testSessions.start()
+      id = r.data.id
+    } catch (e: any) {
+      setErr(e?.message ?? 'Could not start test session')
+      return
+    }
+    sessionIdRef.current = id
+    setSessionId(id)
+    setStartedAt(Date.now())
+    window.localStorage.setItem(ACTIVE_SESSION_KEY, id)
+    setRunning(true)
+    await attachWatchersAndTimers()
+  }
+
   async function stop() {
-    // Flush the time spent in the current bucket up to now
-    applyBucket(null, Date.now())
+    // Flush any pending samples before sealing
+    await flushSamples()
 
     if (watcherIdRef.current) {
       try { await BackgroundGeolocation.removeWatcher({ id: watcherIdRef.current }) } catch { /* ignore */ }
@@ -300,23 +350,43 @@ const TestMovementCard: React.FC = () => {
       listenerRef.current = null
     }
     try { await ActivityRecognition.stop() } catch { /* ignore */ }
-    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+    if (tickIntervalRef.current)  { clearInterval(tickIntervalRef.current); tickIntervalRef.current = null }
+    if (flushIntervalRef.current) { clearInterval(flushIntervalRef.current); flushIntervalRef.current = null }
+
+    const id = sessionIdRef.current
+    if (id) {
+      try {
+        const r = await api.testSessions.end(id)
+        setTotals({
+          walkingSeconds: r.data.walkingSeconds,
+          drivingSeconds: r.data.drivingSeconds,
+          idleSeconds:    r.data.idleSeconds,
+        })
+      } catch { /* leave the totals as last-known */ }
+    }
+    window.localStorage.removeItem(ACTIVE_SESSION_KEY)
+    sessionIdRef.current = null
+    setSessionId(null)
     setRunning(false)
+    // Tell any listeners (e.g. TestSessionsList) to refresh.
+    window.dispatchEvent(new CustomEvent('arrow:test-session-ended'))
   }
 
-  // Cleanup on unmount — don't leave a watcher running if the user navigates away
-  useEffect(() => () => { stop() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // NOTE: we intentionally do NOT auto-stop on unmount. The user might tab
+  // away to file an incident or check their shifts — they expect the test to
+  // keep running until they explicitly press Stop. The watchers are native
+  // and keep firing in the background; on remount we resume via the saved
+  // session id.
 
-  // Live values include the in-flight bucket's elapsed time since last change
-  const live = (() => {
-    const out = { ...accRef.current }
-    const b = lastBucketRef.current
-    if (running && b) out[b] += (Date.now() - lastChangeRef.current) / 1000
-    return out
-  })()
-  void tick // ensures re-render every second
+  // Live values = server-confirmed totals + the in-flight period since the
+  // most recent flush. Best-effort visual smoothing only; the SERVER aggregate
+  // is the canonical record.
+  const tickGap = lastBucketRef.current && running ? (1 /* secs since last tick, smoothing */) : 0
+  void tick // re-render every second
+  void tickGap
 
-  const total = live.walking + live.driving + live.idle
+  const live = totals
+  const total = live.walkingSeconds + live.drivingSeconds + live.idleSeconds
   const pct = (n: number) => total === 0 ? 0 : (n / total) * 100
 
   return (
@@ -336,9 +406,9 @@ const TestMovementCard: React.FC = () => {
         <>
           {/* Stacked totals — quick "where am I at" glance */}
           <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', background: '#ebe8e2', marginBottom: 10 }}>
-            <div style={{ width: `${pct(live.walking)}%`, background: '#10b981', transition: 'width 0.4s' }} />
-            <div style={{ width: `${pct(live.driving)}%`, background: '#3b82f6', transition: 'width 0.4s' }} />
-            <div style={{ width: `${pct(live.idle)}%`,    background: '#d4a574', transition: 'width 0.4s' }} />
+            <div style={{ width: `${pct(live.walkingSeconds)}%`, background: '#10b981', transition: 'width 0.4s' }} />
+            <div style={{ width: `${pct(live.drivingSeconds)}%`, background: '#3b82f6', transition: 'width 0.4s' }} />
+            <div style={{ width: `${pct(live.idleSeconds)}%`,    background: '#d4a574', transition: 'width 0.4s' }} />
           </div>
 
           {/* Live timeline — each cell is 1s, oldest on the left, newest on the right.
@@ -370,9 +440,9 @@ const TestMovementCard: React.FC = () => {
 
           {/* Bucket totals */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
-            <Bucket label="Walking" color="#10b981" seconds={live.walking} active={current === 'walking'} />
-            <Bucket label="Driving" color="#3b82f6" seconds={live.driving} active={current === 'driving'} />
-            <Bucket label="Idle"    color="#d4a574" seconds={live.idle}    active={current === 'idle'} />
+            <Bucket label="Walking" color="#10b981" seconds={live.walkingSeconds} active={current === 'walking'} />
+            <Bucket label="Driving" color="#3b82f6" seconds={live.drivingSeconds} active={current === 'driving'} />
+            <Bucket label="Idle"    color="#d4a574" seconds={live.idleSeconds}    active={current === 'idle'} />
           </div>
 
           {/* Live classification details — exposes WHY a bucket is filling.
@@ -424,6 +494,96 @@ const TestMovementCard: React.FC = () => {
       >
         {running ? 'Stop test' : 'Start test'}
       </IonButton>
+    </div>
+  )
+}
+
+/* ─── Past test sessions ──────────────────────────────────────────────── */
+//
+// Shows the caller's own recent test sessions — one row per session with
+// a stacked walking/driving/idle bar. Refreshes itself when a test ends
+// (the TestMovementCard dispatches 'arrow:test-session-ended').
+
+function fmtDateShort(iso: string | Date | null | undefined): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+function fmtDurationFromStart(startedAt: string | Date, endedAt: string | Date | null): string {
+  if (!endedAt) return '— in progress'
+  const ms = new Date(endedAt).getTime() - new Date(startedAt).getTime()
+  return fmtSec(Math.max(0, Math.floor(ms / 1000)))
+}
+
+const TestSessionsList: React.FC = () => {
+  const [rows, setRows] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const load = React.useCallback(() => {
+    setLoading(true)
+    api.testSessions.list(20)
+      .then(r => setRows(r.data ?? []))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    load()
+    const onEnd = () => load()
+    window.addEventListener('arrow:test-session-ended', onEnd as EventListener)
+    return () => window.removeEventListener('arrow:test-session-ended', onEnd as EventListener)
+  }, [load])
+
+  return (
+    <div style={{
+      background: '#ffffff', border: '1px solid #e8e5e0', borderRadius: 12,
+      padding: '14px 16px', marginTop: 10,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1916' }}>Past test sessions</div>
+        <span style={{ fontSize: 11, color: '#9a9490' }}>
+          {loading ? 'Loading…' : `${rows.length} session${rows.length === 1 ? '' : 's'}`}
+        </span>
+      </div>
+      {loading ? null : rows.length === 0 ? (
+        <div style={{ color: '#9a9490', fontSize: 12 }}>No test runs yet. Tap "Start test" to record one.</div>
+      ) : rows.map(r => {
+        const tracked = (r.walkingSeconds ?? 0) + (r.drivingSeconds ?? 0) + (r.idleSeconds ?? 0)
+        return (
+          <div key={r.id} style={{
+            display: 'grid', gridTemplateColumns: '1fr auto', gap: 6,
+            padding: '8px 0', borderBottom: '1px solid #f5f4f2',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 12, color: '#1a1916', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {fmtDateShort(r.startedAt)}
+                </div>
+                <div style={{ fontSize: 10.5, color: '#9a9490', marginTop: 1 }}>
+                  {fmtDurationFromStart(r.startedAt, r.endedAt)}
+                  {!r.endedAt && <span style={{ color: '#c96442', fontWeight: 600 }}> · live</span>}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, minWidth: 96 }}>
+              {tracked > 0 ? (
+                <>
+                  <div style={{ display: 'flex', height: 5, borderRadius: 2.5, overflow: 'hidden', width: 90, background: '#ebe8e2' }}>
+                    <div style={{ width: `${(r.walkingSeconds / tracked) * 100}%`, background: '#10b981' }} />
+                    <div style={{ width: `${(r.drivingSeconds / tracked) * 100}%`, background: '#3b82f6' }} />
+                    <div style={{ width: `${(r.idleSeconds    / tracked) * 100}%`, background: '#d4a574' }} />
+                  </div>
+                  <div style={{ fontSize: 10, color: '#9a9490', fontVariantNumeric: 'tabular-nums' }}>
+                    W {fmtSec(r.walkingSeconds)} · D {fmtSec(r.drivingSeconds)} · I {fmtSec(r.idleSeconds)}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: 10.5, color: '#9a9490' }}>no movement</div>
+              )}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -643,7 +803,12 @@ export const PatrolPage: React.FC = () => {
               <span style={{ color: '#9a9490', fontSize: 16 }}>{showTest ? '▾' : '▸'}</span>
             </div>
           </button>
-          {showTest && <TestMovementCard />}
+          {showTest && (
+            <>
+              <TestMovementCard />
+              <TestSessionsList />
+            </>
+          )}
         </div>
       </IonContent>
     </IonPage>

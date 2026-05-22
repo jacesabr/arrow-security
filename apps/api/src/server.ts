@@ -29,6 +29,7 @@ import { certificationsRoutes } from './routes/certifications'
 import { postOrdersRoutes } from './routes/post-orders'
 import { guardStatsRoutes } from './routes/guard-stats'
 import { siteStatsRoutes } from './routes/site-stats'
+import { testSessionsRoutes } from './routes/test-sessions'
 import { passdownsRoutes } from './routes/passdowns'
 import { exceptionsRoutes } from './routes/exceptions'
 import { auditLogRoutes } from './routes/audit-log'
@@ -104,6 +105,7 @@ async function build() {
   await app.register(postOrdersRoutes, { prefix: '/api/post-orders' })
   await app.register(guardStatsRoutes, { prefix: '/api/guard-stats' })
   await app.register(siteStatsRoutes, { prefix: '/api/site-stats' })
+  await app.register(testSessionsRoutes, { prefix: '/api/test-sessions' })
   await app.register(passdownsRoutes, { prefix: '/api/passdowns' })
   await app.register(exceptionsRoutes, { prefix: '/api/exceptions' })
   await app.register(auditLogRoutes, { prefix: '/api/audit-log' })

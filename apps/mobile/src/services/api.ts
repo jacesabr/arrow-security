@@ -132,6 +132,21 @@ export const api = {
     },
   },
 
+  testSessions: {
+    start: () => request<{ data: any }>('/test-sessions', { method: 'POST', body: JSON.stringify({}) }),
+    appendSamples: (id: string, samples: any[]) =>
+      request<{ data: { id: string; walkingSeconds: number; drivingSeconds: number; idleSeconds: number; sampleCount: number } }>(
+        `/test-sessions/${id}/samples`,
+        { method: 'POST', body: JSON.stringify({ samples }) },
+      ),
+    end: (id: string) =>
+      request<{ data: any }>(`/test-sessions/${id}/end`, { method: 'PATCH' }),
+    list: (limit = 20) =>
+      request<{ data: any[] }>(`/test-sessions?limit=${limit}`),
+    get: (id: string) =>
+      request<{ data: any }>(`/test-sessions/${id}`),
+  },
+
   clients: {
     list: () => request<{ data: any[] }>('/clients'),
   },
