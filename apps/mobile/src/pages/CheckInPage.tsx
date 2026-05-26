@@ -35,6 +35,10 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
+// Sentinel for "this location isn't in the list yet" — submitting with this
+// picked tells the API to auto-create a pending site at the guard's GPS.
+const NEW_LOCATION = '__new_location__'
+
 export const CheckInPage: React.FC = () => {
   const user = useAuthStore((s) => s.user)
   const [sites, setSites] = useState<any[]>([])
@@ -79,19 +83,21 @@ export const CheckInPage: React.FC = () => {
     }
   }, [sitesByDistance, selectedSite, userPickedSite])
 
-  const site = sites.find((s) => s.id === selectedSite)
+  const isNewLocation = selectedSite === NEW_LOCATION
+  const site = isNewLocation ? null : sites.find((s) => s.id === selectedSite)
 
   const distanceMeters: number | null =
-    location && site?.latitude != null && site?.longitude != null
+    !isNewLocation && location && site?.latitude != null && site?.longitude != null
       ? Math.round(haversineMeters(location.lat, location.lng, site.latitude, site.longitude))
       : null
 
   const withinGeofence =
-    distanceMeters !== null && site?.geofenceRadiusMeters != null
+    !isNewLocation && distanceMeters !== null && site?.geofenceRadiusMeters != null
       ? distanceMeters <= site.geofenceRadiusMeters
       : null
 
-  const needsReason = withinGeofence === false
+  // No geofence to breach when the guard is registering a brand-new spot.
+  const needsReason = !isNewLocation && withinGeofence === false
   const reasonTrimmed = outOfZoneReason.trim()
 
   async function takeSelfie() {
@@ -105,7 +111,7 @@ export const CheckInPage: React.FC = () => {
       if (perms.camera !== 'granted') {
         const req = await Camera.requestPermissions({ permissions: ['camera'] })
         if (req.camera !== 'granted') {
-          setError('Camera permission was denied. You can take a photo from your gallery instead.')
+          setError('Camera permission denied. Opening your photo gallery — pick a recent selfie.')
           fileInputRef.current?.click()
           return
         }
@@ -151,6 +157,10 @@ export const CheckInPage: React.FC = () => {
 
   async function handleCheckIn() {
     if (!selectedSite || !selfieDataUrl) return
+    if (isNewLocation && (!location || location.lat == null || location.lng == null)) {
+      setError('GPS is required to register a new location. Wait for the location indicator to turn green.')
+      return
+    }
     if (needsReason && !reasonTrimmed) {
       setError('Please explain why you are outside the site zone.')
       return
@@ -159,7 +169,7 @@ export const CheckInPage: React.FC = () => {
     setError(null)
     try {
       await api.selfies.create({
-        siteId: selectedSite,
+        siteId: isNewLocation ? undefined : selectedSite,
         checkType: type,
         imageData: selfieDataUrl,
         latitude: location?.lat,
@@ -205,7 +215,11 @@ export const CheckInPage: React.FC = () => {
           <IonIcon icon={locationOutline} style={{ color: location ? '#10b981' : '#9a9490', fontSize: 20, flexShrink: 0 }} />
           {location ? (
             <div style={{ flex: 1, minWidth: 0 }}>
-              {distanceMeters !== null ? (
+              {isNewLocation ? (
+                <span style={{ color: '#c96442', fontSize: 14, fontWeight: 500 }}>
+                  Registering a new location at your current GPS
+                </span>
+              ) : distanceMeters !== null ? (
                 <span style={{ color: withinGeofence ? '#10b981' : '#f59e0b', fontSize: 14, fontWeight: 500 }}>
                   {distanceMeters < 1000
                     ? `${distanceMeters} m from ${site?.name ?? 'site'}`
@@ -257,6 +271,13 @@ export const CheckInPage: React.FC = () => {
                   </IonSelectOption>
                 )
               })}
+              {/* Fallback for when the guard is somewhere not yet in our sites
+                  list. Picking this submits the check-in with the guard's GPS
+                  and no siteId; the server creates a pending site and an admin
+                  reviews it on the Sites page. */}
+              <IonSelectOption value={NEW_LOCATION}>
+                📍 New location (not in list)
+              </IonSelectOption>
             </IonSelect>
           </IonItem>
         </div>

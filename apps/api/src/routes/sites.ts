@@ -15,9 +15,22 @@ const createSiteSchema = z.object({
   go2rtcUrl: z.string().url().optional(),
 })
 
+// PATCH allows everything in createSiteSchema plus the briefing fields and
+// a status flip (admins confirm pending → active here).
+const updateSiteSchema = createSiteSchema.partial().extend({
+  status: z.enum(['pending', 'active', 'inactive']).optional(),
+  accessInstructions: z.string().max(2000).nullish(),
+  gateCode: z.string().max(200).nullish(),
+  contactPhone: z.string().max(40).nullish(),
+  hazards: z.string().max(2000).nullish(),
+})
+
 export const sitesRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/', { preHandler: requireAuth }, async (request, reply) => {
     const payload = request.user as { tenantId: string; sub: string; role: string }
+    const { status } = z
+      .object({ status: z.enum(['pending', 'active', 'inactive']).optional() })
+      .parse(request.query)
 
     let scopedSiteIds: string[] | null = null
 
@@ -39,6 +52,13 @@ export const sitesRoutes: FastifyPluginAsync = async (fastify) => {
 
     const conditions = [eq(sites.tenantId, payload.tenantId)]
     if (scopedSiteIds) conditions.push(inArray(sites.id, scopedSiteIds))
+    if (status) conditions.push(eq(sites.status, status))
+    // Pending sites are admin-only — hide from guard/supervisor list calls so
+    // they don't appear in check-in dropdowns or supervisor rosters before
+    // they've been reviewed.
+    else if (payload.role !== 'tenant_admin' && payload.role !== 'platform_admin') {
+      conditions.push(inArray(sites.status, ['active', 'inactive']))
+    }
 
     const all = await db
       .select()
@@ -85,7 +105,7 @@ export const sitesRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch('/:id', { preHandler: requireTenantAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const payload = request.user as { tenantId: string }
-    const body = createSiteSchema.partial().parse(request.body)
+    const body = updateSiteSchema.parse(request.body)
     const [site] = await db
       .update(sites)
       .set({ ...body, updatedAt: new Date() })

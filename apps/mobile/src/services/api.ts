@@ -79,18 +79,6 @@ export const api = {
       request<{ data: any }>(`/patrol/${patrolId}/complete`, { method: 'PATCH' }),
   },
 
-  incidents: {
-    list: (params?: { status?: string; siteId?: string; severity?: string }) => {
-      const qs = new URLSearchParams(params as any).toString()
-      return request<{ data: any[] }>(`/incidents?${qs}`)
-    },
-    get: (id: string) => request<{ data: any }>(`/incidents/${id}`),
-    create: (payload: { siteId: string; title: string; description: string; severity: string; mediaUrls?: string[] }) =>
-      request<{ data: any }>('/incidents', { method: 'POST', body: JSON.stringify(payload) }),
-    updateStatus: (id: string, status: string) =>
-      request<{ data: any }>(`/incidents/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
-  },
-
   shifts: {
     list: (params?: { from?: string; to?: string }) => {
       const qs = new URLSearchParams(params as any).toString()
@@ -107,10 +95,18 @@ export const api = {
       speed?: number
       altitude?: number
       shiftId?: string
-      activityType?: string
-      activityConfidence?: number
       recordedAt?: string
-    }) => request<{ data: any }>('/locations', { method: 'POST', body: JSON.stringify(payload) }),
+    }) =>
+      request<{
+        data: any
+        // Set by the server when this ping pushed the guard's open off-site
+        // visit over the hysteresis threshold. The mobile app should treat this
+        // as a forced logout: stop tracking, clear auth, route to /login.
+        shiftAbandoned?: {
+          shiftId: string
+          reason: 'off_site_during_shift'
+        }
+      }>('/locations', { method: 'POST', body: JSON.stringify(payload) }),
   },
 
   cameras: {
@@ -132,50 +128,35 @@ export const api = {
     },
   },
 
-  testSessions: {
-    start: () => request<{ data: any }>('/test-sessions', { method: 'POST', body: JSON.stringify({}) }),
-    appendSamples: (id: string, samples: any[]) =>
-      request<{ data: { id: string; walkingSeconds: number; drivingSeconds: number; idleSeconds: number; sampleCount: number } }>(
-        `/test-sessions/${id}/samples`,
-        { method: 'POST', body: JSON.stringify({ samples }) },
-      ),
-    end: (id: string) =>
-      request<{ data: any }>(`/test-sessions/${id}/end`, { method: 'PATCH' }),
-    list: (limit = 20) =>
-      request<{ data: any[] }>(`/test-sessions?limit=${limit}`),
-    get: (id: string) =>
-      request<{ data: any }>(`/test-sessions/${id}`),
-  },
-
   clients: {
     list: () => request<{ data: any[] }>('/clients'),
   },
 
-  leaveRequests: {
-    list: () => request<{ data: any[] }>('/leave-requests'),
-    review: (id: string, body: { status: 'approved' | 'rejected'; reviewNote?: string }) =>
-      request<{ data: any }>(`/leave-requests/${id}/review`, { method: 'PATCH', body: JSON.stringify(body) }),
-    create: (body: { leaveType?: string; startDate: string; endDate: string; reason?: string }) =>
-      request<{ data: any }>('/leave-requests', { method: 'POST', body: JSON.stringify(body) }),
-    cancel: (id: string) => request<{ data: any }>(`/leave-requests/${id}/cancel`, { method: 'PATCH' }),
-  },
-
   selfies: {
     create: (payload: {
-      siteId: string
+      // Omitted when the guard is at a location not yet known to us — the
+      // server then auto-creates a `pending` site at the supplied GPS for an
+      // admin to confirm.
+      siteId?: string
       checkType: 'check_in' | 'check_out'
       imageData: string
       latitude?: number
       longitude?: number
       outOfZoneReason?: string
-    }) => request<{ data: { selfie: any; attendance: any; distanceMeters: number | null; isWithinGeofence: boolean | null } }>(
-      '/selfies',
-      { method: 'POST', body: JSON.stringify(payload) },
-    ),
+    }) => request<{
+      data: {
+        selfie: any
+        attendance: any
+        distanceMeters: number | null
+        isWithinGeofence: boolean | null
+        createdPendingSite?: boolean
+        siteId?: string
+      }
+    }>('/selfies', { method: 'POST', body: JSON.stringify(payload) }),
   },
 
   upload: {
-    presign: (filename: string, contentType: string, folder: 'selfies' | 'incidents' | 'documents') =>
+    presign: (filename: string, contentType: string, folder: 'selfies' | 'documents') =>
       request<{ data: { uploadUrl: string; key: string; expiresIn: number } }>('/upload/presign', {
         method: 'POST',
         body: JSON.stringify({ filename, contentType, folder }),

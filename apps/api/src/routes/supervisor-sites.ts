@@ -68,6 +68,27 @@ export const supervisorSitesRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({ data: { message: 'Removed' } })
   })
 
+  // GET /supervisor-sites/by-site/:siteId — supervisors assigned to a site.
+  // Used by /sites/[id] when an admin is confirming a pending site so they
+  // can see + adjust which supervisors cover it.
+  fastify.get('/by-site/:siteId', { preHandler: requireTenantAdmin }, async (request, reply) => {
+    const payload = request.user as { tenantId: string }
+    const { siteId } = request.params as { siteId: string }
+
+    const rows = await db
+      .select({
+        supervisorId: supervisorSites.supervisorId,
+        assignedAt: supervisorSites.assignedAt,
+        name: users.name,
+        username: users.username,
+      })
+      .from(supervisorSites)
+      .innerJoin(users, eq(supervisorSites.supervisorId, users.id))
+      .where(and(eq(supervisorSites.siteId, siteId), eq(users.tenantId, payload.tenantId)))
+
+    return reply.send({ data: rows })
+  })
+
   // GET /supervisor-sites/my-sites — supervisor sees their own assigned sites
   fastify.get('/my-sites', { preHandler: requireSupervisor }, async (request, reply) => {
     const payload = request.user as { sub: string; role: string }

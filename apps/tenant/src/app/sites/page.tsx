@@ -1,25 +1,50 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageShell, Main, PageHeader, Card, DataTable, TR, TD, Badge, Btn, Modal, Field, Input, Select, ErrorMsg, ModalActions } from '../../components/ui'
+import { PageShell, Main, PageHeader, Card, DataTable, TR, TD, Badge, Btn, Modal, Field, Input, ErrorMsg, ModalActions } from '../../components/ui'
+import dynamic from 'next/dynamic'
 import { GoogleAddressAutocomplete, type PlacePick } from '../../components/GoogleAddressAutocomplete'
 import { tdApi } from '../../lib/api'
+
+type SiteStatus = 'pending' | 'active' | 'inactive'
+type FilterValue = SiteStatus | 'all'
+
+const STATUS_BADGE: Record<SiteStatus, { color: string; bg: string; label: string }> = {
+  pending:  { color: '#b45309', bg: 'rgba(245,158,11,0.16)', label: 'pending review' },
+  active:   { color: '#10b981', bg: 'rgba(16,185,129,0.12)', label: 'active' },
+  inactive: { color: '#5c5855', bg: 'rgba(163,160,152,0.12)', label: 'inactive' },
+}
+
+// MapBox + draw + draw-circle pull in transitive Node-only modules
+// (jsonlint-lines, geojsonhint) that Turbopack can't statically prove are
+// dead code in the browser. Loading the map dynamically with ssr:false skips
+// the SSR pass entirely, so those references are never bundled there.
+const GeofenceMap = dynamic(
+  () => import('../../components/GeofenceMap').then((m) => m.GeofenceMap),
+  { ssr: false }
+)
+
+// Geofence radius is now load-bearing for off-site detection during shifts.
+// Default kept aligned with the DB default (200m) so the visible circle matches
+// what the server uses when the operator leaves the field blank.
+const DEFAULT_GEOFENCE_M = 200
 
 export default function SitesPage() {
   const router = useRouter()
   const [sites, setSites] = useState<any[]>([])
-  const [clients, setClients] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Default to pending when any pending sites exist so admins land on the
+  // review queue without having to hunt for the chip.
+  const [filter, setFilter] = useState<FilterValue>('all')
   const [form, setForm] = useState({
     name: '',
     address: '',
     latitude: '',
     longitude: '',
     geofenceRadiusMeters: '',
-    clientId: '',
   })
 
   useEffect(() => {
@@ -30,18 +55,35 @@ export default function SitesPage() {
 
   function load() {
     setLoading(true)
-    Promise.all([
-      tdApi.sites.list(),
-      tdApi.clients.list().catch(() => ({ data: [] })),
-    ]).then(([s, c]) => {
-      setSites(s.data ?? [])
-      setClients(c.data ?? [])
-    }).catch(console.error).finally(() => setLoading(false))
+    tdApi.sites.list()
+      .then((s) => {
+        const list = s.data ?? []
+        setSites(list)
+        // First load: if there's a review backlog, jump to the Pending tab.
+        if (filter === 'all' && list.some((x: any) => x.status === 'pending')) {
+          setFilter('pending')
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
   }
+
+  const counts = useMemo(() => {
+    const c = { all: sites.length, pending: 0, active: 0, inactive: 0 }
+    for (const s of sites) {
+      const k = (s.status ?? 'active') as SiteStatus
+      if (k in c) c[k] += 1
+    }
+    return c
+  }, [sites])
+
+  const filtered = useMemo(
+    () => (filter === 'all' ? sites : sites.filter((s) => (s.status ?? 'active') === filter)),
+    [sites, filter],
+  )
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.clientId) { setError('Please select a client.'); return }
     setSaving(true)
     setError(null)
     try {
@@ -51,10 +93,9 @@ export default function SitesPage() {
         latitude: form.latitude ? parseFloat(form.latitude) : undefined,
         longitude: form.longitude ? parseFloat(form.longitude) : undefined,
         geofenceRadiusMeters: form.geofenceRadiusMeters ? parseInt(form.geofenceRadiusMeters) : undefined,
-        clientId: form.clientId,
       })
       setShowModal(false)
-      setForm({ name: '', address: '', latitude: '', longitude: '', geofenceRadiusMeters: '', clientId: '' })
+      setForm({ name: '', address: '', latitude: '', longitude: '', geofenceRadiusMeters: '' })
       load()
     } catch (e: any) {
       setError(e.message)
@@ -68,31 +109,43 @@ export default function SitesPage() {
       <Main>
         <PageHeader
           title="Sites"
-          subtitle={`${sites.length} sites`}
+          subtitle={`${sites.length} sites${counts.pending ? ` · ${counts.pending} pending review` : ''}`}
           action={<Btn variant="primary" onClick={() => setShowModal(true)}>+ Add Site</Btn>}
         />
 
+        <StatusChips filter={filter} setFilter={setFilter} counts={counts} />
+
         <Card overflow="hidden">
           <DataTable
-            cols={['Name', 'Address', 'Geofence Radius', 'Client', 'Status']}
+            cols={['Name', 'Address', 'Geofence Radius', 'Status']}
             loading={loading}
-            empty="No sites yet. Add one to get started."
+            empty={
+              filter === 'pending'
+                ? 'No pending sites. New locations a guard checks in at will appear here for review.'
+                : 'No sites yet. Add one to get started.'
+            }
           >
-            {sites.map((s) => (
-              <TR key={s.id}>
-                <TD>{s.name}</TD>
-                <TD muted style={{ maxWidth: 200 }}>{s.address}</TD>
-                <TD muted>{s.geofenceRadiusMeters ? `${s.geofenceRadiusMeters}m` : '—'}</TD>
-                <TD muted>{clients.find((c) => c.id === s.clientId)?.name ?? '—'}</TD>
-                <TD>
-                  <Badge
-                    label={s.status ?? 'active'}
-                    color={s.status === 'active' ? '#10b981' : '#a3a098'}
-                    bg={s.status === 'active' ? 'rgba(16,185,129,0.12)' : 'rgba(163,160,152,0.12)'}
-                  />
-                </TD>
-              </TR>
-            ))}
+            {filtered.map((s) => {
+              const sta = (s.status ?? 'active') as SiteStatus
+              const badge = STATUS_BADGE[sta] ?? STATUS_BADGE.active
+              return (
+                <TR key={s.id} onClick={() => router.push(`/sites/${s.id}`)}>
+                  <TD>
+                    {s.name}
+                    {sta === 'pending' && (
+                      <span style={{ marginLeft: 8, fontSize: 11, color: '#b45309', fontWeight: 600 }}>
+                        NEEDS REVIEW
+                      </span>
+                    )}
+                  </TD>
+                  <TD muted style={{ maxWidth: 200 }}>{s.address}</TD>
+                  <TD muted>{s.geofenceRadiusMeters ? `${s.geofenceRadiusMeters}m` : '—'}</TD>
+                  <TD>
+                    <Badge label={badge.label} color={badge.color} bg={badge.bg} />
+                  </TD>
+                </TR>
+              )
+            })}
           </DataTable>
         </Card>
 
@@ -126,16 +179,55 @@ export default function SitesPage() {
               </Field>
             </div>
             <Field label="Geofence Radius (meters)">
-              <Input type="number" value={form.geofenceRadiusMeters} onChange={(e) => setForm({ ...form, geofenceRadiusMeters: e.target.value })} placeholder="100" />
+              <Input
+                type="number"
+                value={form.geofenceRadiusMeters}
+                onChange={(e) => setForm({ ...form, geofenceRadiusMeters: e.target.value })}
+                placeholder={String(DEFAULT_GEOFENCE_M)}
+              />
             </Field>
-            <Field label="Client *">
-              <Select value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })}>
-                <option value="">Select a client…</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </Select>
-            </Field>
+
+            {/* Live geofence preview. The map is omitted until we have a centre
+                to render (avoids a spinning world-map). Clicking the map moves
+                the centre and updates the lat/lng inputs above. */}
+            {form.latitude && form.longitude ? (
+              <Field label="Geofence preview (click the map to reposition)">
+                <GeofenceMap
+                  latitude={parseFloat(form.latitude)}
+                  longitude={parseFloat(form.longitude)}
+                  radiusMeters={
+                    form.geofenceRadiusMeters
+                      ? parseInt(form.geofenceRadiusMeters)
+                      : DEFAULT_GEOFENCE_M
+                  }
+                  onChange={({ latitude, longitude, radiusMeters }) =>
+                    setForm((f) => ({
+                      ...f,
+                      ...(latitude !== undefined ? { latitude: latitude.toFixed(6) } : {}),
+                      ...(longitude !== undefined ? { longitude: longitude.toFixed(6) } : {}),
+                      ...(radiusMeters !== undefined
+                        ? { geofenceRadiusMeters: String(radiusMeters) }
+                        : {}),
+                    }))
+                  }
+                />
+              </Field>
+            ) : (
+              <div
+                style={{
+                  background: 'var(--surface-2)',
+                  border: '1px dashed var(--border)',
+                  borderRadius: 8,
+                  padding: 16,
+                  color: 'var(--text-3)',
+                  fontSize: 13,
+                  textAlign: 'center',
+                  marginBottom: 12,
+                }}
+              >
+                Pick an address or enter a latitude / longitude to preview the geofence.
+              </div>
+            )}
             <ErrorMsg msg={error} />
             <ModalActions>
               <Btn variant="secondary" onClick={() => { setShowModal(false); setError(null) }}>Cancel</Btn>
@@ -145,5 +237,55 @@ export default function SitesPage() {
         </Modal>
       </Main>
     </PageShell>
+  )
+}
+
+function StatusChips({
+  filter,
+  setFilter,
+  counts,
+}: {
+  filter: FilterValue
+  setFilter: (v: FilterValue) => void
+  counts: { all: number; pending: number; active: number; inactive: number }
+}) {
+  const items: { key: FilterValue; label: string }[] = [
+    { key: 'all',      label: `All (${counts.all})` },
+    { key: 'pending',  label: `Pending (${counts.pending})` },
+    { key: 'active',   label: `Active (${counts.active})` },
+    { key: 'inactive', label: `Inactive (${counts.inactive})` },
+  ]
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+      {items.map((it) => {
+        const isActive = filter === it.key
+        const isPending = it.key === 'pending' && counts.pending > 0
+        return (
+          <button
+            key={it.key}
+            type="button"
+            onClick={() => setFilter(it.key)}
+            style={{
+              background: isActive
+                ? 'var(--accent)'
+                : isPending
+                  ? 'rgba(245,158,11,0.16)'
+                  : 'var(--surface)',
+              color: isActive ? '#fff' : isPending ? '#b45309' : 'var(--text-2)',
+              border: `1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+              borderRadius: 999,
+              padding: '6px 14px',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              letterSpacing: '-0.005em',
+            }}
+          >
+            {it.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }

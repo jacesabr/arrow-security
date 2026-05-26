@@ -41,7 +41,6 @@ export const tdApi = {
         data: {
           guards: number
           sites: number
-          openIncidents: number
           activeShifts: number
           todayPatrols: number
           todayAttendance: number
@@ -49,7 +48,11 @@ export const tdApi = {
       }>('/stats'),
   },
   sites: {
-    list: () => request<{ data: any[] }>('/sites'),
+    list: (params?: { status?: 'pending' | 'active' | 'inactive' }) => {
+      const qs = params?.status ? `?status=${params.status}` : ''
+      return request<{ data: any[] }>(`/sites${qs}`)
+    },
+    get: (id: string) => request<{ data: any }>(`/sites/${id}`),
     create: (body: {
       clientId?: string
       name: string
@@ -58,8 +61,22 @@ export const tdApi = {
       longitude?: number
       geofenceRadiusMeters?: number
     }) => request<{ data: any }>('/sites', { method: 'POST', body: JSON.stringify(body) }),
-    update: (id: string, body: any) =>
-      request<{ data: any }>(`/sites/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    update: (
+      id: string,
+      body: Partial<{
+        name: string
+        address: string
+        latitude: number
+        longitude: number
+        geofenceRadiusMeters: number
+        clientId: string
+        status: 'pending' | 'active' | 'inactive'
+        accessInstructions: string | null
+        gateCode: string | null
+        contactPhone: string | null
+        hazards: string | null
+      }>
+    ) => request<{ data: any }>(`/sites/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   },
   users: {
     list: () => request<{ data: any[] }>('/users'),
@@ -78,42 +95,46 @@ export const tdApi = {
     create: (body: { siteId: string; guardId: string; startsAt: string; endsAt: string; notes?: string }) =>
       request<{ data: any }>('/shifts', { method: 'POST', body: JSON.stringify(body) }),
     delete: (id: string) => request<{ data: any }>(`/shifts/${id}`, { method: 'DELETE' }),
-    movement: (id: string) =>
+    // Map replay payload for /shifts/[id]: raw pings + materialised on/off-site
+    // visits + the sites visited + any auto-generated off-site incidents +
+    // top-line totals. One round-trip; cached after shift completion.
+    replay: (id: string) =>
       request<{
         data: {
           shift: any
-          movement: {
-            walkingMeters: number
-            drivingMeters: number
-            walkingSeconds: number
-            drivingSeconds: number
-            stationarySeconds: number
-            unaccountedSeconds: number
-            meanSpeedMs: number
-            idleBaselineMs: number
-            pingsConsidered: number
-            pingsAccepted: number
-            cappedWalking: boolean
-            cappedDriving: boolean
-            series: Array<{ ts: string; speedMs: number; label: 'stationary' | 'walking' | 'driving' }>
+          pings: Array<{
+            id: string
+            latitude: number
+            longitude: number
+            accuracy: number | null
+            recordedAt: string
+          }>
+          visits: Array<{
+            id: string
+            shiftId: string
+            siteId: string | null
+            enteredAt: string
+            exitedAt: string | null
+            enteredLat: number | null
+            enteredLng: number | null
+            exitedLat: number | null
+            exitedLng: number | null
+          }>
+          sites: Array<{
+            id: string
+            name: string
+            latitude: number | null
+            longitude: number | null
+            geofenceRadiusMeters: number
+          }>
+          summary: {
+            offSiteMs: number
+            onSiteMsBySite: Record<string, number>
+            totalMs: number
+            wasAbandoned: boolean
           }
         }
-      }>(`/shifts/${id}/movement`),
-    recomputeMovement: (id: string) =>
-      request<{ data: any }>(`/shifts/${id}/movement/recompute`, { method: 'POST' }),
-  },
-  incidents: {
-    list: (params?: { status?: string; severity?: string; siteId?: string; guardId?: string; supervisorId?: string; limit?: number }) => {
-      const entries = Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== '')
-      const qs = entries.length ? '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString() : ''
-      return request<{ data: any[] }>(`/incidents${qs}`)
-    },
-    get: (id: string) => request<{ data: any }>(`/incidents/${id}`),
-    updateStatus: (id: string, status: string) =>
-      request<{ data: any }>(`/incidents/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      }),
+      }>(`/shifts/${id}/replay`),
   },
   patrols: {
     list: () => request<{ data: any[] }>('/patrol'),
@@ -235,6 +256,10 @@ export const tdApi = {
       })),
     getSites: (supervisorId: string) =>
       request<{ data: Array<{ siteId: string; assignedAt: string }> }>(`/supervisor-sites/${supervisorId}`),
+    bySite: (siteId: string) =>
+      request<{ data: Array<{ supervisorId: string; assignedAt: string; name: string; username: string }> }>(
+        `/supervisor-sites/by-site/${siteId}`,
+      ),
     assignSites: (supervisorId: string, siteIds: string[]) =>
       request<{ data: any }>('/supervisor-sites', {
         method: 'POST',
@@ -251,6 +276,82 @@ export const tdApi = {
     get: (guardId: string, params?: { month?: string }) => {
       const qs = params?.month ? `?month=${encodeURIComponent(params.month)}` : ''
       return request<{ data: { month: string; guard: any; summary: any; shifts: any[] } }>(`/guard-stats/${guardId}${qs}`)
+    },
+  },
+  accounting: {
+    get: (params?: { month?: string }) => {
+      const qs = params?.month ? `?month=${encodeURIComponent(params.month)}` : ''
+      return request<{
+        data: {
+          month: string
+          rangeStart: string
+          rangeEnd: string
+          totals: {
+            clients: number
+            sites: number
+            guards: number
+            hours: number
+            shiftsCompleted: number
+            supervisors: number
+            supervisorOnSiteHours: number
+            supervisorDrivingHours: number
+          }
+          clients: Array<{
+            clientId: string
+            clientName: string
+            clientStatus: string
+            totalSites: number
+            totalGuards: number
+            totalShifts: number
+            totalHours: number
+            sites: Array<{
+              siteId: string
+              siteName: string
+              siteAddress: string
+              guardCount: number
+              shiftsCompleted: number
+              hoursWorked: number
+            }>
+          }>
+          supervisors: Array<{
+            supervisorId: string
+            supervisorName: string
+            shiftsCompleted: number
+            totalHours: number
+            onSiteHours: number
+            drivingHours: number
+            sitesVisited: number
+          }>
+        }
+      }>(`/accounting${qs}`)
+    },
+    supervisor: (supervisorId: string, params?: { month?: string }) => {
+      const qs = params?.month ? `?month=${encodeURIComponent(params.month)}` : ''
+      return request<{
+        data: {
+          supervisor: { id: string; name: string }
+          shifts: Array<{
+            shiftId: string
+            startsAt: string
+            endsAt: string
+            drivingSeconds: number
+            visits: Array<{
+              siteId: string
+              siteName: string
+              latitude: number
+              longitude: number
+              enteredAt: string
+              exitedAt: string | null
+            }>
+            transitions: Array<{
+              fromSiteId: string
+              toSiteId: string
+              durationSeconds: number | null
+              distanceMeters: number | null
+            }>
+          }>
+        }
+      }>(`/accounting/supervisor/${supervisorId}${qs}`)
     },
   },
 }
