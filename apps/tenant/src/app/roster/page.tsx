@@ -5,6 +5,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Sidebar } from '../../components/Sidebar'
 import { tdApi } from '../../lib/api'
 import { Btn, Modal, Field, Input, Select, Textarea, ErrorMsg, ModalActions } from '../../components/ui'
+import { displayRole } from '@secureops/shared'
+import { useRequireAdmin } from '../../lib/auth-guard'
 
 const STATUS_STYLE: Record<string, React.CSSProperties> = {
   scheduled: { background: 'rgba(163,160,152,0.1)', border: '1px solid rgba(163,160,152,0.3)', color: '#5c5855' },
@@ -42,6 +44,7 @@ function isSameDay(a: Date, b: Date): boolean {
 
 export default function RosterPage() {
   const router = useRouter()
+  useRequireAdmin()
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
   const [shifts, setShifts] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
@@ -236,7 +239,7 @@ export default function RosterPage() {
                           {guard.name}
                         </div>
                         <div style={{ color: 'var(--text-3)', fontSize: 11, marginTop: 1 }}>
-                          {{ tenant_admin: 'Admin', platform_admin: 'Admin', supervisor: 'Supervisor', guard: 'Guard', client_viewer: 'Client' }[guard.role as string] ?? guard.role}
+                          {displayRole(guard.role)}
                         </div>
                       </td>
                       {days.map((day) => {

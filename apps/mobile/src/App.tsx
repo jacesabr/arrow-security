@@ -1,17 +1,9 @@
-import { IonApp, IonRouterOutlet, IonSplitPane, setupIonicReact } from '@ionic/react'
+import { IonApp, setupIonicReact } from '@ionic/react'
 import { IonReactRouter } from '@ionic/react-router'
 import { Redirect, Route, Switch } from 'react-router-dom'
 
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { CheckInPage } from './pages/CheckInPage'
-import { PatrolPage } from './pages/PatrolPage'
-import { IncidentPage } from './pages/IncidentPage'
-import { IncidentNewPage } from './pages/IncidentNewPage'
-import { IncidentDetailPage } from './pages/IncidentDetailPage'
-import { ShiftsPage } from './pages/ShiftsPage'
-import { ProfilePage } from './pages/ProfilePage'
 import { useAuthStore } from './store/auth'
 import { TabLayout } from './components/TabLayout'
 
@@ -37,8 +29,6 @@ const App: React.FC = () => {
         <Switch>
           <Route path="/login" component={LoginPage} exact />
           <Route path="/register" component={RegisterPage} exact />
-          <PrivateRoute path="/tabs/incidents/new" component={IncidentNewPage} />
-          <PrivateRoute path="/tabs/incidents/:id" component={IncidentDetailPage} />
           <PrivateRoute path="/tabs" component={TabLayout} />
           <Route exact path="/">
             <Redirect to="/tabs/dashboard" />

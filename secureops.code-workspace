@@ -2,8 +2,8 @@
   "folders": [
     { "name": "🏠 Root", "path": "." },
     { "name": "📡 API (Fastify)", "path": "apps/api" },
-    { "name": "🖥️ Control Plane (Next.js)", "path": "apps/control-plane" },
     { "name": "📱 Mobile App (Ionic)", "path": "apps/mobile" },
+    { "name": "🌐 Operations Portal (Next.js)", "path": "apps/tenant" },
     { "name": "🗄️ Database (Drizzle)", "path": "packages/db" },
     { "name": "📦 Shared Types", "path": "packages/shared" }
   ],
@@ -50,7 +50,7 @@
     "tasks": [
       {
         "label": "🚀 Start All",
-        "dependsOn": ["Start API", "Start Control Plane", "Start Mobile"],
+        "dependsOn": ["Start API", "Start Tenant", "Start Mobile"],
         "group": "build"
       },
       {
@@ -61,9 +61,9 @@
         "presentation": { "panel": "dedicated", "reveal": "always", "group": "devservers" }
       },
       {
-        "label": "Start Control Plane",
+        "label": "Start Tenant",
         "type": "shell",
-        "command": "pnpm dev:control",
+        "command": "pnpm dev:tenant",
         "options": { "cwd": "${workspaceFolder:🏠 Root}" },
         "presentation": { "panel": "dedicated", "reveal": "always", "group": "devservers" }
       },

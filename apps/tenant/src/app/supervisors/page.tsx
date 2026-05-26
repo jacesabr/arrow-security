@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageShell, Main, PageHeader, Card, CardHeader } from '../../components/ui'
 import { tdApi } from '../../lib/api'
+import { useRequireAdmin } from '../../lib/auth-guard'
 
 type Supervisor = {
   id: string
@@ -138,6 +139,7 @@ function SiteAssignModal({
 
 export default function SupervisorsPage() {
   const router = useRouter()
+  useRequireAdmin()
   const [supervisors, setSupervisors] = useState<Supervisor[]>([])
   const [sites, setSites] = useState<Site[]>([])
   const [assignedMap, setAssignedMap] = useState<Record<string, string[]>>({})

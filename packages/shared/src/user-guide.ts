@@ -4,9 +4,20 @@
  * Single source of truth for the in-app onboarding guide.
  * Imported by both apps/tenant (web) and apps/mobile (Android).
  * Update this file whenever a role's pages or capabilities change.
+ *
+ * Writing rules:
+ *   - Plain words. Short sentences. Imagine the reader is new to phones.
+ *   - No jargon ("SSE", "geofence", "SLA", "RBAC"). No tech acronyms.
+ *   - One idea per line. If a sentence has "and" twice, split it.
+ *
+ * Information-split rule:
+ *   The off-site auto-lockout (guard walks away → shift ends → incident is
+ *   created) is INTENTIONALLY hidden from the guard-facing section. Guards
+ *   would otherwise leave their phone at the site and wander off. Supervisors
+ *   and Admins must know this so they can resolve the resulting incidents.
  */
 
-export const GUIDE_VERSION = '2026.05.21h'
+export const GUIDE_VERSION = '2026.05.23a'
 
 export type GuideRole = 'guard' | 'supervisor' | 'manager'
 
@@ -26,15 +37,14 @@ export interface GuideSection {
 }
 
 export const GUIDE_INTRO =
-  'A quick tour of what every role sees inside Arrow Security. ' +
-  'Pick your role below — each section shows the screens you have access to and what they do. ' +
-  'This guide is updated whenever the app changes.'
+  'A simple guide to using Arrow Security. ' +
+  'Pick your role below to see every screen and what it does.'
 
 export const GUIDE_SECTIONS: GuideSection[] = [
   {
     role: 'guard',
     title: 'Guard',
-    oneLiner: 'You work shifts in the field. Everything you need is in the mobile app.',
+    oneLiner: 'You work shifts on site. The phone app is all you need.',
     platform: 'Mobile app',
     navDiagram: `
 ┌─────────────────────────────────────────────┐
@@ -48,61 +58,63 @@ export const GUIDE_SECTIONS: GuideSection[] = [
 └─────────────────────────────────────────────┘
 `.trim(),
     pages: [
-      { name: 'Home',       what: 'Your daily landing page. Greeting + four big action cards (Check In, Activity, Incident, Shifts) that take you to each flow, then a list of today\'s shifts and any open incidents you\'ve reported.' },
-      { name: 'Check In',   what: 'Reached from the Check In card on Home. Start and end your shift — uses GPS + a selfie (or QR code) to confirm you are at the right site.' },
-      { name: 'Activity',   what: 'Reached from the Activity card on Home. Shows your walking / driving / idle totals for the current month plus a per-shift breakdown. Activity is recorded automatically during shifts — supervisors use it to reimburse driving between sites, and it confirms guards are doing the patrolling they\'re meant to. A "Test movement tracking" panel at the bottom lets you sanity-check classification on your device; test sessions are saved server-side so they survive closing/reopening the app, and the list of past runs is shown right under the panel.' },
-      { name: 'Shifts',     what: 'Reached from the Shifts card on Home. Your shifts as a table — date, site, clock in, clock out — plus a running "Hours by month" total at the bottom.' },
-      { name: 'Incidents',  what: 'Incidents you have personally reported. Tap + to file a new one (title, description, severity, photos). You do not see other guards\' reports here. Bottom-tab access.' },
-      { name: 'Leave',      what: 'Submit a leave request (date range + reason) and track its approval status. Scoped to your own requests only. Bottom-tab access.' },
-      { name: 'Profile',    what: 'Your name, username, and sign out. Bottom-tab access.' },
+      { name: 'Home',       what: 'Your main screen. Big buttons take you to Check In, Activity, Incidents and Shifts. Below the buttons you see today\'s shifts and any problems you reported.' },
+      { name: 'Check In',   what: 'Tap this when you reach the site to start your shift. Take a selfie or scan the QR code at the site. Tap it again at the end of your shift to clock out.' },
+      { name: 'Activity',   what: 'Shows your hours this month, with the site for each shift. Updates by itself when you check in and out.' },
+      { name: 'Shifts',     what: 'Your work schedule. Shows the date, the site, the time you started, and the time you finished. The total hours you worked this month is at the bottom.' },
+      { name: 'Incidents',  what: 'Report a problem at the site. Tap the + button. Give it a title, write what happened, pick how serious it is, and add photos if you have them. You can only see problems you reported yourself.' },
+      { name: 'Leave',      what: 'Ask for time off. Pick the dates, write the reason, and send. You will see here if your supervisor said yes or no.' },
+      { name: 'Profile',    what: 'Your name and your sign-out button.' },
     ],
     tips: [
-      'Bottom bar is just Home / Incidents / Leave / Profile. The everyday actions — Check In, Activity, Shifts — live as big cards on Home so you tap fewer levels deep.',
-      'Background GPS only runs while a shift is active. It stops automatically when you check out.',
-      'While a shift is running you\'ll see a persistent notification — "Arrow Security is tracking your location during your shift." That notification is what keeps tracking alive when the screen is off or you\'re in another app. **Do not swipe the app off the recents list during a shift** — that kills the foreground service and tracking pauses until you reopen the app. The notification appearing is good; clearing it stops the tracking.',
-      'If GPS is weak at check-in, the app will still accept the check-in but flag it for supervisor review.',
-      'Some phones (especially Xiaomi, Oppo, OnePlus) aggressively kill background services to save battery. If you find your activity isn\'t being recorded, go to Settings → Apps → Arrow Security → Battery and set it to "Unrestricted" / disable battery optimisation.',
-      'The "Test movement tracking" panel at the bottom of the Activity page lets you sanity-check classification on your phone — walk for a minute, then drive, then sit still, and watch the bars fill. Test sessions are saved server-side, so closing/reopening the app picks back up where you left off.',
+      'Tap Check In when you arrive at the site. Tap it again when you finish your shift.',
+      'A small message will sit at the top of your phone while you work. Leave it alone — it is normal.',
+      'Keep your phone with you during your shift. Don\'t leave it on a desk or in a locker.',
+      'Charge your phone before you start. A dead phone means no shift record.',
+      'See a problem on site? Open Incidents, tap +, and tell us what happened. Add a photo if you can.',
+      'Need a day off? Use Leave. Don\'t just not show up.',
     ],
   },
   {
     role: 'supervisor',
     title: 'Supervisor',
-    oneLiner: 'You oversee a team of guards. Mobile app for the field, portal for paperwork.',
+    oneLiner: 'You look after a team of guards. Phone for the field, website for paperwork.',
     platform: 'Mobile + Portal',
     navDiagram: `
 ┌─────────────────────────────────────────────┐
 │  ARROW SECURITY        (Supervisor view)    │
 ├─────────────────────────────────────────────┤
 │  Guards on shift, open incidents,           │
-│  pending selfie reviews                     │
+│  pending leave                              │
 ├─────────────────────────────────────────────┤
 │ Home | Map | Shifts | Inc. | Leave | Profile│
 └─────────────────────────────────────────────┘
 `.trim(),
     pages: [
-      { name: 'Home (mobile)',       what: 'Triage at a glance — Missing-from-shift / High-priority incidents / Pending leave cards (tap any for inline approve/reject/resolve), a "Sites under my supervision" table with weekly attendance %, tardiness %, and incident counts per site, plus live counts of guards on shift / online.' },
-      { name: 'Check In (mobile)',   what: 'Supervisors also work shifts. Use Check In to start and end your own shift exactly like a guard — admin assigns these to you.' },
-      { name: 'Map (mobile + web)',  what: 'Live map of every guard at sites you cover. Tap a guard pin to see their last 8 hours of GPS trail.' },
-      { name: 'Shifts',              what: 'Scheduled shifts for the guards and sites you cover, plus your own. Create new shifts for guards on your team — admin still handles the higher-level roster.' },
-      { name: 'Reports (web)',       what: 'Monthly summary of every guard you manage — shifts worked, hours tracked, walking / driving / idle breakdown. Click a row to drill into a single guard\'s detail.' },
-      { name: 'Incidents',           what: 'Incidents from guards at your sites plus your own reports. Update status, reassign, mark resolved. Tap + to file your own incident.' },
-      { name: 'Leave',               what: 'Approve or reject leave requests from your team, and submit / track your own. Scoped to your guards plus you.' },
-      { name: 'Guard Status (web)',  what: 'Live table — every guard at sites you cover, geofence state and GPS online/offline.' },
-      { name: 'Profile',             what: 'Your account info and sign out.' },
+      { name: 'Home (phone)',        what: 'A quick view of things that need you — guards missing from shift, urgent incidents, leave requests waiting for you. Tap any card to deal with it on the spot. Below that, a table of your sites with this week\'s numbers.' },
+      { name: 'Check In (phone)',    what: 'You work shifts too. Tap Check In at the start and end of your own shift, the same way guards do.' },
+      { name: 'Map (phone + web)',   what: 'A live map of every guard at the sites you cover. Tap a guard pin to see where they have been in the last 8 hours.' },
+      { name: 'Shifts',              what: 'All shifts for your team, plus your own. You can create new shifts for the guards you manage.' },
+      { name: 'Reports (web)',       what: 'A month-by-month table of every guard you manage — shifts completed, missed and upcoming. Click a row to see one guard in detail.' },
+      { name: 'Incidents',           what: 'Problems reported by your guards, plus any you report yourself. Update the status, change who is on it, and mark them done.' },
+      { name: 'Leave',               what: 'Say yes or no to time-off requests from your team. You can also ask for time off yourself.' },
+      { name: 'Guard Status (web)',  what: 'A live list of every guard you cover. Shows if they are on site and if their phone is online.' },
+      { name: 'Profile',             what: 'Your info and sign out.' },
     ],
     tips: [
-      'You have shifts too — admin assigns them. Check in and out like guards do; your walking / driving / idle is tracked just like theirs.',
-      'You can schedule shifts for the guards you manage at the sites you cover. Admin can override or add to those.',
-      'SLA-breached incidents are highlighted red on the incidents page — those are your priority.',
-      'You only see incidents, leave, and stats for guards at the sites assigned to you. Admins see everyone.',
-      'You can file your own incidents and leave requests too — same buttons as a guard would use.',
+      'You also work shifts. Check in and out exactly like a guard.',
+      'Red incidents are urgent. Handle those first.',
+      'You only see the guards and sites that are assigned to you. Admins see everyone.',
+      'You can file your own incidents and your own leave requests with the same buttons guards use.',
+      // INTERNAL — keep out of the Guard section. Guards must not learn this.
+      'Internal — do not tell guards: if a guard walks off the site during a shift, the system ends their shift on its own and creates an incident in your Incidents tab. This is how we catch guards leaving early. Open the incident, decide if it was real (bathroom break vs actually leaving), and re-schedule them if needed. Guards see only that their shift ended — they do not know why.',
+      'If a guard\'s phone keeps going offline, look at Guard Status to see who is having connection trouble.',
     ],
   },
   {
     role: 'manager',
     title: 'Manager / Admin',
-    oneLiner: 'You run operations end-to-end. Almost everything you need is in the web portal.',
+    oneLiner: 'You run the whole operation. The website does almost everything. The phone is for quick checks.',
     platform: 'Operations Portal',
     navDiagram: `
 ┌──────────────┬──────────────────────────────┐
@@ -127,30 +139,32 @@ export const GUIDE_SECTIONS: GuideSection[] = [
 └──────────────┴──────────────────────────────┘
 `.trim(),
     pages: [
-      { name: 'Mobile — Home',     what: 'Quick stats glance for when you\'re away from a laptop — Missing-from-shift, High-priority incidents, Pending leave cards (each tappable for inline action), the "All sites" table with weekly attendance / tardiness / incident counts per site, basic stat tiles, and a big "Operations Portal →" CTA. Everything else is on the web; the mobile bar is just Home / Map / Profile.' },
-      { name: 'Mobile — Map',      what: 'The live guard map on the go. Same SSE feed as the web Live Map.' },
-      { name: 'Mobile — Profile',  what: 'Sign out.' },
-      { name: 'Web — Dashboard',   what: 'High-level operational stats — guards on shift, open incidents, active patrols, total sites.' },
-      { name: 'Web — Reports',     what: 'Birds-eye monthly table of every guard — shifts worked, hours tracked, walking / driving / idle. Filter by site, supervisor, or individual guard via the dropdowns. Click any row to drill into the per-shift detail.' },
-      { name: 'Web — Guard Status',what: 'Live table of every guard: geofence state and GPS online/offline. Catch problems in real time.' },
-      { name: 'Web — Guards',      what: 'Create, edit, deactivate guard and supervisor accounts. Each guard\'s page has a "Movement — this month" card with walking / driving / idle totals and per-shift breakdown.' },
-      { name: 'Web — Sites',       what: 'Add a physical location (lat/lng + geofence radius in metres). Guards check in against these.' },
-      { name: 'Web — Shifts',      what: 'Browse and filter every scheduled shift. Create one-off shifts. Use Reports for the monthly summary view.' },
-      { name: 'Web — Roster',      what: 'Weekly grid view. Guards as rows, days as columns. Click a cell to schedule a guard at a site.' },
-      { name: 'Web — Incidents',   what: 'All incidents across the company. Filter by site, supervisor, or guard via the dropdowns at the top.' },
-      { name: 'Web — Live Map',    what: 'Real-time map of every guard on shift, with their last 8 hours of GPS trail on click.' },
-      { name: 'Web — Clients',     what: 'The companies Arrow Security protects. Add clients and link sites to them.' },
-      { name: 'Web — Leave',       what: 'Every leave request across the company. Filter by supervisor or specific guard. Approve or reject from here.' },
-      { name: 'Web — Post Orders', what: 'Per-site standing instructions for guards — what to do, what to watch for.' },
-      { name: 'Web — Payroll',     what: 'Define pay periods, run calculations (gross + ESI + PF + net), finalise payouts.' },
-      { name: 'Web — Supervisors', what: 'Manage which supervisors are assigned to which sites.' },
+      { name: 'Phone — Home',      what: 'A quick snapshot for when you are away from a computer — guards missing, urgent incidents, leave waiting, and a big "Open Operations Portal" button. Everything serious lives on the website.' },
+      { name: 'Phone — Map',       what: 'Live map of every guard on shift. Same view as the website map.' },
+      { name: 'Phone — Profile',   what: 'Sign out.' },
+      { name: 'Web — Dashboard',   what: 'Top-line numbers — guards on shift, open incidents, active patrols, total sites.' },
+      { name: 'Web — Reports',     what: 'A month-by-month table of every guard — shifts completed, missed and upcoming. Filter by site, supervisor, or one guard. Click a row to drill in.' },
+      { name: 'Web — Guard Status',what: 'A live table of every guard. Shows if they are on site and if their phone is online. Use this to spot problems as they happen.' },
+      { name: 'Web — Guards',      what: 'Add, edit, or turn off guard and supervisor accounts. Each guard\'s page also shows their hours and shifts for the month.' },
+      { name: 'Web — Sites',       what: 'Add a place where guards work. You set the location on the map and how big the site area is.' },
+      { name: 'Web — Shifts',      what: 'Every scheduled shift. Use this to search and to edit one shift at a time. Use Roster for scheduling many at once.' },
+      { name: 'Web — Roster',      what: 'A weekly grid. Guards are rows, days are columns. Click a square to put a guard on a site that day.' },
+      { name: 'Web — Incidents',   what: 'Every problem reported across the company. Filter by site, supervisor, or guard.' },
+      { name: 'Web — Live Map',    what: 'A live map of every guard on shift, with their last 8 hours of movement when you click them.' },
+      { name: 'Web — Clients',     what: 'The companies you protect. Add a client and link the sites that belong to them.' },
+      { name: 'Web — Leave',       what: 'Every leave request in the company. Approve or reject from here. Filter by supervisor or one guard.' },
+      { name: 'Web — Post Orders', what: 'Standing instructions for each site — what guards must do there, what to look out for.' },
+      { name: 'Web — Payroll',     what: 'Set pay periods, run the math (gross + ESI + PF + net), and finalise pay.' },
+      { name: 'Web — Supervisors', what: 'Decide which supervisors cover which sites.' },
     ],
     tips: [
-      'The mobile app is intentionally tiny for admins — most management is on the web portal. The mobile Home page has a big "Operations Portal" card that takes you straight there.',
-      'Reports is your daily birds-eye — sort by Walking to spot guards with the lowest activity, by Driving to estimate inter-site travel costs, or by Active % to find slackers.',
-      'Always create a Site before scheduling a shift there — the shift form needs an existing site.',
-      'Payroll amounts are stored in paise (₹ × 100). The UI converts for you but exported numbers may show that scale.',
-      'Use the Roster grid for bulk scheduling. The Shifts page is better for searching and editing one shift at a time.',
+      'Use the website for almost everything. The phone is just for quick checks when you are out.',
+      'Always create a Site before scheduling a shift there. The shift form needs an existing site.',
+      'Reports is the fastest way to spot trends — sort by completed shifts to find your hardest workers, or by missed to find no-shows.',
+      'Use Roster when you need to schedule many guards at once. Use Shifts when you just need to fix one.',
+      // INTERNAL — keep out of the Guard section. Guards must not learn this.
+      'Internal — do not tell guards: if a guard walks off the site during their shift, the system ends the shift on its own and creates an incident automatically. You will see these in the Incidents tab. This is how we catch guards leaving early. Guards see only that their shift ended — they do not know the rule that triggered it. Treat each one as an investigation, not as a sure thing.',
+      'Payroll amounts are stored in paise (₹ × 100). The screens convert for you, but exported numbers may show that scale.',
     ],
   },
 ]

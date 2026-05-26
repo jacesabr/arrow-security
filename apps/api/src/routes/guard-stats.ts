@@ -5,17 +5,18 @@ import { sql } from 'drizzle-orm'
 import { requireAuth, requireSupervisor, getSupervisorSiteIds } from '../lib/auth'
 
 // Reports endpoints — admin/supervisor monthly summary of every guard's
-// shifts + movement (walking / driving / idle). Designed for the birds-eye
-// /reports page and the per-guard drill-down on /guards/[id].
+// shifts + presence (on-site / off-site time, derived from shift_site_visits).
+// Designed for the birds-eye /reports page and the per-guard drill-down on
+// /guards/[id].
+//
+// Replaces the abandoned movement classifier (walking / driving / idle)
+// with the geofence-anchored model: the meaningful metric is how long the
+// guard was inside their assigned site's geofence vs outside it.
 //
 // Scoping:
 //   - tenant_admin / platform_admin: every guard in the tenant
 //   - supervisor: only guards who have a shift at one of the supervisor's
 //     assigned sites in the requested month
-//
-// At 5k guards the LEFT JOIN aggregation hits ~110k shift rows / month;
-// the (tenant_id, guard_id, starts_at) index added in 0001_guard_stats.sql
-// keeps this O(shifts_in_month) per request.
 
 function parseMonth(monthStr: string | undefined): { start: Date; end: Date; key: string } {
   const now = new Date()
@@ -45,6 +46,9 @@ export const guardStatsRoutes: FastifyPluginAsync = async (fastify) => {
         ? sql`AND FALSE`
         : sql`AND s.site_id = ANY(${supervisorSiteIds})`
 
+    // Aggregate on-site / off-site seconds per guard from shift_site_visits.
+    // Visits with NULL exited_at (currently-open visits on active shifts) are
+    // capped at now() so the running tally is honest. siteId NULL = off-site.
     const rows = await db.execute(sql`
       SELECT
         u.id          AS guard_id,
@@ -54,9 +58,25 @@ export const guardStatsRoutes: FastifyPluginAsync = async (fastify) => {
         COALESCE(SUM(CASE WHEN s.status = 'missed'    THEN 1 ELSE 0 END), 0)::int AS shifts_missed,
         COALESCE(SUM(CASE WHEN s.status = 'active'    THEN 1 ELSE 0 END), 0)::int AS shifts_active,
         COALESCE(SUM(CASE WHEN s.status = 'scheduled' THEN 1 ELSE 0 END), 0)::int AS shifts_scheduled,
-        COALESCE(SUM(s.walking_seconds), 0)::int    AS walking_seconds,
-        COALESCE(SUM(s.driving_seconds), 0)::int    AS driving_seconds,
-        COALESCE(SUM(s.stationary_seconds), 0)::int AS idle_seconds
+        COALESCE(SUM(CASE WHEN s.status = 'abandoned' THEN 1 ELSE 0 END), 0)::int AS shifts_abandoned,
+        COALESCE((
+          SELECT SUM(EXTRACT(EPOCH FROM (COALESCE(v.exited_at, NOW()) - v.entered_at)))
+          FROM shift_site_visits v
+          JOIN shifts s2 ON s2.id = v.shift_id
+          WHERE v.guard_id = u.id
+            AND v.site_id IS NOT NULL
+            AND s2.starts_at >= ${start.toISOString()}
+            AND s2.starts_at <  ${end.toISOString()}
+        ), 0)::int AS on_site_seconds,
+        COALESCE((
+          SELECT SUM(EXTRACT(EPOCH FROM (COALESCE(v.exited_at, NOW()) - v.entered_at)))
+          FROM shift_site_visits v
+          JOIN shifts s2 ON s2.id = v.shift_id
+          WHERE v.guard_id = u.id
+            AND v.site_id IS NULL
+            AND s2.starts_at >= ${start.toISOString()}
+            AND s2.starts_at <  ${end.toISOString()}
+        ), 0)::int AS off_site_seconds
       FROM users u
       LEFT JOIN shifts s
         ON s.guard_id = u.id
@@ -71,10 +91,9 @@ export const guardStatsRoutes: FastifyPluginAsync = async (fastify) => {
     `)
 
     const guards = (rows as any[]).map((r) => {
-      const walking = Number(r.walking_seconds)
-      const driving = Number(r.driving_seconds)
-      const idle = Number(r.idle_seconds)
-      const tracked = walking + driving + idle
+      const onSite = Number(r.on_site_seconds)
+      const offSite = Number(r.off_site_seconds)
+      const tracked = onSite + offSite
       return {
         guardId: r.guard_id,
         guardName: r.guard_name,
@@ -83,14 +102,13 @@ export const guardStatsRoutes: FastifyPluginAsync = async (fastify) => {
         shiftsMissed:    Number(r.shifts_missed),
         shiftsActive:    Number(r.shifts_active),
         shiftsScheduled: Number(r.shifts_scheduled),
-        walkingSeconds:  walking,
-        drivingSeconds:  driving,
-        idleSeconds:     idle,
+        shiftsAbandoned: Number(r.shifts_abandoned),
+        onSiteSeconds:   onSite,
+        offSiteSeconds:  offSite,
         trackedSeconds:  tracked,
-        // Percent of tracked time spent moving (walking + driving). The
-        // remainder is idle — the cheap "is this guard actually working?"
-        // signal an admin scrolls to find. Null when nothing tracked yet.
-        activePct: tracked === 0 ? null : Math.round(((walking + driving) / tracked) * 1000) / 10,
+        // % of tracked time spent on the assigned site. The cheap "is this
+        // guard actually at their post?" signal. Null when nothing tracked yet.
+        onSitePct: tracked === 0 ? null : Math.round((onSite / tracked) * 1000) / 10,
       }
     })
 
@@ -137,16 +155,29 @@ export const guardStatsRoutes: FastifyPluginAsync = async (fastify) => {
     const guard = guardRows[0]
     if (!guard) return reply.code(404).send({ error: 'Not found', message: 'Guard not found', statusCode: 404 })
 
-    // 2. Per-shift breakdown — also gives us the hours-worked derivation via attendance.
+    // 2. Per-shift breakdown — attendance for hours-worked, shift_site_visits
+    //    for on/off-site presence totals. Each LATERAL is O(visits in shift),
+    //    typically 1–5 rows, so this stays cheap.
     const shiftRows = await db.execute(sql`
       SELECT
         s.id, s.site_id, st.name AS site_name,
         s.starts_at, s.ends_at, s.status,
-        s.walking_seconds, s.driving_seconds, s.stationary_seconds,
+        on_site_agg.on_site_seconds,
+        off_site_agg.off_site_seconds,
         ci.verified_at AS check_in_at,
         co.verified_at AS check_out_at
       FROM shifts s
       LEFT JOIN sites st ON st.id = s.site_id
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (COALESCE(exited_at, NOW()) - entered_at))), 0)::int AS on_site_seconds
+        FROM shift_site_visits
+        WHERE shift_id = s.id AND site_id IS NOT NULL
+      ) on_site_agg ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (COALESCE(exited_at, NOW()) - entered_at))), 0)::int AS off_site_seconds
+        FROM shift_site_visits
+        WHERE shift_id = s.id AND site_id IS NULL
+      ) off_site_agg ON TRUE
       LEFT JOIN LATERAL (
         SELECT verified_at FROM attendance_records
         WHERE guard_id = s.guard_id AND site_id = s.site_id
@@ -172,9 +203,8 @@ export const guardStatsRoutes: FastifyPluginAsync = async (fastify) => {
     `) as any[]
 
     const shifts = shiftRows.map((r) => {
-      const walking = Number(r.walking_seconds ?? 0)
-      const driving = Number(r.driving_seconds ?? 0)
-      const idle    = Number(r.stationary_seconds ?? 0)
+      const onSite = Number(r.on_site_seconds ?? 0)
+      const offSite = Number(r.off_site_seconds ?? 0)
       const workedMs = r.check_in_at && r.check_out_at
         ? new Date(r.check_out_at).getTime() - new Date(r.check_in_at).getTime()
         : 0
@@ -188,29 +218,30 @@ export const guardStatsRoutes: FastifyPluginAsync = async (fastify) => {
         checkInAt: r.check_in_at,
         checkOutAt: r.check_out_at,
         workedSeconds: Math.max(0, Math.floor(workedMs / 1000)),
-        walkingSeconds: walking,
-        drivingSeconds: driving,
-        idleSeconds: idle,
+        onSiteSeconds: onSite,
+        offSiteSeconds: offSite,
       }
     })
 
-    // 3. Roll up the per-shift numbers we just fetched (cheaper + consistent than a second SUM query)
+    // 3. Roll up the per-shift numbers — cheaper + consistent vs a second SUM query.
     const summary = shifts.reduce(
       (acc, s) => {
         acc.shiftsCompleted += s.status === 'completed' ? 1 : 0
         acc.shiftsMissed    += s.status === 'missed'    ? 1 : 0
         acc.shiftsActive    += s.status === 'active'    ? 1 : 0
         acc.shiftsScheduled += s.status === 'scheduled' ? 1 : 0
-        acc.walkingSeconds  += s.walkingSeconds
-        acc.drivingSeconds  += s.drivingSeconds
-        acc.idleSeconds     += s.idleSeconds
+        acc.shiftsAbandoned += s.status === 'abandoned' ? 1 : 0
+        acc.onSiteSeconds   += s.onSiteSeconds
+        acc.offSiteSeconds  += s.offSiteSeconds
         acc.workedSeconds   += s.workedSeconds
         return acc
       },
-      { shiftsCompleted: 0, shiftsMissed: 0, shiftsActive: 0, shiftsScheduled: 0,
-        walkingSeconds: 0, drivingSeconds: 0, idleSeconds: 0, workedSeconds: 0 },
+      {
+        shiftsCompleted: 0, shiftsMissed: 0, shiftsActive: 0, shiftsScheduled: 0,
+        shiftsAbandoned: 0, onSiteSeconds: 0, offSiteSeconds: 0, workedSeconds: 0,
+      },
     )
-    const tracked = summary.walkingSeconds + summary.drivingSeconds + summary.idleSeconds
+    const tracked = summary.onSiteSeconds + summary.offSiteSeconds
 
     return reply.send({
       data: {
@@ -219,7 +250,8 @@ export const guardStatsRoutes: FastifyPluginAsync = async (fastify) => {
         summary: {
           ...summary,
           trackedSeconds: tracked,
-          activePct: tracked === 0 ? null : Math.round(((summary.walkingSeconds + summary.drivingSeconds) / tracked) * 1000) / 10,
+          // % of tracked time spent on the assigned site.
+          onSitePct: tracked === 0 ? null : Math.round((summary.onSiteSeconds / tracked) * 1000) / 10,
         },
         shifts,
       },

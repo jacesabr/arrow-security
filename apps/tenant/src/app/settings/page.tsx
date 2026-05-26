@@ -111,7 +111,7 @@ export default function SettingsPage() {
         {/* Notifications */}
         <Section title="Notification Settings" badge>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {['Email alerts for critical incidents', 'SMS alerts for SLA breaches', 'Push notifications for mobile app', 'Daily summary report'].map((item) => (
+            {['Push notifications for mobile app', 'Daily summary report'].map((item) => (
               <div key={item} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-3)', fontSize: 13.5 }}>{item}</span>
                 <div style={{ width: 36, height: 20, background: 'var(--surface-2)', borderRadius: 10, opacity: 0.4, border: '1px solid var(--border)' }} />

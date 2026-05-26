@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
 interface Stats {
-  guards: number; sites: number; openIncidents: number
+  guards: number; sites: number
   activeShifts: number; todayPatrols: number; todayAttendance: number
 }
 
@@ -227,10 +227,6 @@ export default function DevRefPage() {
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: GREEN, flexShrink: 0, display: 'inline-block' }} />
                 {stats.guards} guards · {stats.activeShifts} on shift
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: TEXT3 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: ACCENT, flexShrink: 0, display: 'inline-block' }} />
-                {stats.openIncidents} open incidents
-              </div>
               <div style={{ fontSize: 11, color: TEXT3, marginTop: 2 }}>{now}</div>
             </div>
           )}
@@ -304,7 +300,6 @@ export default function DevRefPage() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 24 }}>
               <Pill label={`${stats.guards} guards`} color={GREEN} />
               <Pill label={`${stats.sites} sites`} color={ACCENT} />
-              <Pill label={`${stats.openIncidents} open incidents`} color="#ef4444" />
               <Pill label={`${stats.activeShifts} active shifts`} color="#3b82f6" />
               <Pill label={`${stats.todayPatrols} patrols today`} color="#f59e0b" />
             </div>
@@ -381,7 +376,7 @@ export default function DevRefPage() {
                   items={[
                     'App Router, all pages are use client',
                     'CSS custom properties — no Tailwind in JSX',
-                    'MapLibre GL + OSM for live guard map',
+                    'MapBox GL + satellite-streets for all map surfaces',
                     'tdApi wrapper in src/lib/api.ts',
                   ]}
                 />
@@ -456,7 +451,7 @@ export default function DevRefPage() {
   Tenant portal /map page
   ├─ fetch('/api/locations/live', { headers: { Authorization } })
   ├─ ReadableStream parses 'data: ...' lines
-  └─ MapLibre GL marker.setLngLat([lng, lat])   ← no re-render`}</FlowDiagram>
+  └─ MapBox GL marker.setLngLat([lng, lat])   ← no re-render`}</FlowDiagram>
 
           <SubTitle>Incident Reporting</SubTitle>
           <FlowDiagram>{`  Guard app — IncidentNewPage.tsx
@@ -696,7 +691,7 @@ await app.register(yourRoutes, { prefix: '/api/your' })`}</Code>
         <section id="realtime">
           <SectionTitle>Real-time Architecture</SectionTitle>
           <Lead>
-            Server-Sent Events (SSE) over HTTP/1.1. Guards post GPS pings to the API; the API publishes to a Redis channel; the portal /map page subscribes via SSE and updates MapLibre GL markers in real time.
+            Server-Sent Events (SSE) over HTTP/1.1. Guards post GPS pings to the API; the API publishes to a Redis channel; the portal /map page subscribes via SSE and updates MapBox GL markers in real time.
           </Lead>
 
           <SubTitle>SSE Server Implementation</SubTitle>
@@ -815,7 +810,7 @@ export default function SomePage() {
             ['/incidents',      'All',        'Incident list. Severity/status filters. SLA breach highlighting.'],
             ['/panic',          'Admin',      'Panic alerts. Acknowledge + resolve actions.'],
             ['/patrols',        'All',        'Patrol history. Duration, completion rate.'],
-            ['/map',            'All',        'Live MapLibre GL map. SSE guard pings. Click guard → 8h trail.'],
+            ['/map',            'All',        'Live MapBox GL map. SSE guard pings. Click guard → 8h trail.'],
             ['/guard-status',   'All',        'Live table — selfie review status, geofence, GPS online/offline.'],
             ['/leave-requests', 'All',        'Leave request list. Supervisor approves/rejects.'],
             ['/post-orders',    'Admin',      'Standing orders per site. Acknowledgement tracking.'],

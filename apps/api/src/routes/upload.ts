@@ -6,7 +6,7 @@ import { getUploadPresignedUrl, getDownloadUrl } from '../lib/storage'
 const presignBodySchema = z.object({
   filename: z.string().min(1).max(255),
   contentType: z.string().min(1),
-  folder: z.enum(['selfies', 'incidents', 'documents']),
+  folder: z.enum(['selfies', 'documents']),
 })
 
 function sanitizeFilename(name: string): string {

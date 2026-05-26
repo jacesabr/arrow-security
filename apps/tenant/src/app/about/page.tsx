@@ -176,8 +176,8 @@ export default function AboutPage() {
 [Operations Portal (Next.js)]  ──HTTP──►  [Fastify API :4000]  ─┘
                                                   │
                                           ┌───────┴────────┐
-                                   [SSE stream]       [MapLibre GL]
-                                  live GPS pings      OSM raster tiles
+                                   [SSE stream]       [MapBox GL JS]
+                                  live GPS pings      satellite + streets
                                           │
                                [In-proc Map<tenantId,Set<fn>>]
                                (→ Redis Pub/Sub before multi-server)`}</pre>
@@ -273,12 +273,12 @@ export default function AboutPage() {
           tradeoffs="WebView performance is below native on older Android devices — acceptable for a data-entry app, not for video or heavy graphics. Capacitor plugins vary in quality; community plugins (SQLite, NFC) may lag behind OS updates. React Native would offer better native performance but requires maintaining separate codebases or complex bridging."
         />
 
-        {/* MapLibre */}
+        {/* MapBox */}
         <TechCard
-          name="MapLibre GL + OpenStreetMap"
+          name="MapBox GL JS + Draw + Turf"
           badge="production"
-          why="Zero API key required. MapLibre GL is the MIT-licensed fork of Mapbox GL JS — identical rendering engine, no usage billing, no vendor lock-in. OpenStreetMap raster tiles are served by the OSM community. Live guard positions stream via Server-Sent Events using fetch() with a ReadableStream (not the native EventSource API, which cannot send Authorization headers)."
-          tradeoffs="OSM raster tiles have lower visual fidelity than Mapbox Satellite or Google Maps. No traffic layer, no geocoding API included. For 50k+ guards, the SSE fan-out must migrate from the current in-process Map to Redis Pub/Sub — EMQX MQTT replaces HTTP pings entirely at that scale."
+          why="One paid mapping vendor across every surface — live guard map, geofence editor, per-shift replay — so we don't reinvent map mechanics. mapbox-gl renders the basemap and layers; @mapbox/mapbox-gl-draw + mapbox-gl-draw-circle give us editable, draggable circle primitives with handles for free; @turf/turf handles geodesic math (circle polygons, distance, bbox-fit). Live guard positions stream via Server-Sent Events using fetch() + ReadableStream (the native EventSource API can't carry Authorization headers)."
+          tradeoffs="Requires NEXT_PUBLIC_MAPBOX_TOKEN and a Mapbox account. Free tier covers 50k monthly map loads — plenty at current scale, billed per-load after. For 50k+ guards the SSE fan-out must move from in-process Map to Redis Pub/Sub; EMQX MQTT replaces HTTP pings entirely at that scale."
         >
           <div style={{ marginTop: 8, padding: '10px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6 }}>
             <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, marginBottom: 4 }}>Why fetch() not EventSource</div>
@@ -358,7 +358,7 @@ export default function AboutPage() {
         <TechCard
           name="Offline-First Mobile (SQLite Write Queue)"
           badge="phase 2"
-          why="Guards work in basements, construction sites, and remote locations with intermittent connectivity. Check-ins, patrol scans, and incident reports must never be lost. @capacitor-community/sqlite provides a local SQLite database on the device. Writes go to the local queue immediately (UI confirms instantly), then drain to the API on reconnect. Client-generated IDs + ON CONFLICT DO NOTHING make the drain idempotent."
+          why="Guards work in basements, construction sites, and remote locations with intermittent connectivity. Check-ins, patrol scans, and GPS pings must never be lost. @capacitor-community/sqlite provides a local SQLite database on the device. Writes go to the local queue immediately (UI confirms instantly), then drain to the API on reconnect. Client-generated IDs + ON CONFLICT DO NOTHING make the drain idempotent."
           tradeoffs="No CRDTs needed — the data is single-device and append-only (a guard does not edit another guard's check-in). Conflict resolution is trivial. The main complexity is the drain scheduler: exponential backoff, reachability detection, and error categorisation (transient network vs permanent 4xx). Power loss between write and drain requires SQLite WAL mode (already the Capacitor SQLite default)."
         />
 

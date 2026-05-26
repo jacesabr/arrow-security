@@ -17,7 +17,6 @@ import {
 import {
   qrCodeOutline,
   walkOutline,
-  warningOutline,
   timeOutline,
   logOutOutline,
 } from 'ionicons/icons'
@@ -28,16 +27,13 @@ import { api } from '../services/api'
 export const DashboardPage: React.FC = () => {
   const history = useHistory()
   const { user, logout } = useAuthStore()
-  const [incidents, setIncidents] = useState<any[]>([])
   const [shifts, setShifts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([api.incidents.list({ status: 'open' }), api.shifts.list()])
-      .then(([inc, sh]) => {
-        setIncidents(inc.data)
-        setShifts(sh.data)
-      })
+    api.shifts
+      .list()
+      .then((sh) => setShifts(sh.data))
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
@@ -72,8 +68,7 @@ export const DashboardPage: React.FC = () => {
         {/* Quick actions */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, padding: '0 20px 20px' }}>
           <ActionCard icon={qrCodeOutline} label="Check In" color="#c96442" onClick={() => history.push('/tabs/checkin')} />
-          <ActionCard icon={walkOutline} label="Activity" color="#10b981" onClick={() => history.push('/tabs/patrol')} />
-          <ActionCard icon={warningOutline} label="Incident" color="#f59e0b" onClick={() => history.push('/tabs/incidents')} />
+          <ActionCard icon={walkOutline} label="Patrol" color="#10b981" onClick={() => history.push('/tabs/patrol')} />
           <ActionCard icon={timeOutline} label="Shifts" color="#3b82f6" onClick={() => history.push('/tabs/shifts')} />
         </div>
 
@@ -101,33 +96,6 @@ export const DashboardPage: React.FC = () => {
             )}
           </IonCardContent>
         </IonCard>
-
-        {/* Open incidents */}
-        <IonCard style={{ '--background': '#ffffff', margin: '0 20px 16px', borderRadius: '14px', boxShadow: 'none', border: '1px solid #ebe8e2' }}>
-          <IonCardHeader>
-            <IonCardTitle style={{ color: '#1a1916', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-              Open Incidents
-              {incidents.length > 0 && (
-                <IonBadge color="danger">{incidents.length}</IonBadge>
-              )}
-            </IonCardTitle>
-          </IonCardHeader>
-          <IonCardContent>
-            {loading ? (
-              <IonSkeletonText animated style={{ height: 20 }} />
-            ) : incidents.length === 0 ? (
-              <p style={{ color: '#9a9490', margin: 0, fontSize: 14 }}>No open incidents</p>
-            ) : (
-              incidents.slice(0, 3).map((i) => (
-                <div key={i.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid #f4f2ef' }}>
-                  <p style={{ color: '#1a1916', margin: '0 0 3px', fontWeight: 500, fontSize: 14 }}>{i.title}</p>
-                  <p style={{ color: '#9a9490', margin: 0, fontSize: 12.5 }}>{i.severity} · {new Date(i.createdAt).toLocaleString('en-IN')}</p>
-                </div>
-              ))
-            )}
-          </IonCardContent>
-        </IonCard>
-
       </IonContent>
     </IonPage>
   )

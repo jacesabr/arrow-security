@@ -10,7 +10,6 @@
   "scripts": {
     "dev": "pnpm --parallel --filter=!mobile run dev",
     "dev:api": "pnpm --filter=api run dev",
-    "dev:control": "pnpm --filter=control-plane run dev",
     "dev:tenant": "pnpm --filter=tenant run dev",
     "dev:mobile": "pnpm --filter=mobile run dev",
     "build": "pnpm --recursive run build",

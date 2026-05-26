@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { db, attendanceRecords, sites, users, shifts } from '@secureops/db'
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm'
 import { requireAuth, requireSupervisor } from '../lib/auth'
+import { closeOpenVisitForShift } from '../lib/geofence-state'
 
 function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000
@@ -304,6 +305,34 @@ export const attendanceRoutes: FastifyPluginAsync = async (fastify) => {
         isWithinGeofence,
       })
       .returning()
+
+    // Clean clock-out: stamp the open geofence visit row as exited so the
+    // replay view has a closed segment instead of relying on shift.endsAt as
+    // the implicit cap. Best-effort — never block the response on this.
+    if (body.type === 'check_out') {
+      try {
+        const [activeShift] = await db
+          .select({ id: shifts.id })
+          .from(shifts)
+          .where(and(
+            eq(shifts.tenantId, payload.tenantId),
+            eq(shifts.guardId, payload.sub),
+            eq(shifts.siteId, body.siteId),
+            eq(shifts.status, 'active'),
+          ))
+          .limit(1)
+        if (activeShift) {
+          await closeOpenVisitForShift(
+            activeShift.id,
+            record.verifiedAt,
+            body.latitude ?? null,
+            body.longitude ?? null,
+          )
+        }
+      } catch (err) {
+        request.log.error({ err }, 'closeOpenVisitForShift on check_out failed')
+      }
+    }
 
     return reply.code(201).send({ data: record })
   })

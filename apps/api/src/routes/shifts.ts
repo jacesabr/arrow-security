@@ -1,10 +1,23 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { db, shifts, users } from '@secureops/db'
-import { eq, and, gte, lte, inArray, sql } from 'drizzle-orm'
-import { requireAuth, requireTenantAdmin, requireSupervisor, getSupervisorSiteIds } from '../lib/auth'
+import {
+  db,
+  shifts,
+  users,
+  sites,
+  guardLocations,
+  shiftSiteVisits,
+} from '@secureops/db'
+import { eq, and, gte, lte, inArray, sql, asc } from 'drizzle-orm'
+import {
+  requireAuth,
+  requireTenantAdmin,
+  requireSupervisor,
+  getSupervisorSiteIds,
+  getSupervisorGuardIds,
+} from '../lib/auth'
 import { solveSchedule } from '../lib/scheduler'
-import { computeShiftMovement, computeAndStoreShiftMovement } from '../lib/shift-movement'
+import { closeOpenVisitForShift } from '../lib/geofence-state'
 
 export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/', { preHandler: requireAuth }, async (request, reply) => {
@@ -60,7 +73,6 @@ export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
       SELECT
         s.id, s.tenant_id, s.site_id, s.guard_id, s.starts_at, s.ends_at,
         s.status, s.notes, s.published, s.created_at,
-        s.walking_seconds, s.driving_seconds, s.stationary_seconds,
         st.name AS site_name,
         ci.verified_at AS check_in_at,
         co.verified_at AS check_out_at
@@ -112,9 +124,6 @@ export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
       siteName: r.site_name,
       checkInAt:  r.check_in_at,
       checkOutAt: r.check_out_at,
-      walkingSeconds: r.walking_seconds == null ? null : Number(r.walking_seconds),
-      drivingSeconds: r.driving_seconds == null ? null : Number(r.driving_seconds),
-      idleSeconds:    r.stationary_seconds == null ? null : Number(r.stationary_seconds),
     }))
 
     return reply.send({ data })
@@ -162,7 +171,7 @@ export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
     const { id } = request.params as { id: string }
     const payload = request.user as { tenantId: string }
     const { status } = z.object({
-      status: z.enum(['scheduled', 'active', 'completed', 'missed']),
+      status: z.enum(['scheduled', 'active', 'completed', 'missed', 'abandoned']),
     }).parse(request.body)
 
     const [shift] = await db
@@ -173,20 +182,34 @@ export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
 
     if (!shift) return reply.code(404).send({ error: 'Not found', message: 'Shift not found', statusCode: 404 })
 
-    // When a shift completes, asynchronously compute movement breakdown.
-    // Don't block the response on this — it walks every ping for the shift.
-    if (status === 'completed') {
-      computeAndStoreShiftMovement(shift.id, shift.tenantId, shift.startsAt, shift.endsAt)
-        .catch((err) => fastify.log.error({ err, shiftId: shift.id }, 'shift movement compute failed'))
+    // Terminal status → close the open geofence visit row so the replay has a
+    // closed segment. Use shift.endsAt as the honest exit time (never claim a
+    // future-dated exit, never claim later than the shift's intended end).
+    // The auto-abandon flow already calls this via handleGuardOffSite — this
+    // covers manual admin PATCHes to a terminal status.
+    if (status === 'completed' || status === 'missed' || status === 'abandoned') {
+      const closeAt = new Date(Math.min(Date.now(), shift.endsAt.getTime()))
+      closeOpenVisitForShift(shift.id, closeAt, null, null).catch((err) => {
+        fastify.log.error({ err, shiftId: shift.id }, 'closeOpenVisitForShift on status PATCH failed')
+      })
     }
 
     return reply.send({ data: shift })
   })
 
-  // GET /:id/movement — per-shift movement summary + audit graph series.
-  // Always re-derives the series from guard_locations; uses persisted totals if
-  // available, otherwise computes them fresh.
-  fastify.get('/:id/movement', { preHandler: requireAuth }, async (request, reply) => {
+  /**
+   * GET /:id/replay — everything needed to render a shift's map replay:
+   *   - the shift itself
+   *   - the raw guard_locations pings during the shift (for polyline geometry)
+   *   - shift_site_visits segments (for on-site dwell markers + off-site lines)
+   *   - the tenant's sites referenced by either the shift or any visit
+   *
+   * Scope: guards see only their own shift; supervisors see shifts at their
+   * assigned sites; admins see anything in their tenant.
+   *
+   * Returned in a single payload so the portal page does one round-trip.
+   */
+  fastify.get('/:id/replay', { preHandler: requireAuth }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const payload = request.user as { tenantId: string; sub: string; role: string }
 
@@ -195,44 +218,109 @@ export const shiftsRoutes: FastifyPluginAsync = async (fastify) => {
       .from(shifts)
       .where(and(eq(shifts.id, id), eq(shifts.tenantId, payload.tenantId)))
       .limit(1)
-    if (!shift) return reply.code(404).send({ error: 'Not found', message: 'Shift not found', statusCode: 404 })
+    if (!shift) {
+      return reply
+        .code(404)
+        .send({ error: 'Not found', message: 'Shift not found', statusCode: 404 })
+    }
 
-    // Authorise
     if (payload.role === 'guard' && shift.guardId !== payload.sub) {
-      return reply.code(403).send({ error: 'Forbidden', message: 'Not your shift', statusCode: 403 })
+      return reply
+        .code(403)
+        .send({ error: 'Forbidden', message: 'Not your shift', statusCode: 403 })
     }
     if (payload.role === 'supervisor') {
       const allowed = await getSupervisorSiteIds(payload.sub, payload.role)
       if (!allowed || !allowed.includes(shift.siteId)) {
-        return reply.code(403).send({ error: 'Forbidden', message: 'Shift not at your site', statusCode: 403 })
+        return reply
+          .code(403)
+          .send({ error: 'Forbidden', message: 'Shift not at your site', statusCode: 403 })
       }
     }
 
-    const result = await computeShiftMovement(shift.id, shift.tenantId, shift.startsAt, shift.endsAt)
-    return reply.send({ data: { shift, movement: result } })
-  })
+    // Pings during the shift window (event-time, not server-receive time).
+    // We include a small grace buffer at each edge to catch the entry/exit ping.
+    const GRACE_MS = 5 * 60 * 1000
+    const windowStart = new Date(shift.startsAt.getTime() - GRACE_MS)
+    const windowEnd = new Date(shift.endsAt.getTime() + GRACE_MS)
 
-  // POST /:id/movement/recompute — force a recompute and persist (admin / supervisor).
-  fastify.post('/:id/movement/recompute', { preHandler: requireSupervisor }, async (request, reply) => {
-    const { id } = request.params as { id: string }
-    const payload = request.user as { tenantId: string; sub: string; role: string }
+    const pings = await db
+      .select({
+        id: guardLocations.id,
+        latitude: guardLocations.latitude,
+        longitude: guardLocations.longitude,
+        accuracy: guardLocations.accuracy,
+        recordedAt: guardLocations.recordedAt,
+      })
+      .from(guardLocations)
+      .where(
+        and(
+          eq(guardLocations.tenantId, payload.tenantId),
+          eq(guardLocations.guardId, shift.guardId),
+          gte(guardLocations.recordedAt, windowStart),
+          lte(guardLocations.recordedAt, windowEnd)
+        )
+      )
+      .orderBy(asc(guardLocations.recordedAt))
 
-    const [shift] = await db
+    // Visit segments for this shift, in event-time order.
+    const visits = await db
       .select()
-      .from(shifts)
-      .where(and(eq(shifts.id, id), eq(shifts.tenantId, payload.tenantId)))
-      .limit(1)
-    if (!shift) return reply.code(404).send({ error: 'Not found', message: 'Shift not found', statusCode: 404 })
+      .from(shiftSiteVisits)
+      .where(eq(shiftSiteVisits.shiftId, shift.id))
+      .orderBy(asc(shiftSiteVisits.enteredAt))
 
-    if (payload.role === 'supervisor') {
-      const allowed = await getSupervisorSiteIds(payload.sub, payload.role)
-      if (!allowed || !allowed.includes(shift.siteId)) {
-        return reply.code(403).send({ error: 'Forbidden', message: 'Shift not at your site', statusCode: 403 })
+    // Sites needed for rendering: the shift's site plus any other site visited.
+    const siteIds = new Set<string>([shift.siteId])
+    for (const v of visits) if (v.siteId) siteIds.add(v.siteId)
+    const siteRows =
+      siteIds.size === 0
+        ? []
+        : await db
+            .select({
+              id: sites.id,
+              name: sites.name,
+              latitude: sites.latitude,
+              longitude: sites.longitude,
+              geofenceRadiusMeters: sites.geofenceRadiusMeters,
+            })
+            .from(sites)
+            .where(
+              and(eq(sites.tenantId, payload.tenantId), inArray(sites.id, Array.from(siteIds)))
+            )
+
+    // Aggregates: on-site total per site, off-site total (travel) for the shift.
+    // Open visits (exitedAt NULL) use shift.endsAt as the cap, or now for active shifts.
+    const cap = shift.status === 'active' ? new Date() : shift.endsAt
+    const onSiteMsBySite = new Map<string, number>()
+    let offSiteMs = 0
+    for (const v of visits) {
+      const end = v.exitedAt ?? cap
+      const ms = Math.max(0, end.getTime() - v.enteredAt.getTime())
+      if (v.siteId) {
+        onSiteMsBySite.set(v.siteId, (onSiteMsBySite.get(v.siteId) ?? 0) + ms)
+      } else {
+        offSiteMs += ms
       }
     }
 
-    const result = await computeAndStoreShiftMovement(shift.id, shift.tenantId, shift.startsAt, shift.endsAt)
-    return reply.send({ data: result })
+    return reply.send({
+      data: {
+        shift,
+        pings,
+        visits,
+        sites: siteRows,
+        summary: {
+          offSiteMs,
+          onSiteMsBySite: Object.fromEntries(onSiteMsBySite),
+          totalMs:
+            offSiteMs +
+            Array.from(onSiteMsBySite.values()).reduce((a, b) => a + b, 0),
+          // Convenience flag for UI badges
+          wasAbandoned: shift.status === 'abandoned',
+        },
+      },
+    })
   })
 
   fastify.delete('/:id', { preHandler: requireTenantAdmin }, async (request, reply) => {

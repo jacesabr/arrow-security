@@ -27,7 +27,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const nav = [
     { href: '/client/sites', label: 'My Sites' },
-    { href: '/client/incidents', label: 'Incidents' },
   ]
 
   return (

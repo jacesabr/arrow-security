@@ -17,13 +17,16 @@ export default function LoginPage() {
     try {
       const res = await tdApi.auth.login(username.trim(), password, process.env.NEXT_PUBLIC_TENANT_SLUG ?? '')
       const { role } = res.data.user
-      if (role !== 'tenant_admin' && role !== 'supervisor' && role !== 'guard') {
-        setError('Access denied. Tenant users only.')
+      const acceptedRoles = ['platform_admin', 'tenant_admin', 'supervisor', 'guard', 'client_viewer']
+      if (!acceptedRoles.includes(role)) {
+        setError('Access denied. Your account is not recognised.')
         return
       }
       localStorage.setItem('td_token', res.data.token)
       localStorage.setItem('td_user', JSON.stringify(res.data.user))
-      router.replace('/dashboard')
+      // client_viewer lives in the read-only /client/* portal — admins and
+      // platform_admins can also visit it, but their home is /dashboard.
+      router.replace(role === 'client_viewer' ? '/client/sites' : '/dashboard')
     } catch (e: any) {
       setError(e.message ?? 'Login failed')
     } finally {

@@ -1,4 +1,6 @@
 fastapi==0.115.0
 uvicorn[standard]==0.30.0
-ortools==9.10.9067
+# 9.10.9067 was never published to PyPI — the real release in the 9.10.x series
+# is 9.10.4067. Bumped to fix the docker build.
+ortools==9.10.4067
 pydantic==2.7.0

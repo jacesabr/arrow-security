@@ -8,6 +8,27 @@
       "when": 1779277169650,
       "tag": "0000_vengeful_logan",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1779800000000,
+      "tag": "0001_shift_site_visits",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1779900000000,
+      "tag": "0002_drop_movement_classifier",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1779950000000,
+      "tag": "0003_site_routes",
+      "breakpoints": true
     }
   ]
 }

@@ -180,9 +180,21 @@ export function TR({ children, onClick }: { children: React.ReactNode; onClick?:
   )
 }
 
-export function TD({ children, muted, style }: { children?: React.ReactNode; muted?: boolean; style?: React.CSSProperties }) {
+export function TD({
+  children, muted, style, onClick, title,
+}: {
+  children?: React.ReactNode
+  muted?: boolean
+  style?: React.CSSProperties
+  onClick?: (e: React.MouseEvent<HTMLTableCellElement>) => void
+  title?: string
+}) {
   return (
-    <td style={{ padding: '14px 26px', color: muted ? 'var(--text-2)' : 'var(--text)', fontSize: 14, ...style }}>
+    <td
+      onClick={onClick}
+      title={title}
+      style={{ padding: '14px 26px', color: muted ? 'var(--text-2)' : 'var(--text)', fontSize: 14, ...style }}
+    >
       {children ?? '—'}
     </td>
   )

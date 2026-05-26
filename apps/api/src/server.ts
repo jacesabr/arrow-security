@@ -17,28 +17,25 @@ import { sitesRoutes } from './routes/sites'
 import { usersRoutes } from './routes/users'
 import { attendanceRoutes } from './routes/attendance'
 import { patrolRoutes } from './routes/patrol'
-import { incidentsRoutes } from './routes/incidents'
 import { shiftsRoutes } from './routes/shifts'
 import { locationsRoutes } from './routes/locations'
 import { statsRoutes } from './routes/stats'
 import { clientsRoutes } from './routes/clients'
 import { supervisorSitesRoutes } from './routes/supervisor-sites'
-import { leaveRequestsRoutes } from './routes/leave-requests'
 import { payrollRoutes } from './routes/payroll'
 import { certificationsRoutes } from './routes/certifications'
 import { postOrdersRoutes } from './routes/post-orders'
 import { guardStatsRoutes } from './routes/guard-stats'
 import { siteStatsRoutes } from './routes/site-stats'
-import { testSessionsRoutes } from './routes/test-sessions'
 import { passdownsRoutes } from './routes/passdowns'
 import { exceptionsRoutes } from './routes/exceptions'
 import { auditLogRoutes } from './routes/audit-log'
 import { shiftTemplatesRoutes } from './routes/shift-templates'
-import { incidentFormsRoutes } from './routes/incident-forms'
 import { uploadRoutes } from './routes/upload'
 import { guardStatusRoutes } from './routes/guard-status'
 import { appUpdateRoutes } from './routes/app-update'
 import { selfiesRoutes } from './routes/selfies'
+import { accountingRoutes } from './routes/accounting'
 import { ensureBucket } from './lib/storage'
 
 const app = Fastify({
@@ -93,28 +90,25 @@ async function build() {
   await app.register(usersRoutes, { prefix: '/api/users' })
   await app.register(attendanceRoutes, { prefix: '/api/attendance' })
   await app.register(patrolRoutes, { prefix: '/api/patrol' })
-  await app.register(incidentsRoutes, { prefix: '/api/incidents' })
   await app.register(shiftsRoutes, { prefix: '/api/shifts' })
   await app.register(statsRoutes, { prefix: '/api/stats' })
   await app.register(clientsRoutes, { prefix: '/api/clients' })
   await app.register(supervisorSitesRoutes, { prefix: '/api/supervisor-sites' })
   await app.register(locationsRoutes, { prefix: '/api/locations' })
-  await app.register(leaveRequestsRoutes, { prefix: '/api/leave-requests' })
   await app.register(payrollRoutes, { prefix: '/api/payroll' })
   await app.register(certificationsRoutes, { prefix: '/api/certifications' })
   await app.register(postOrdersRoutes, { prefix: '/api/post-orders' })
   await app.register(guardStatsRoutes, { prefix: '/api/guard-stats' })
   await app.register(siteStatsRoutes, { prefix: '/api/site-stats' })
-  await app.register(testSessionsRoutes, { prefix: '/api/test-sessions' })
   await app.register(passdownsRoutes, { prefix: '/api/passdowns' })
   await app.register(exceptionsRoutes, { prefix: '/api/exceptions' })
   await app.register(auditLogRoutes, { prefix: '/api/audit-log' })
   await app.register(shiftTemplatesRoutes, { prefix: '/api/shift-templates' })
-  await app.register(incidentFormsRoutes, { prefix: '/api/incident-forms' })
   await app.register(uploadRoutes, { prefix: '/api/upload' })
   await app.register(guardStatusRoutes, { prefix: '/api/guard-status' })
   await app.register(appUpdateRoutes, { prefix: '/api/app-update' })
   await app.register(selfiesRoutes, { prefix: '/api/selfies' })
+  await app.register(accountingRoutes, { prefix: '/api/accounting' })
 
   app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 

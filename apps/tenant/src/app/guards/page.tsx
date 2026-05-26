@@ -3,14 +3,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageShell, Main, PageHeader, Card, DataTable, TR, TD, Badge, Btn, Modal, Field, Input, Select, ErrorMsg, ModalActions } from '../../components/ui'
 import { tdApi } from '../../lib/api'
-
-const ROLE_DISPLAY: Record<string, string> = {
-  tenant_admin: 'Admin',
-  platform_admin: 'Admin',
-  supervisor: 'Supervisor',
-  guard: 'Guard',
-  client_viewer: 'Client',
-}
+import { useRequireAdmin } from '../../lib/auth-guard'
+import { ROLE_DISPLAY } from '@secureops/shared'
 
 const ROLE_BADGE: Record<string, { color: string; bg: string }> = {
   guard:          { color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
@@ -22,6 +16,7 @@ const ROLE_BADGE: Record<string, { color: string; bg: string }> = {
 
 export default function GuardsPage() {
   const router = useRouter()
+  useRequireAdmin()
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)

@@ -17,10 +17,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <head>
-        <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
-      </head>
       <body className={inter.className}>
+        {/* mapbox-gl CSS is imported by the components that need it
+            (GeofenceMap, ShiftReplayMap, /map page) so it ships with the
+            chunks that actually use the map and we keep the document head
+            free of CDN dependencies. */}
         <ClientProviders>{children}</ClientProviders>
       </body>
     </html>

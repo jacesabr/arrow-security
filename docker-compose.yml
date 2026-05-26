@@ -18,20 +18,23 @@ services:
       retries: 5
 
   pgbouncer:
-    image: bitnami/pgbouncer:1.23.1
+    # Switched from bitnami/pgbouncer (free tags removed Aug 2025 when Bitnami
+    # moved their images behind the paid "Bitnami Secure Images" plan) to the
+    # community-maintained edoburu/pgbouncer image. Same PgBouncer underneath;
+    # only the env-var prefix differs.
+    image: edoburu/pgbouncer:latest
     environment:
-      POSTGRESQL_HOST: postgres
-      POSTGRESQL_PORT: 5432
-      POSTGRESQL_DATABASE: secureops
-      POSTGRESQL_USERNAME: secureops
-      POSTGRESQL_PASSWORD: secureops
-      PGBOUNCER_DATABASE: secureops
-      PGBOUNCER_POOL_MODE: transaction
-      PGBOUNCER_MAX_CLIENT_CONN: 1000
-      PGBOUNCER_DEFAULT_POOL_SIZE: 25
-      PGBOUNCER_MIN_POOL_SIZE: 5
-      PGBOUNCER_RESERVE_POOL_SIZE: 5
-      PGBOUNCER_AUTH_TYPE: scram-sha-256
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: secureops
+      DB_PASSWORD: secureops
+      DB_NAME: secureops
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 25
+      MIN_POOL_SIZE: 5
+      RESERVE_POOL_SIZE: 5
+      AUTH_TYPE: scram-sha-256
     ports:
       - "5433:5432"
     depends_on:

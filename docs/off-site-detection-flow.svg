@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1040" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5c5855"/>
+    </marker>
+    <marker id="arrowOrange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c96442"/>
+    </marker>
+    <filter id="cardShadow" x="-5%" y="-5%" width="110%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#1a1916" flood-opacity="0.07"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="1040" fill="#fafaf9"/>
+
+  <!-- Header -->
+  <text x="60" y="58" font-size="13" font-weight="700" fill="#c96442" letter-spacing="2.4">ARROW SECURITY</text>
+  <text x="60" y="100" font-size="32" font-weight="600" fill="#1a1916" letter-spacing="-0.5">Off-Site Detection</text>
+  <text x="60" y="130" font-size="15" fill="#5c5855">How guard presence is tracked during every shift</text>
+  <line x1="60" y1="156" x2="1140" y2="156" stroke="#e8e5e0" stroke-width="1"/>
+
+  <!-- ON SITE state -->
+  <g transform="translate(440, 200)">
+    <rect width="320" height="118" rx="14" fill="#ffffff" stroke="#e8e5e0" stroke-width="1" filter="url(#cardShadow)"/>
+    <rect x="0" y="0" width="6" height="118" rx="3" fill="#10b981"/>
+    <text x="32" y="42" font-size="12" font-weight="700" fill="#10b981" letter-spacing="1.8">STATE</text>
+    <text x="32" y="74" font-size="24" font-weight="600" fill="#1a1916">On Site</text>
+    <text x="32" y="100" font-size="14" fill="#5c5855">Guard is inside the assigned site's geofence</text>
+  </g>
+
+  <!-- Arrow ON → OFF with label -->
+  <line x1="600" y1="328" x2="600" y2="395" stroke="#5c5855" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <g transform="translate(622, 345)">
+    <rect width="260" height="34" rx="6" fill="#ffffff" stroke="#e8e5e0"/>
+    <text x="14" y="22" font-size="13" fill="#5c5855">Exits geofence for ≥ 60 seconds</text>
+  </g>
+
+  <!-- Reverse arrow OFF → ON -->
+  <path d="M 440 450 Q 380 380 380 320 Q 380 240 440 240" stroke="#10b981" stroke-width="1.5" fill="none" stroke-dasharray="4,4" marker-end="url(#arrow)"/>
+  <text x="290" y="335" font-size="12" fill="#10b981" font-style="italic">Re-enters geofence →</text>
+  <text x="290" y="352" font-size="12" fill="#10b981" font-style="italic">returns to On Site</text>
+
+  <!-- OFF SITE state -->
+  <g transform="translate(440, 408)">
+    <rect width="320" height="118" rx="14" fill="#ffffff" stroke="#e8e5e0" stroke-width="1" filter="url(#cardShadow)"/>
+    <rect x="0" y="0" width="6" height="118" rx="3" fill="#c96442"/>
+    <text x="32" y="42" font-size="12" font-weight="700" fill="#c96442" letter-spacing="1.8">STATE</text>
+    <text x="32" y="74" font-size="24" font-weight="600" fill="#1a1916">Off Site</text>
+    <text x="32" y="100" font-size="14" fill="#5c5855">Guard is outside all known geofences</text>
+  </g>
+
+  <!-- Diverging arrows to role branches -->
+  <path d="M 520 530 Q 480 565 320 605" stroke="#5c5855" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 680 530 Q 720 565 880 605" stroke="#5c5855" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Role pills -->
+  <rect x="135" y="618" width="330" height="42" rx="21" fill="#c96442"/>
+  <text x="300" y="645" text-anchor="middle" font-size="14" font-weight="600" fill="#ffffff" letter-spacing="0.6">IF ROLE = GUARD</text>
+
+  <rect x="735" y="618" width="330" height="42" rx="21" fill="#5c5855"/>
+  <text x="900" y="645" text-anchor="middle" font-size="14" font-weight="600" fill="#ffffff" letter-spacing="0.6">IF ROLE = SUPERVISOR</text>
+
+  <!-- Guard actions card -->
+  <g transform="translate(135, 685)">
+    <rect width="330" height="290" rx="14" fill="#ffffff" stroke="#e8e5e0" stroke-width="1" filter="url(#cardShadow)"/>
+
+    <!-- Step 1 -->
+    <circle cx="42" cy="48" r="18" fill="#c96442"/>
+    <text x="42" y="53" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">1</text>
+    <text x="78" y="44" font-size="15" font-weight="600" fill="#1a1916">Incident report created</text>
+    <text x="78" y="64" font-size="13" fill="#5c5855">Logged automatically with last known</text>
+    <text x="78" y="82" font-size="13" fill="#5c5855">location, time, and site they left</text>
+
+    <line x1="32" y1="105" x2="298" y2="105" stroke="#f4f2ef"/>
+
+    <!-- Step 2 -->
+    <circle cx="42" cy="138" r="18" fill="#c96442"/>
+    <text x="42" y="143" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">2</text>
+    <text x="78" y="134" font-size="15" font-weight="600" fill="#1a1916">Admin &amp; supervisor alerted</text>
+    <text x="78" y="154" font-size="13" fill="#5c5855">Push notification + dashboard flag</text>
+    <text x="78" y="172" font-size="13" fill="#5c5855">so the team can act immediately</text>
+
+    <line x1="32" y1="195" x2="298" y2="195" stroke="#f4f2ef"/>
+
+    <!-- Step 3 -->
+    <circle cx="42" cy="228" r="18" fill="#c96442"/>
+    <text x="42" y="233" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">3</text>
+    <text x="78" y="224" font-size="15" font-weight="600" fill="#1a1916">Guard automatically logged out</text>
+    <text x="78" y="244" font-size="13" fill="#5c5855">In case they forgot to clock out —</text>
+    <text x="78" y="262" font-size="13" fill="#5c5855">shift closes cleanly for review</text>
+  </g>
+
+  <!-- Supervisor actions card -->
+  <g transform="translate(735, 685)">
+    <rect width="330" height="290" rx="14" fill="#ffffff" stroke="#e8e5e0" stroke-width="1" filter="url(#cardShadow)"/>
+
+    <circle cx="42" cy="48" r="18" fill="#5c5855"/>
+    <path d="M 35 48 L 41 54 L 50 43" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="78" y="44" font-size="15" font-weight="600" fill="#1a1916">Travel time recorded</text>
+    <text x="78" y="64" font-size="13" fill="#5c5855">Time between sites is captured on</text>
+    <text x="78" y="82" font-size="13" fill="#5c5855">the supervisor's shift summary</text>
+
+    <line x1="32" y1="115" x2="298" y2="115" stroke="#f4f2ef"/>
+
+    <text x="32" y="145" font-size="13" font-weight="600" fill="#1a1916">No alert is raised.</text>
+    <text x="32" y="170" font-size="13" fill="#5c5855">Supervisors are expected to move</text>
+    <text x="32" y="188" font-size="13" fill="#5c5855">between sites — only the duration</text>
+    <text x="32" y="206" font-size="13" fill="#5c5855">is captured for reporting.</text>
+
+    <rect x="32" y="232" width="266" height="40" rx="8" fill="#f4f2ef"/>
+    <text x="46" y="257" font-size="12" fill="#5c5855">Example: <tspan font-weight="600" fill="#1a1916">1h 23m travel</tspan> across 3 sites</text>
+  </g>
+
+  <!-- Footer note -->
+  <line x1="60" y1="1000" x2="1140" y2="1000" stroke="#e8e5e0"/>
+  <text x="60" y="1024" font-size="12" fill="#9a9490">
+    Detection runs continuously while a shift is active. The geofence radius for each site is set by the admin and editable any time on a live map.
+  </text>
+</svg>

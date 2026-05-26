@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { PageShell, Main, PageHeader, Card, CardHeader, DataTable, TR, TD, Badge, Btn, Modal, Field, Input, ErrorMsg, ModalActions } from '../../../components/ui'
 import { tdApi } from '../../../lib/api'
+import { ROLE_DISPLAY } from '@secureops/shared'
 
 function monthKeyNow(): string {
   const d = new Date()
@@ -31,27 +32,21 @@ function fmtHours(seconds: number): string {
   return h >= 10 ? `${h.toFixed(0)}h` : `${h.toFixed(1)}h`
 }
 
-function MovementSegment({
-  label, color, seconds, total,
-}: { label: string; color: string; seconds: number; total: number }) {
-  const pct = total === 0 ? 0 : (seconds / total) * 100
-  return (
-    <div style={{ flex: 1 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
-        <span style={{ width: 9, height: 9, borderRadius: 4.5, background: color, display: 'inline-block' }} />
-        <span style={{ fontSize: 12.5, color: '#9a9490', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{label}</span>
-      </div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: '#1a1916', fontVariantNumeric: 'tabular-nums' }}>
-        {fmtHours(seconds)}
-      </div>
-      <div style={{ fontSize: 11.5, color: '#9a9490', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
-        {total === 0 ? '—' : `${pct.toFixed(0)}% of tracked`}
-      </div>
-    </div>
-  )
+function fmtPct(pct: number | null | undefined): string {
+  if (pct == null) return '—'
+  return `${pct.toFixed(1)}%`
 }
 
-function MonthlyMovementCard({ guardId }: { guardId: string }) {
+function fmtMinutes(seconds: number): string {
+  if (!seconds || seconds < 60) return '—'
+  const m = Math.round(seconds / 60)
+  if (m < 60) return `${m}m`
+  const h = Math.floor(m / 60)
+  const rem = m % 60
+  return rem === 0 ? `${h}h` : `${h}h ${rem}m`
+}
+
+function MonthlyHoursCard({ guardId }: { guardId: string }) {
   const params = useSearchParams()
   const router = useRouter()
   const [month, setMonth] = useState<string>(params.get('month') || monthKeyNow())
@@ -68,17 +63,16 @@ function MonthlyMovementCard({ guardId }: { guardId: string }) {
 
   const summary = data?.summary
   const shifts = data?.shifts ?? []
-  const tracked = (summary?.walkingSeconds ?? 0) + (summary?.drivingSeconds ?? 0) + (summary?.idleSeconds ?? 0)
 
   return (
     <Card style={{ padding: '22px 28px', marginBottom: 28 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
         <div>
           <h3 style={{ color: '#1a1916', fontSize: 16, fontWeight: 700, margin: 0, letterSpacing: '-0.01em' }}>
-            Movement — {monthLabel(month)}
+            Hours — {monthLabel(month)}
           </h3>
           <p style={{ color: '#9a9490', fontSize: 12.5, margin: '3px 0 0' }}>
-            Walking · driving · idle totals from every shift this month. Tap a shift below for the live audit graph.
+            Hours worked and shift counts for the month.
           </p>
         </div>
         <select
@@ -86,7 +80,6 @@ function MonthlyMovementCard({ guardId }: { guardId: string }) {
           onChange={e => {
             const m = e.target.value
             setMonth(m)
-            // Keep URL in sync so reload + back-button retain the month picker
             const q = new URLSearchParams(Array.from(params.entries()))
             q.set('month', m)
             router.replace(`?${q.toString()}`, { scroll: false })
@@ -108,76 +101,64 @@ function MonthlyMovementCard({ guardId }: { guardId: string }) {
         <div style={{ padding: 24, color: '#9a9490', fontSize: 13 }}>No data for this month.</div>
       ) : (
         <>
-          {/* Stacked bar */}
-          <div style={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', background: '#ebe8e2', marginBottom: 18 }}>
-            {tracked === 0 ? null : (
-              <>
-                <div style={{ width: `${(summary.walkingSeconds / tracked) * 100}%`, background: '#10b981' }} />
-                <div style={{ width: `${(summary.drivingSeconds / tracked) * 100}%`, background: '#3b82f6' }} />
-                <div style={{ width: `${(summary.idleSeconds    / tracked) * 100}%`, background: '#d4a574' }} />
-              </>
-            )}
-          </div>
-
-          {/* Four-up summary */}
-          <div style={{ display: 'flex', gap: 28, marginBottom: 20, flexWrap: 'wrap' }}>
-            <MovementSegment label="Walking" color="#10b981" seconds={summary.walkingSeconds} total={tracked} />
-            <MovementSegment label="Driving" color="#3b82f6" seconds={summary.drivingSeconds} total={tracked} />
-            <MovementSegment label="Idle"    color="#d4a574" seconds={summary.idleSeconds}    total={tracked} />
-            <div style={{ flex: 1, borderLeft: '1px solid #ebe8e2', paddingLeft: 24 }}>
-              <div style={{ fontSize: 12.5, color: '#9a9490', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 6 }}>
-                Active %
-              </div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: '#1a1916', fontVariantNumeric: 'tabular-nums' }}>
-                {summary.activePct === null ? '—' : `${summary.activePct}%`}
-              </div>
-              <div style={{ fontSize: 11.5, color: '#9a9490', marginTop: 2 }}>walking + driving</div>
-            </div>
-          </div>
-
-          {/* Shift counters */}
           <div style={{
             display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10,
-            paddingTop: 16, borderTop: '1px solid #ebe8e2',
+            paddingBottom: shifts.length > 0 ? 16 : 0,
+            borderBottom: shifts.length > 0 ? '1px solid #ebe8e2' : 'none',
           }}>
+            <SmallStat label="Hours worked"  value={fmtHours(summary.workedSeconds)} sub="check-in → check-out" />
+            <SmallStat
+              label="On site %"
+              value={fmtPct(summary.onSitePct)}
+              sub={`${fmtHours(summary.onSiteSeconds)} on / ${fmtHours(summary.offSiteSeconds)} off`}
+              tone={summary.onSitePct != null && summary.onSitePct < 60 ? 'warn' : undefined}
+            />
             <SmallStat label="Completed"     value={summary.shiftsCompleted} />
             <SmallStat label="Missed"        value={summary.shiftsMissed} tone={summary.shiftsMissed > 0 ? 'warn' : undefined} />
+            <SmallStat
+              label="Abandoned"
+              value={summary.shiftsAbandoned ?? 0}
+              sub={(summary.shiftsAbandoned ?? 0) > 0 ? 'left site mid-shift' : undefined}
+              tone={(summary.shiftsAbandoned ?? 0) > 0 ? 'warn' : undefined}
+            />
             <SmallStat label="Active now"    value={summary.shiftsActive} />
             <SmallStat label="Upcoming"      value={summary.shiftsScheduled} />
-            <SmallStat label="Hours worked"  value={fmtHours(summary.workedSeconds)} sub="check-in → check-out" />
           </div>
 
-          {/* Per-shift list */}
           {shifts.length > 0 && (
             <div style={{ marginTop: 20 }}>
               <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#9a9490', marginBottom: 10 }}>
                 Shifts this month ({shifts.length})
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 1, background: '#ebe8e2', border: '1px solid #ebe8e2', borderRadius: 8, overflow: 'hidden' }}>
-                {shifts.map((s: any) => {
-                  const tr = s.walkingSeconds + s.drivingSeconds + s.idleSeconds
-                  return (
-                    <div key={s.shiftId} style={{ background: '#fff', padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                      <div style={{ minWidth: 80, fontSize: 12.5 }}>
-                        <div style={{ color: '#1a1916', fontWeight: 600 }}>{new Date(s.startsAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</div>
-                        <div style={{ color: '#9a9490', fontSize: 11 }}>{s.status}</div>
-                      </div>
-                      <div style={{ flex: 1, color: '#5c5855', fontSize: 12.5, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.siteName ?? '—'}</div>
-                      <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', width: 100, background: '#ebe8e2' }}>
-                        {tr > 0 && (
-                          <>
-                            <div style={{ width: `${(s.walkingSeconds / tr) * 100}%`, background: '#10b981' }} />
-                            <div style={{ width: `${(s.drivingSeconds / tr) * 100}%`, background: '#3b82f6' }} />
-                            <div style={{ width: `${(s.idleSeconds    / tr) * 100}%`, background: '#d4a574' }} />
-                          </>
-                        )}
-                      </div>
-                      <div style={{ minWidth: 60, textAlign: 'right', color: '#1a1916', fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>
-                        {fmtHours(tr)}
-                      </div>
+                {shifts.map((s: any) => (
+                  <div
+                    key={s.shiftId}
+                    onClick={() => router.push(`/shifts/${s.shiftId}`)}
+                    style={{ background: '#fff', padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}
+                  >
+                    <div style={{ minWidth: 80, fontSize: 12.5 }}>
+                      <div style={{ color: '#1a1916', fontWeight: 600 }}>{new Date(s.startsAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</div>
+                      <div style={{ color: s.status === 'abandoned' ? '#9a3412' : '#9a9490', fontSize: 11, textTransform: 'capitalize' }}>{s.status}</div>
                     </div>
-                  )
-                })}
+                    <div style={{ flex: 1, color: '#5c5855', fontSize: 12.5, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.siteName ?? '—'}</div>
+                    <div
+                      title={`${fmtMinutes(s.onSiteSeconds)} on site · ${fmtMinutes(s.offSiteSeconds)} off site`}
+                      style={{ minWidth: 95, textAlign: 'right', color: '#5c5855', fontSize: 11.5, fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      <span style={{ color: '#c96442', fontWeight: 600 }}>{fmtMinutes(s.onSiteSeconds)}</span>
+                      {s.offSiteSeconds > 0 && (
+                        <>
+                          <span style={{ color: '#9a9490' }}> · </span>
+                          <span style={{ color: '#9a9490' }}>{fmtMinutes(s.offSiteSeconds)}</span>
+                        </>
+                      )}
+                    </div>
+                    <div style={{ minWidth: 60, textAlign: 'right', color: s.workedSeconds > 0 ? '#1a1916' : '#9a9490', fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>
+                      {s.workedSeconds > 0 ? fmtHours(s.workedSeconds) : '—'}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -195,14 +176,6 @@ function SmallStat({ label, value, sub, tone }: { label: string; value: string |
       {sub && <div style={{ fontSize: 10.5, color: '#9a9490', marginTop: 1 }}>{sub}</div>}
     </div>
   )
-}
-
-const ROLE_DISPLAY: Record<string, string> = {
-  tenant_admin: 'Admin',
-  platform_admin: 'Admin',
-  supervisor: 'Supervisor',
-  guard: 'Guard',
-  client_viewer: 'Client',
 }
 
 const ROLE_BADGE: Record<string, { color: string; bg: string }> = {
@@ -422,7 +395,7 @@ export default function GuardProfilePage() {
         )}
 
         {/* Monthly movement summary */}
-        <MonthlyMovementCard guardId={guardId} />
+        <MonthlyHoursCard guardId={guardId} />
 
         {/* Logsheet table */}
         <Card overflow="hidden">

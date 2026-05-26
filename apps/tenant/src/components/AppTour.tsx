@@ -6,7 +6,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 interface DevStats {
   guards: number
   sites: number
-  openIncidents: number
   activeShifts: number
   todayPatrols: number
   todayAttendance: number
@@ -105,7 +104,6 @@ function DevRefPanel({ onClose }: { onClose: () => void }) {
             {stats && (
               <div style={{ display: 'flex', gap: 10, fontSize: 11, color: '#7a7773' }}>
                 <span><span style={{ color: '#10b981' }}>●</span> {stats.guards}g</span>
-                <span><span style={{ color: '#c96442' }}>●</span> {stats.openIncidents}i</span>
                 <span><span style={{ color: '#3b82f6' }}>●</span> {stats.activeShifts}s</span>
               </div>
             )}
@@ -273,9 +271,9 @@ Secret: JWT_SECRET env var (min 32 chars)`}</Code>
       {[
         ['platform_admin', 'Cross-tenant superuser'],
         ['tenant_admin',   'Full access within tenant'],
-        ['supervisor',     'Site mgmt, incident resolution, scheduling'],
+        ['supervisor',     'Site mgmt, scheduling'],
         ['guard',          'Field operations only'],
-        ['client_viewer',  'Read-only: own sites + incidents at /client/*'],
+        ['client_viewer',  'Read-only: own sites at /client/*'],
       ].map(([r, d]) => <KV key={r} k={r} v={d} accent={r === 'tenant_admin'} />)}
 
       <Sub>Password Hashing</Sub>
@@ -311,8 +309,8 @@ function DatabaseSection({ stats }: { stats: DevStats | null }) {
     ['patrols',             'Patrol sessions started → completed'],
     ['checkpoints',         'Named scan points — QR code + optional NFC tag'],
     ['patrol_scans',        'Individual checkpoint scans within a patrol'],
-    ['incidents',           'Reported incidents — severity + SLA deadline'],
     ['guard_locations',     'GPS pings every 30s — h3_res8 + battery stored'],
+    ['shift_site_visits',   'Materialised on-site / off-site segments per shift'],
     ['cameras',             'Camera records (Frigate integration stub)'],
     ['payroll_periods',     'Pay period definitions — draft → finalized'],
     ['payroll_records',     'Per-guard pay — ESI + PF — stored in PAISE'],
@@ -321,10 +319,7 @@ function DatabaseSection({ stats }: { stats: DevStats | null }) {
     ['audit_log',           'HMAC-chained immutable audit trail'],
     ['shift_templates',     'Recurring shift rules — dayOfWeek + hours'],
     ['shift_exceptions',    'Attendance anomalies — missed_punch, absent, etc.'],
-    ['leave_requests',      'Guard leave — approved/rejected by supervisor'],
     ['panic_events',        'Panic button triggers — GPS + status lifecycle'],
-    ['incident_form_templates', 'JSONB field definitions for dynamic forms'],
-    ['incident_form_responses', 'Guard form submissions per incident'],
     ['post_orders',         'Standing orders per site — requires ack'],
     ['passdowns',           'Shift handover notes guard→guard'],
     ['certifications',      'Guard cert records — expiry tracking'],
@@ -336,7 +331,6 @@ function DatabaseSection({ stats }: { stats: DevStats | null }) {
         <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
           <Tag color="#10b981">{stats.guards} guards</Tag>
           <Tag color="#c96442">{stats.sites} sites</Tag>
-          <Tag color="#ef4444">{stats.openIncidents} open incidents</Tag>
           <Tag color="#3b82f6">{stats.activeShifts} active shifts</Tag>
           <Tag color="#f59e0b">{stats.todayPatrols} patrols today</Tag>
         </div>
@@ -374,11 +368,9 @@ function ApiSection() {
     ['Shift Templates', ['GET /shift-templates', 'POST /shift-templates', 'DELETE /shift-templates/:id', 'POST /shift-templates/materialise']],
     ['Attendance',      ['GET /attendance', 'POST /attendance']],
     ['Patrol',          ['GET /patrol', 'POST /patrol/start', 'GET /patrol/checkpoints', 'POST /patrol/checkpoints', 'POST /patrol/:id/scan', 'PATCH /patrol/:id/complete']],
-    ['Incidents',       ['GET /incidents', 'POST /incidents', 'GET /incidents/:id', 'PATCH /incidents/:id/status']],
-    ['Incident Forms',  ['GET /incident-forms/templates', 'POST /incident-forms/templates', 'PATCH /incident-forms/templates/:id', 'DELETE /incident-forms/templates/:id', 'GET /incident-forms/responses', 'POST /incident-forms/responses']],
     ['Locations',       ['POST /locations (GPS ping)', 'GET /locations/history', 'GET /locations/live (SSE)']],
+    ['Shifts',          ['GET /shifts', 'POST /shifts', 'PATCH /shifts/:id/status', 'GET /shifts/:id/replay']],
     ['Panic',           ['POST /panic', 'GET /panic', 'PATCH /panic/:id/acknowledge', 'PATCH /panic/:id/resolve']],
-    ['Leave',           ['GET /leave-requests', 'POST /leave-requests', 'PATCH /leave-requests/:id/review']],
     ['Payroll',         ['GET /payroll', 'POST /payroll', 'GET /payroll/:id', 'POST /payroll/:id/calculate', 'PATCH /payroll/records/:id', 'POST /payroll/:id/finalize']],
     ['Post Orders',     ['GET /post-orders', 'POST /post-orders', 'GET /post-orders/:id', 'POST /post-orders/:id/ack']],
     ['Passdowns',       ['GET /passdowns', 'POST /passdowns']],
@@ -448,7 +440,7 @@ Use: future heatmap aggregation, spatial joins`}</Code>
 (EventSource can't set Authorization header)
 
 Parses SSE: data: {JSON}
-On 'location' event: update MapLibre GL marker
+On 'location' event: update MapBox GL marker
 On guard click: GET /locations/history?guardId=&since=8h ago
                 → draw coloured polyline trail`}</Code>
 
@@ -504,16 +496,14 @@ await BackgroundGeolocation.removeWatcher({ id })`}</Code>
         ['/tabs/dashboard',  'Stats + quick actions + today\'s shifts'],
         ['/tabs/check-in',   'GPS + QR/manual/face check-in/out + geofence display'],
         ['/tabs/patrol',     'Start patrol, scan checkpoints (QR or manual)'],
-        ['/tabs/incidents',  'View + create incidents with media'],
         ['/tabs/shifts',     'Scheduled shifts — starts GPS tracking when active'],
         ['/tabs/profile',    'Guard profile + FCM token registration'],
-        ['/tabs/leave',      'Submit + cancel leave requests'],
-        ['/supervisor/*',    'Supervisor-only: map, schedule, leave approvals'],
       ].map(([r, d]) => <KV key={r} k={r} v={d} />)}
 
       <Sub>Role-based Tab Layout</Sub>
-      <Code>{`guard      → Dashboard, CheckIn, Patrol, Incidents, Leave, Shifts, Profile
-supervisor → Dashboard, Map, Shifts, Incidents, Leave Approvals, Profile`}</Code>
+      <Code>{`guard      → Dashboard, CheckIn, Patrol, Shifts, Profile
+supervisor → Dashboard, CheckIn, Shifts, Profile
+admin      → Dashboard, Shifts, Profile`}</Code>
 
       <Sub>Theme</Sub>
       <Code>{`variables.css sets Ionic CSS custom properties:
@@ -620,7 +610,7 @@ function DevCredsSection() {
       <Sub>Login Credentials (password: password123 for all)</Sub>
       {[
         ['admin@acme.in',    'tenant_admin',   'Full portal access'],
-        ['super@acme.in',    'supervisor',     'Site + incident management'],
+        ['super@acme.in',    'supervisor',     'Site management + scheduling'],
         ['guard1@acme.in',   'guard',          'Mobile app — shift tracking'],
         ['guard2@acme.in',   'guard',          'Mobile app — shift tracking'],
         ['guard3@acme.in',   'guard',          'Mobile app — shift tracking'],
@@ -676,12 +666,9 @@ SELECT COUNT(*) FROM guard_locations;
 SELECT * FROM panic_events ORDER BY triggered_at DESC LIMIT 5;`}</Code>
 
       <Sub>Seed Data</Sub>
-      <Code>{`Tenant: Acme Security (slug: acme)
-Client: Phoenix Mall
-Sites: Main Entrance (150m geofence), Parking Level B2 (200m)
-Checkpoints: Gate A, Gate B, Security Room, Parking Entry, Stairwell C
-Guards: Arun Sharma, Vikram Singh, Priya Nair
-Incident: "Suspicious individual near Gate A" (medium, open)`}</Code>
+      <Code>{`No automatic seed — the database stays empty until a tenant
+registers via /register. Use the operations portal to create
+clients, sites, guards, and shifts.`}</Code>
     </div>
   )
 }

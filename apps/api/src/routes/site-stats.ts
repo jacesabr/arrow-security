@@ -9,7 +9,6 @@ import { requireSupervisor, getSupervisorSiteIds } from '../lib/auth'
 //   totalGuards        — distinct guards scheduled here in last 30 days
 //   onShift            — shifts at this site that are status='active' now
 //   missing            — shifts open right now but not started yet
-//   weeklyIncidents    — incidents reported here in last 7 days
 //   weeklyAttendancePct — completed / (completed + missed) over last 7 days
 //   weeklyTardinessPct  — distinct guards who had a tardy check-in (≥5 min
 //                         past shift start) this week, ÷ total weekly guards
@@ -69,12 +68,6 @@ export const siteStatsRoutes: FastifyPluginAsync = async (fastify) => {
             AND s.status    IN ('completed', 'missed')
             AND s.starts_at >= NOW() - INTERVAL '7 days') AS weekly_finished,
 
-        -- Incidents reported here this week
-        (SELECT COUNT(*) FROM incidents i
-          WHERE i.site_id    = st.id
-            AND i.tenant_id  = st.tenant_id
-            AND i.created_at >= NOW() - INTERVAL '7 days') AS weekly_incidents,
-
         -- Tardy this-week numerator: distinct guards whose first check-in for
         -- a shift at this site was ≥5 minutes after the shift's start.
         (SELECT COUNT(DISTINCT s.guard_id)
@@ -115,7 +108,6 @@ export const siteStatsRoutes: FastifyPluginAsync = async (fastify) => {
         totalGuards:          Number(r.total_guards),
         onShift:              Number(r.on_shift),
         missing:              Number(r.missing),
-        weeklyIncidents:      Number(r.weekly_incidents),
         weeklyAttendancePct:  finished === 0 ? null : Math.round((completed / finished) * 1000) / 10,
         weeklyTardinessPct:   pool === 0     ? null : Math.round((tardy / pool)     * 1000) / 10,
       }

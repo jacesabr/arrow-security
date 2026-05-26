@@ -2,14 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-
-const ROLE_DISPLAY: Record<string, string> = {
-  tenant_admin:    'Admin',
-  platform_admin:  'Admin',
-  supervisor:      'Supervisor',
-  guard:           'Guard',
-  client_viewer:   'Client',
-}
+import { ROLE_DISPLAY, isAdminRole } from '@secureops/shared'
 
 type NavItem = {
   href: string
@@ -18,20 +11,18 @@ type NavItem = {
   supervisorPlus?: boolean // visible to supervisors+ (default if neither flag set)
 }
 
+// Visibility rules:
+//   - no flags  → everyone (guard, supervisor, admin)
+//   - supervisorPlus → supervisor + admin only (hidden from guard)
+//   - adminOnly → admin only (also hidden from supervisor)
 const NAV: NavItem[] = [
   { href: '/dashboard',      label: 'Dashboard' },
-  { href: '/reports',        label: 'Reports' },
-  { href: '/guard-status',   label: 'Guard Status' },
-  { href: '/guards',         label: 'Guards',          adminOnly: true },
-  { href: '/sites',          label: 'Sites' },
   { href: '/shifts',         label: 'Shifts' },
+  { href: '/reports',        label: 'Reports',         supervisorPlus: true },
+  { href: '/guard-status',   label: 'Guard Status',    supervisorPlus: true },
+  { href: '/sites',          label: 'Sites',           supervisorPlus: true },
+  { href: '/guards',         label: 'Guards',          adminOnly: true },
   { href: '/roster',         label: 'Roster',          adminOnly: true },
-  { href: '/incidents',      label: 'Incidents' },
-  { href: '/map',            label: 'Live Map' },
-  { href: '/clients',        label: 'Clients',         adminOnly: true },
-  { href: '/leave-requests', label: 'Leave Requests' },
-  { href: '/post-orders',    label: 'Post Orders',     adminOnly: true },
-  { href: '/payroll',        label: 'Payroll',         adminOnly: true },
   { href: '/supervisors',    label: 'Supervisors',     adminOnly: true },
 ]
 
@@ -53,11 +44,14 @@ export function Sidebar() {
     } catch {}
   }, [])
 
-  const isAdmin = userRole === 'tenant_admin' || userRole === 'platform_admin'
+  const isAdmin = isAdminRole(userRole)
+  const isSupervisor = userRole === 'supervisor'
+  const isSupervisorOrAdmin = isAdmin || isSupervisor
 
   function visibleNav() {
     return NAV.filter(item => {
       if (item.adminOnly && !isAdmin) return false
+      if (item.supervisorPlus && !isSupervisorOrAdmin) return false
       return true
     })
   }

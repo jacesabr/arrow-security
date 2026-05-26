@@ -10,6 +10,9 @@ const STATUS_BADGE: Record<string, { color: string; bg: string }> = {
   completed: { color: '#9a9490', bg: 'rgba(122,119,115,0.12)' },
   cancelled: { color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
   missed:    { color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+  // Auto-set when a guard goes off-site mid-shift past the hysteresis threshold.
+  // Distinct from 'missed' (never started) and 'completed' (clean clock-out).
+  abandoned: { color: '#9a3412', bg: 'rgba(201,100,66,0.12)' },
   draft:     { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
 }
 
@@ -123,6 +126,7 @@ export default function ShiftsPage() {
               <option value="active">Active</option>
               <option value="completed">Completed</option>
               <option value="missed">Missed</option>
+              <option value="abandoned">Abandoned</option>
             </Select>
           </FilterField>
         </FilterRow>
